@@ -1,0 +1,69 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-60 -40 120 80">
+  <defs>
+    <linearGradient id="panel" x1="0" y1="-40" x2="0" y2="40" gradientUnits="userSpaceOnUse">
+      <stop offset="0%"   stop-color="#0f1f3a"/>
+      <stop offset="100%" stop-color="#0a1628"/>
+    </linearGradient>
+    <linearGradient id="cellglow" x1="0" y1="-40" x2="0" y2="40" gradientUnits="userSpaceOnUse">
+      <stop offset="0%"   stop-color="#1a3a5c" stop-opacity="0.8"/>
+      <stop offset="100%" stop-color="#0f2540" stop-opacity="0.4"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Silver frame -->
+  <rect x="-58" y="-38" width="116" height="76" rx="4" fill="#7a8898"/>
+  <rect x="-56" y="-36" width="112" height="72" rx="3" fill="#5a6878"/>
+
+  <!-- Panel glass surface -->
+  <rect x="-54" y="-34" width="108" height="68" rx="2" fill="url(#panel)"/>
+
+  <!-- Solar cell grid — 4 columns × 3 rows -->
+  <line x1="-27" y1="-32" x2="-27" y2="32" stroke="#2a4060" stroke-width="0.7"/>
+  <line x1="0"   y1="-32" x2="0"   y2="32" stroke="#2a4060" stroke-width="0.7"/>
+  <line x1="27"  y1="-32" x2="27"  y2="32" stroke="#2a4060" stroke-width="0.7"/>
+  <line x1="-54" y1="-10" x2="54" y2="-10" stroke="#2a4060" stroke-width="0.7"/>
+  <line x1="-54" y1="12"  x2="54" y2="12"  stroke="#2a4060" stroke-width="0.7"/>
+
+  <!-- Cell fill overlay -->
+  <rect x="-53" y="-33" width="25" height="22" rx="1" fill="url(#cellglow)"/>
+  <rect x="-26" y="-33" width="25" height="22" rx="1" fill="url(#cellglow)"/>
+  <rect x="1"   y="-33" width="25" height="22" rx="1" fill="url(#cellglow)"/>
+  <rect x="28"  y="-33" width="25" height="22" rx="1" fill="url(#cellglow)"/>
+  <rect x="-53" y="-9"  width="25" height="20" rx="1" fill="url(#cellglow)"/>
+  <rect x="-26" y="-9"  width="25" height="20" rx="1" fill="url(#cellglow)"/>
+  <rect x="1"   y="-9"  width="25" height="20" rx="1" fill="url(#cellglow)"/>
+  <rect x="28"  y="-9"  width="25" height="20" rx="1" fill="url(#cellglow)"/>
+  <rect x="-53" y="13"  width="25" height="19" rx="1" fill="url(#cellglow)"/>
+  <rect x="-26" y="13"  width="25" height="19" rx="1" fill="url(#cellglow)"/>
+  <rect x="1"   y="13"  width="25" height="19" rx="1" fill="url(#cellglow)"/>
+  <rect x="28"  y="13"  width="25" height="19" rx="1" fill="url(#cellglow)"/>
+
+  <!-- Bus bars within cells -->
+  <line x1="-53" y1="-22" x2="53" y2="-22" stroke="#b8c8d8" stroke-width="0.5" opacity="0.5"/>
+  <line x1="-53" y1="1"   x2="53" y2="1"   stroke="#b8c8d8" stroke-width="0.5" opacity="0.5"/>
+  <line x1="-53" y1="22"  x2="53" y2="22"  stroke="#b8c8d8" stroke-width="0.5" opacity="0.5"/>
+
+  <!-- Panel surface sheen -->
+  <rect x="-52" y="-32" width="50" height="8" rx="2" fill="#e8f0ff" opacity="0.04"/>
+
+  <!-- Junction box at bottom center -->
+  <rect x="-18" y="30" width="36" height="12" rx="2" fill="#2d3f50"/>
+  <rect x="-16" y="32" width="32" height="8"  rx="1" fill="#1a2a38"/>
+
+  <!-- Cable exits at (±25, 40) — no polarity text -->
+  <rect x="-30" y="36" width="12" height="6" rx="1" fill="#1a2535"/>
+  <circle cx="-25" cy="39" r="2.5" fill="#0d1824" stroke="#3a5070" stroke-width="0.7"/>
+
+  <rect x="18" y="36" width="12" height="6" rx="1" fill="#1a2535"/>
+  <circle cx="25" cy="39" r="2.5" fill="#0d1824" stroke="#3a5070" stroke-width="0.7"/>
+
+  <!-- Mounting holes -->
+  <circle cx="-52" cy="-32" r="2.5" fill="#4a5868"/>
+  <circle cx="-52" cy="-32" r="1"   fill="#2a3848"/>
+  <circle cx="52"  cy="-32" r="2.5" fill="#4a5868"/>
+  <circle cx="52"  cy="-32" r="1"   fill="#2a3848"/>
+  <circle cx="-52" cy="32"  r="2.5" fill="#4a5868"/>
+  <circle cx="-52" cy="32"  r="1"   fill="#2a3848"/>
+  <circle cx="52"  cy="32"  r="2.5" fill="#4a5868"/>
+  <circle cx="52"  cy="32"  r="1"   fill="#2a3848"/>
+</svg>

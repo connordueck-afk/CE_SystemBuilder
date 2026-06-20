@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-30 -15 60 30">
+  <defs>
+    <linearGradient id="mrbfbody" x1="0" y1="-15" x2="0" y2="15" gradientUnits="userSpaceOnUse">
+      <stop offset="0%"   stop-color="#1a2030"/>
+      <stop offset="60%"  stop-color="#243040"/>
+      <stop offset="100%" stop-color="#101828"/>
+    </linearGradient>
+    <linearGradient id="mrbfbolt" x1="0" y1="-1" x2="0" y2="1" gradientUnits="objectBoundingBox">
+      <stop offset="0%"   stop-color="#c0c0b8"/>
+      <stop offset="50%"  stop-color="#e0e0d8"/>
+      <stop offset="100%" stop-color="#8a8880"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Main enclosure body -->
+  <rect x="-28" y="-14" width="56" height="28" rx="4" fill="url(#mrbfbody)"/>
+  <rect x="-26" y="-13" width="52" height="3" rx="1.5" fill="#3a4a5a" opacity="0.6"/>
+  <rect x="-26" y="10"  width="52" height="3" rx="1.5" fill="#0d1420" opacity="0.6"/>
+
+  <!-- Inner inset face panel -->
+  <rect x="-24" y="-10" width="48" height="20" rx="3" fill="#1a2438"/>
+
+  <!-- Left bolt assembly at (-30, 0) -->
+  <polygon points="-29,-5 -25.5,-6.5 -22,-5 -22,5 -25.5,6.5 -29,5"
+           fill="url(#mrbfbolt)" stroke="#6a6858" stroke-width="0.5"/>
+  <circle cx="-25.5" cy="0" r="3" fill="#4a483e" stroke="#9a9880" stroke-width="0.6"/>
+  <circle cx="-25.5" cy="0" r="1.2" fill="#2a2820"/>
+  <circle cx="-25.5" cy="0" r="4.5" fill="none" stroke="#5a5848" stroke-width="0.8"/>
+  <circle cx="-30" cy="0" r="2.5" fill="#0d1420" stroke="#3a4050" stroke-width="0.7"/>
+
+  <!-- Right bolt assembly at (30, 0) -->
+  <polygon points="29,-5 25.5,-6.5 22,-5 22,5 25.5,6.5 29,5"
+           fill="url(#mrbfbolt)" stroke="#6a6858" stroke-width="0.5"/>
+  <circle cx="25.5" cy="0" r="3" fill="#4a483e" stroke="#9a9880" stroke-width="0.6"/>
+  <circle cx="25.5" cy="0" r="1.2" fill="#2a2820"/>
+  <circle cx="25.5" cy="0" r="4.5" fill="none" stroke="#5a5848" stroke-width="0.8"/>
+  <circle cx="30" cy="0" r="2.5" fill="#0d1420" stroke="#3a4050" stroke-width="0.7"/>
+
+  <!-- Central fuse element housing -->
+  <rect x="-14" y="-6" width="28" height="12" rx="2" fill="#141e2c"/>
+  <rect x="-10" y="-4" width="20" height="8" rx="1.5" fill="#0d1520"/>
+  <!-- Fuse element -->
+  <rect x="-6" y="-1.5" width="12" height="3" rx="0.5" fill="#7a9020" opacity="0.9"/>
+  <rect x="-6" y="-1.5" width="5"  height="1" rx="0.5" fill="#a0c030" opacity="0.5"/>
+
+  <!-- Rating color stripe -->
+  <rect x="-14" y="-14" width="28" height="4" rx="2" fill="#2d6090" opacity="0.8"/>
+
+  <!-- Grey bar placeholder (replaces "MRBF" label) -->
+  <rect x="-10" y="11" width="20" height="4" rx="1" fill="#3a4050"/>
+</svg>

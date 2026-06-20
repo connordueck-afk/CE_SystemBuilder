@@ -1,0 +1,90 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-60 -40 120 80">
+  <!--
+    Victron SmartSolar MPPT — simplified physical illustration, no text.
+    Terminal positions (bottom edge):
+      pv_neg (-28, 40)  pv_pos (-13, 40)  bat_pos (13, 40)  bat_neg (28, 40)
+  -->
+  <defs>
+    <linearGradient id="shell" x1="0" y1="-40" x2="0" y2="40" gradientUnits="userSpaceOnUse">
+      <stop offset="0%"   stop-color="#28282e"/>
+      <stop offset="100%" stop-color="#141418"/>
+    </linearGradient>
+    <linearGradient id="face" x1="0" y1="-33" x2="0" y2="22" gradientUnits="userSpaceOnUse">
+      <stop offset="0%"   stop-color="#2e80e0"/>
+      <stop offset="45%"  stop-color="#1e6acc"/>
+      <stop offset="100%" stop-color="#164ea8"/>
+    </linearGradient>
+    <linearGradient id="topband" x1="0" y1="-33" x2="0" y2="-18" gradientUnits="userSpaceOnUse">
+      <stop offset="0%"   stop-color="#3a90f0"/>
+      <stop offset="100%" stop-color="#2878d8"/>
+    </linearGradient>
+    <linearGradient id="termblk" x1="0" y1="22" x2="0" y2="40" gradientUnits="userSpaceOnUse">
+      <stop offset="0%"   stop-color="#1c1c22"/>
+      <stop offset="100%" stop-color="#0e0e12"/>
+    </linearGradient>
+    <linearGradient id="orange" x1="-44" y1="0" x2="44" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0%"   stop-color="#d07018"/>
+      <stop offset="50%"  stop-color="#f08828"/>
+      <stop offset="100%" stop-color="#d07018"/>
+    </linearGradient>
+  </defs>
+
+  <!-- ── OUTER SHELL ────────────────────────────────────── -->
+  <rect x="-58" y="-38" width="116" height="78" rx="7" fill="url(#shell)"/>
+
+  <!-- ── BLUE FACE PANEL ───────────────────────────────── -->
+  <rect x="-52" y="-33" width="104" height="56" rx="5" fill="url(#face)"/>
+
+  <!-- Top lighter band -->
+  <rect x="-52" y="-33" width="104" height="15" rx="5" fill="url(#topband)"/>
+  <!-- Clip overlap at bottom of top band (make it flat-bottomed) -->
+  <rect x="-52" y="-22" width="104" height="3"  fill="#2878d8"/>
+
+  <!-- Subtle top-edge sheen -->
+  <rect x="-48" y="-32" width="96" height="2.5" rx="1" fill="#60b0ff" opacity="0.25"/>
+
+  <!-- Subtle face vignette — darkened left and right edges -->
+  <rect x="-52" y="-33" width="12" height="56" rx="4" fill="#000000" opacity="0.08"/>
+  <rect x="40"  y="-33" width="12" height="56" rx="4" fill="#000000" opacity="0.08"/>
+
+  <!-- ── ORANGE DISPLAY STRIPE ──────────────────────────── -->
+  <rect x="-44" y="-10" width="80" height="8" rx="2.5" fill="url(#orange)"/>
+  <!-- Sheen on orange stripe -->
+  <rect x="-43" y="-10" width="78" height="2.5" rx="1.5" fill="#ffb040" opacity="0.35"/>
+
+  <!-- ── STATUS INDICATORS ──────────────────────────────── -->
+  <!-- Red indicator dot (right of orange stripe) -->
+  <circle cx="42" cy="-6" r="3.5" fill="#cc2020"/>
+  <circle cx="42" cy="-6" r="2"   fill="#ee3030" opacity="0.6"/>
+  <!-- Green indicator dot (upper right) -->
+  <circle cx="44" cy="-24" r="2.5" fill="#28c840"/>
+  <circle cx="44" cy="-24" r="1.5" fill="#50e060" opacity="0.6"/>
+
+  <!-- ── TERMINAL BLOCK ─────────────────────────────────── -->
+  <rect x="-52" y="22"  width="104" height="18" rx="0" fill="url(#termblk)"/>
+  <!-- Top edge of terminal block (shadow line) -->
+  <rect x="-52" y="22"  width="104" height="2"  rx="0" fill="#060608" opacity="0.8"/>
+  <!-- Bottom edge of shell below face panel -->
+  <rect x="-58" y="36"  width="116" height="4"  rx="3" fill="url(#shell)"/>
+
+  <!-- 4 terminal port holes (dark circles with slight raised ring) -->
+  <!-- pv_neg at x=-28 -->
+  <circle cx="-28" cy="33" r="5.5" fill="#0a0a0e" stroke="#282830" stroke-width="1"/>
+  <circle cx="-28" cy="33" r="3.5" fill="#060608" stroke="#1a1a22" stroke-width="0.6"/>
+  <!-- pv_pos at x=-13 -->
+  <circle cx="-13" cy="33" r="5.5" fill="#0a0a0e" stroke="#282830" stroke-width="1"/>
+  <circle cx="-13" cy="33" r="3.5" fill="#060608" stroke="#1a1a22" stroke-width="0.6"/>
+  <!-- bat_pos at x=13 -->
+  <circle cx="13"  cy="33" r="5.5" fill="#0a0a0e" stroke="#282830" stroke-width="1"/>
+  <circle cx="13"  cy="33" r="3.5" fill="#060608" stroke="#1a1a22" stroke-width="0.6"/>
+  <!-- bat_neg at x=28 -->
+  <circle cx="28"  cy="33" r="5.5" fill="#0a0a0e" stroke="#282830" stroke-width="1"/>
+  <circle cx="28"  cy="33" r="3.5" fill="#060608" stroke="#1a1a22" stroke-width="0.6"/>
+
+  <!-- ── TERMINAL ANCHOR INDICATORS (at exact y=40 positions) ── -->
+  <!-- Terminal.tsx renders the colored dots on top of these -->
+  <circle cx="-28" cy="40" r="2.5" fill="#06080e" stroke="#181820" stroke-width="0.5"/>
+  <circle cx="-13" cy="40" r="2.5" fill="#06080e" stroke="#181820" stroke-width="0.5"/>
+  <circle cx="13"  cy="40" r="2.5" fill="#06080e" stroke="#181820" stroke-width="0.5"/>
+  <circle cx="28"  cy="40" r="2.5" fill="#06080e" stroke="#181820" stroke-width="0.5"/>
+</svg>

@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-40 -30 80 60">
+  <defs>
+    <linearGradient id="loadbody" x1="0" y1="-30" x2="0" y2="30" gradientUnits="userSpaceOnUse">
+      <stop offset="0%"   stop-color="#2a2a3a"/>
+      <stop offset="100%" stop-color="#1a1a28"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Main enclosure -->
+  <rect x="-38" y="-28" width="76" height="56" rx="5" fill="url(#loadbody)"/>
+  <rect x="-32" y="-27" width="64" height="3" rx="1.5" fill="#3a3a50" opacity="0.5"/>
+
+  <!-- Left terminal cluster — DC+ at (-40,-10), DC- at (-40,10) -->
+  <rect x="-40" y="-18" width="10" height="36" rx="3" fill="#111120"/>
+  <!-- DC+ port -->
+  <rect x="-41" y="-14" width="7" height="7" rx="1.5" fill="#1e1e30"/>
+  <circle cx="-37" cy="-10" r="2.8" fill="#080814" stroke="#2a2a48" stroke-width="0.8"/>
+  <!-- DC- port -->
+  <rect x="-41" y="7" width="7" height="7" rx="1.5" fill="#1e1e30"/>
+  <circle cx="-37" cy="10" r="2.8" fill="#080814" stroke="#2a2a48" stroke-width="0.8"/>
+
+  <!-- Face plate -->
+  <rect x="-28" y="-24" width="62" height="48" rx="4" fill="#22223a"/>
+
+  <!-- Power symbol -->
+  <circle cx="6" cy="-4" r="10" fill="none" stroke="#4a4a70" stroke-width="2"/>
+  <path d="M 6 -14 L 6 -4" stroke="#94a3b8" stroke-width="2.5" stroke-linecap="round"/>
+  <path d="M -1 -12 A 10 10 0 1 0 13 -12" fill="none" stroke="#4a4a70" stroke-width="2"/>
+
+  <!-- Grey bar label placeholder -->
+  <rect x="-14" y="14" width="28" height="5" rx="1.5" fill="#3a4050"/>
+
+  <!-- Power indicator LED -->
+  <circle cx="22" cy="-22" r="2" fill="#22c55e" opacity="0.7"/>
+
+  <!-- Corner detail -->
+  <rect x="-27" y="-23" width="4" height="4" rx="1" fill="#2a2a40"/>
+  <rect x="23"  y="-23" width="4" height="4" rx="1" fill="#2a2a40"/>
+</svg>

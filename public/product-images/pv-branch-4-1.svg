@@ -1,0 +1,78 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-60 -38 120 76">
+  <!--
+    Terminal positions:
+    IN1: (-60, -28)  IN2: (-60, -9.33)  IN3: (-60, 9.33)  IN4: (-60, 28)  OUT: (60, 0)
+  -->
+  <defs>
+    <linearGradient id="bg41" x1="0" y1="-38" x2="0" y2="38" gradientUnits="userSpaceOnUse">
+      <stop offset="0%"   stop-color="#131b24"/>
+      <stop offset="100%" stop-color="#0d1318"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background panel -->
+  <rect x="-58" y="-36" width="116" height="72" rx="6" fill="url(#bg41)"/>
+  <rect x="-52" y="-35" width="104" height="3" rx="1.5" fill="#1e2c3a" opacity="0.4"/>
+
+  <!-- Vertical PV bus at x=-10 -->
+  <line x1="-10" y1="-28" x2="-10" y2="28"
+        stroke="#b8780e" stroke-width="2.5" stroke-linecap="round"/>
+
+  <!-- Horizontal stubs from each of the 4 inputs to bus -->
+  <line x1="-46" y1="-28"   x2="-10" y2="-28"   stroke="#b8780e" stroke-width="2.5" stroke-linecap="round"/>
+  <line x1="-46" y1="-9.33" x2="-10" y2="-9.33" stroke="#b8780e" stroke-width="2.5" stroke-linecap="round"/>
+  <line x1="-46" y1="9.33"  x2="-10" y2="9.33"  stroke="#b8780e" stroke-width="2.5" stroke-linecap="round"/>
+  <line x1="-46" y1="28"    x2="-10" y2="28"    stroke="#b8780e" stroke-width="2.5" stroke-linecap="round"/>
+
+  <!-- Junction node at (-10, 0) -->
+  <circle cx="-10" cy="0" r="6" fill="#1a2838" stroke="#c98518" stroke-width="1.5"/>
+  <circle cx="-10" cy="0" r="2.5" fill="#c98518" opacity="0.75"/>
+
+  <!-- Output cable -->
+  <line x1="-10" y1="0" x2="46" y2="0"
+        stroke="#b8780e" stroke-width="2.5" stroke-linecap="round"/>
+
+  <!-- MC4 connector at IN1 (-60, -28) -->
+  <rect x="-58" y="-32" width="12" height="8" rx="2" fill="#1c1c22"/>
+  <line x1="-55" y1="-32" x2="-55" y2="-24" stroke="#2e2e38" stroke-width="0.6"/>
+  <circle cx="-60" cy="-28"   r="4.5" fill="#1c1c22" stroke="#3a3a46" stroke-width="0.9"/>
+  <circle cx="-60" cy="-28"   r="2.5" fill="#252530" stroke="#343440" stroke-width="0.5"/>
+  <circle cx="-60" cy="-28"   r="1"   fill="#111116"/>
+  <circle cx="-60" cy="-28"   r="6"   fill="none" stroke="#c98518" stroke-width="0.7" opacity="0.4"/>
+
+  <!-- MC4 connector at IN2 (-60, -9.33) -->
+  <rect x="-58" y="-13.33" width="12" height="8" rx="2" fill="#1c1c22"/>
+  <line x1="-55" y1="-13.33" x2="-55" y2="-5.33" stroke="#2e2e38" stroke-width="0.6"/>
+  <circle cx="-60" cy="-9.33" r="4.5" fill="#1c1c22" stroke="#3a3a46" stroke-width="0.9"/>
+  <circle cx="-60" cy="-9.33" r="2.5" fill="#252530" stroke="#343440" stroke-width="0.5"/>
+  <circle cx="-60" cy="-9.33" r="1"   fill="#111116"/>
+  <circle cx="-60" cy="-9.33" r="6"   fill="none" stroke="#c98518" stroke-width="0.7" opacity="0.4"/>
+
+  <!-- MC4 connector at IN3 (-60, 9.33) -->
+  <rect x="-58" y="5.33" width="12" height="8" rx="2" fill="#1c1c22"/>
+  <line x1="-55" y1="5.33" x2="-55" y2="13.33" stroke="#2e2e38" stroke-width="0.6"/>
+  <circle cx="-60" cy="9.33" r="4.5" fill="#1c1c22" stroke="#3a3a46" stroke-width="0.9"/>
+  <circle cx="-60" cy="9.33" r="2.5" fill="#252530" stroke="#343440" stroke-width="0.5"/>
+  <circle cx="-60" cy="9.33" r="1"   fill="#111116"/>
+  <circle cx="-60" cy="9.33" r="6"   fill="none" stroke="#c98518" stroke-width="0.7" opacity="0.4"/>
+
+  <!-- MC4 connector at IN4 (-60, 28) -->
+  <rect x="-58" y="24" width="12" height="8" rx="2" fill="#1c1c22"/>
+  <line x1="-55" y1="24" x2="-55" y2="32" stroke="#2e2e38" stroke-width="0.6"/>
+  <circle cx="-60" cy="28"   r="4.5" fill="#1c1c22" stroke="#3a3a46" stroke-width="0.9"/>
+  <circle cx="-60" cy="28"   r="2.5" fill="#252530" stroke="#343440" stroke-width="0.5"/>
+  <circle cx="-60" cy="28"   r="1"   fill="#111116"/>
+  <circle cx="-60" cy="28"   r="6"   fill="none" stroke="#c98518" stroke-width="0.7" opacity="0.4"/>
+
+  <!-- MC4 connector at OUT (60, 0) -->
+  <rect x="46" y="-4" width="12" height="8" rx="2" fill="#1c1c22"/>
+  <line x1="49" y1="-4" x2="49" y2="4" stroke="#2e2e38" stroke-width="0.6"/>
+  <circle cx="60" cy="0" r="5"   fill="#1c1c22" stroke="#3a3a46" stroke-width="0.9"/>
+  <circle cx="60" cy="0" r="3"   fill="#252530" stroke="#343440" stroke-width="0.5"/>
+  <circle cx="60" cy="0" r="1.2" fill="#111116"/>
+  <circle cx="60" cy="0" r="6.5" fill="none" stroke="#c98518" stroke-width="0.7" opacity="0.4"/>
+
+  <!-- Grey bar placeholders -->
+  <rect x="6"  y="-28" width="30" height="6" rx="2" fill="#3a4050"/>
+  <rect x="10" y="-18" width="22" height="5" rx="1.5" fill="#3a4050" opacity="0.6"/>
+</svg>

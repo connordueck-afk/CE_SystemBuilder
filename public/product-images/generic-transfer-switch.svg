@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-40 -30 80 60">
+  <!--
+    Terminal positions:
+    ac_in_l (-40, -10)  ac_in_n (-40,  10)
+    ac_out_l (40, -10)  ac_out_n (40,  10)
+  -->
+  <defs>
+    <linearGradient id="xferbg" x1="0" y1="-30" x2="0" y2="30" gradientUnits="userSpaceOnUse">
+      <stop offset="0%"   stop-color="#131820"/>
+      <stop offset="100%" stop-color="#0d1016"/>
+    </linearGradient>
+    <linearGradient id="xferhousing" x1="0" y1="-24" x2="0" y2="24" gradientUnits="userSpaceOnUse">
+      <stop offset="0%"   stop-color="#1a2030"/>
+      <stop offset="100%" stop-color="#131826"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Outer enclosure -->
+  <rect x="-38" y="-28" width="76" height="56" rx="5" fill="url(#xferbg)"/>
+  <rect x="-34" y="-27" width="68" height="4"  rx="2" fill="#1e2840" opacity="0.4"/>
+
+  <!-- Input conductor stubs -->
+  <line x1="-40" y1="-10" x2="-22" y2="-10" stroke="#3a7ad0" stroke-width="2.5" stroke-linecap="round"/>
+  <line x1="-40" y1="10"  x2="-22" y2="10"  stroke="#787878" stroke-width="2.5" stroke-linecap="round"/>
+
+  <!-- Output conductor stubs -->
+  <line x1="22"  y1="-10" x2="40"  y2="-10" stroke="#3a7ad0" stroke-width="2.5" stroke-linecap="round"/>
+  <line x1="22"  y1="10"  x2="40"  y2="10"  stroke="#787878" stroke-width="2.5" stroke-linecap="round"/>
+
+  <!-- Central switching housing -->
+  <rect x="-20" y="-26" width="40" height="52" rx="4" fill="url(#xferhousing)"/>
+  <rect x="-18" y="-25" width="36" height="4"  rx="2" fill="#232e44" opacity="0.7"/>
+
+  <!-- Internal conductor paths through housing -->
+  <line x1="-20" y1="-10" x2="20" y2="-10" stroke="#3a7ad0" stroke-width="1.8" opacity="0.5"/>
+  <line x1="-20" y1="10"  x2="20" y2="10"  stroke="#787878" stroke-width="1.8" opacity="0.5"/>
+
+  <!-- Transfer switch symbol — coil paths -->
+  <path d="M -14,-10 A 3.5,3.5 0 0 1 -7,-10 A 3.5,3.5 0 0 1 0,-10"
+        fill="none" stroke="#3a7ad0" stroke-width="1.5" opacity="0.8"/>
+  <path d="M 0,-10 A 3.5,3.5 0 0 1 7,-10 A 3.5,3.5 0 0 1 14,-10"
+        fill="none" stroke="#3a7ad0" stroke-width="1.5" opacity="0.8"/>
+  <path d="M -14,10 A 3.5,3.5 0 0 0 -7,10 A 3.5,3.5 0 0 0 0,10"
+        fill="none" stroke="#787878" stroke-width="1.5" opacity="0.8"/>
+  <path d="M 0,10 A 3.5,3.5 0 0 0 7,10 A 3.5,3.5 0 0 0 14,10"
+        fill="none" stroke="#787878" stroke-width="1.5" opacity="0.8"/>
+
+  <!-- Core separator line -->
+  <line x1="0" y1="-22" x2="0" y2="22" stroke="#2a3848" stroke-width="2" stroke-dasharray="2,2" opacity="0.7"/>
+
+  <!-- Status LED -->
+  <circle cx="0" cy="22" r="2.5" fill="#20c050" opacity="0.75"/>
+
+  <!-- Grey bar placeholder (replaces "XFER" label) -->
+  <rect x="-10" y="-24" width="20" height="5" rx="1.5" fill="#3a4050"/>
+
+  <!-- Terminal port circles -->
+  <circle cx="-40" cy="-10" r="3.5" fill="#0e1420" stroke="#383858" stroke-width="0.8"/>
+  <circle cx="-40" cy="-10" r="1.4" fill="#090c14"/>
+  <circle cx="-40" cy="10"  r="3.5" fill="#0e1420" stroke="#383858" stroke-width="0.8"/>
+  <circle cx="-40" cy="10"  r="1.4" fill="#090c14"/>
+  <circle cx="40"  cy="-10" r="3.5" fill="#0e1420" stroke="#383858" stroke-width="0.8"/>
+  <circle cx="40"  cy="-10" r="1.4" fill="#090c14"/>
+  <circle cx="40"  cy="10"  r="3.5" fill="#0e1420" stroke="#383858" stroke-width="0.8"/>
+  <circle cx="40"  cy="10"  r="1.4" fill="#090c14"/>
+</svg>

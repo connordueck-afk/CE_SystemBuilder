@@ -1,0 +1,75 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-70 -50 140 100">
+  <defs>
+    <linearGradient id="combodybg" x1="0" y1="-50" x2="0" y2="50" gradientUnits="userSpaceOnUse">
+      <stop offset="0%"   stop-color="#1a2030"/>
+      <stop offset="100%" stop-color="#101520"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Main enclosure body -->
+  <rect x="-68" y="-48" width="136" height="96" rx="6" fill="url(#combodybg)"/>
+  <rect x="-62" y="-47" width="124" height="3" rx="1.5" fill="#2a3040" opacity="0.5"/>
+
+  <!-- Left side — string inputs at x=-70 -->
+  <rect x="-70" y="-42" width="16" height="84" rx="4" fill="#0d1218"/>
+
+  <!-- String pair 1 -->
+  <rect x="-71" y="-34" width="9" height="7" rx="1.5" fill="#182028"/>
+  <circle cx="-67" cy="-30" r="2.8" fill="#0a1018" stroke="#2a3040" stroke-width="0.7"/>
+  <rect x="-71" y="-26" width="9" height="7" rx="1.5" fill="#182028"/>
+  <circle cx="-67" cy="-22" r="2.8" fill="#0a1018" stroke="#2a3040" stroke-width="0.7"/>
+
+  <!-- String pair 2 -->
+  <rect x="-71" y="-12" width="9" height="7" rx="1.5" fill="#182028"/>
+  <circle cx="-67" cy="-8" r="2.8" fill="#0a1018" stroke="#2a3040" stroke-width="0.7"/>
+  <rect x="-71" y="-4" width="9" height="7" rx="1.5" fill="#182028"/>
+  <circle cx="-67" cy="0" r="2.8" fill="#0a1018" stroke="#2a3040" stroke-width="0.7"/>
+
+  <!-- String pair 3 -->
+  <rect x="-71" y="10" width="9" height="7" rx="1.5" fill="#182028"/>
+  <circle cx="-67" cy="14" r="2.8" fill="#0a1018" stroke="#2a3040" stroke-width="0.7"/>
+  <rect x="-71" y="18" width="9" height="7" rx="1.5" fill="#182028"/>
+  <circle cx="-67" cy="22" r="2.8" fill="#0a1018" stroke="#2a3040" stroke-width="0.7"/>
+
+  <!-- String pair 4 -->
+  <rect x="-71" y="28" width="9" height="7" rx="1.5" fill="#182028"/>
+  <circle cx="-67" cy="32" r="2.8" fill="#0a1018" stroke="#2a3040" stroke-width="0.7"/>
+  <rect x="-71" y="36" width="9" height="7" rx="1.5" fill="#182028"/>
+  <circle cx="-67" cy="40" r="2.8" fill="#0a1018" stroke="#2a3040" stroke-width="0.7"/>
+
+  <!-- Right side — combined output at x=70 -->
+  <rect x="54" y="-28" width="16" height="56" rx="4" fill="#0d1218"/>
+  <!-- PV+ out at (70, -10) -->
+  <rect x="61" y="-14" width="9" height="7" rx="1.5" fill="#182028"/>
+  <circle cx="67" cy="-10" r="2.8" fill="#0a1018" stroke="#2a3040" stroke-width="0.7"/>
+  <!-- PV- out at (70, 10) -->
+  <rect x="61" y="7" width="9" height="7" rx="1.5" fill="#182028"/>
+  <circle cx="67" cy="10" r="2.8" fill="#0a1018" stroke="#2a3040" stroke-width="0.7"/>
+
+  <!-- Face plate -->
+  <rect x="-50" y="-44" width="100" height="88" rx="5" fill="#161e2c"/>
+
+  <!-- Combining diagram lines -->
+  <line x1="-38" y1="-26" x2="-10" y2="0"  stroke="#c98518" stroke-width="0.8" opacity="0.4"/>
+  <line x1="-38" y1="-8"  x2="-10" y2="0"  stroke="#c98518" stroke-width="0.8" opacity="0.4"/>
+  <line x1="-38" y1="8"   x2="-10" y2="0"  stroke="#c98518" stroke-width="0.8" opacity="0.4"/>
+  <line x1="-38" y1="26"  x2="-10" y2="0"  stroke="#c98518" stroke-width="0.8" opacity="0.4"/>
+  <line x1="-10" y1="0"   x2="20"  y2="0"  stroke="#c98518" stroke-width="1.5" opacity="0.6"/>
+  <polygon points="20,0 15,-3 15,3" fill="#c98518" opacity="0.6"/>
+
+  <!-- Junction point -->
+  <circle cx="-10" cy="0" r="4" fill="#1e2a3c" stroke="#c98518" stroke-width="1" opacity="0.7"/>
+
+  <!-- Grey bar placeholder for label -->
+  <rect x="-22" y="-38" width="44" height="6" rx="1.5" fill="#3a4050"/>
+
+  <!-- Corner holes -->
+  <circle cx="-60" cy="-42" r="2.5" fill="#0a1018"/>
+  <circle cx="-60" cy="-42" r="1" fill="#060c12"/>
+  <circle cx="60"  cy="-42" r="2.5" fill="#0a1018"/>
+  <circle cx="60"  cy="-42" r="1" fill="#060c12"/>
+  <circle cx="-60" cy="42"  r="2.5" fill="#0a1018"/>
+  <circle cx="-60" cy="42"  r="1" fill="#060c12"/>
+  <circle cx="60"  cy="42"  r="2.5" fill="#0a1018"/>
+  <circle cx="60"  cy="42"  r="1" fill="#060c12"/>
+</svg>
