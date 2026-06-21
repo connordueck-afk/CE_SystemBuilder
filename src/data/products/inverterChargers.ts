@@ -8,9 +8,12 @@
 
 import type { Product } from '../../types/system';
 
-// Shared terminal layout for MultiPlus-II / Quattro units.
-// DC on left, AC in/out on right.
-function multiPlusTerminals(): Product['terminals'] {
+// Terminal factory for MultiPlus-II / Quattro units.
+// DC terminals are left without maxCurrentA — the DC side has asymmetric
+// load/source currents (inverter draw ≠ charger output) that the terminal-first
+// bidirectional path cannot express. The productType switch handles DC correctly.
+// AC terminals use maxCurrentA since they are clean source/sink.
+function multiPlusTerminals(acInputCurrentA?: number, acOutputCurrentA?: number): Product['terminals'] {
   return [
     {
       id: 'dc_pos',
@@ -48,12 +51,14 @@ function multiPlusTerminals(): Product['terminals'] {
       kind: 'ac_power',
       polarity: 'line',
       role: 'sink',
+      direction: 'input',
       voltageClass: 'ac_120v',
       side: 'right',
       offsetX: 70,
       offsetY: -30,
       domain: 'ac',
       phases: 1,
+      maxCurrentA: acInputCurrentA,
       notes: 'AC input Line conductor (shore power or generator).',
     },
     {
@@ -63,11 +68,13 @@ function multiPlusTerminals(): Product['terminals'] {
       kind: 'ac_power',
       polarity: 'neutral',
       role: 'sink',
+      direction: 'input',
       voltageClass: 'ac_120v',
       side: 'right',
       offsetX: 70,
       offsetY: -10,
       domain: 'ac',
+      maxCurrentA: acInputCurrentA,
       notes: 'AC input Neutral conductor.',
     },
     {
@@ -77,12 +84,14 @@ function multiPlusTerminals(): Product['terminals'] {
       kind: 'ac_power',
       polarity: 'line',
       role: 'source',
+      direction: 'output',
       voltageClass: 'ac_120v',
       side: 'right',
       offsetX: 70,
       offsetY: 10,
       domain: 'ac',
       phases: 1,
+      maxCurrentA: acOutputCurrentA,
       notes: 'AC output Line conductor to AC distribution panel.',
     },
     {
@@ -92,11 +101,13 @@ function multiPlusTerminals(): Product['terminals'] {
       kind: 'ac_power',
       polarity: 'neutral',
       role: 'source',
+      direction: 'output',
       voltageClass: 'ac_120v',
       side: 'right',
       offsetX: 70,
       offsetY: 30,
       domain: 'ac',
+      maxCurrentA: acOutputCurrentA,
       notes: 'AC output Neutral conductor.',
     },
   ];
@@ -125,7 +136,7 @@ export const inverterChargers: Product[] = [
     dataQuality: 'partial',
     width: 140,
     height: 100,
-    terminals: multiPlusTerminals(),
+    terminals: multiPlusTerminals(50, 25),
     inverterChargerRatings: {
       dcVoltageV: 12,
       maxDcCurrentA: 250,
@@ -163,7 +174,7 @@ export const inverterChargers: Product[] = [
     dataQuality: 'partial',
     width: 140,
     height: 100,
-    terminals: multiPlusTerminals(),
+    terminals: multiPlusTerminals(50, 25),
     inverterChargerRatings: {
       dcVoltageV: 24,
       maxDcCurrentA: 130,
@@ -201,7 +212,7 @@ export const inverterChargers: Product[] = [
     dataQuality: 'partial',
     width: 140,
     height: 100,
-    terminals: multiPlusTerminals(),
+    terminals: multiPlusTerminals(50, 41),
     inverterChargerRatings: {
       dcVoltageV: 48,
       maxDcCurrentA: 110,
@@ -239,7 +250,7 @@ export const inverterChargers: Product[] = [
     dataQuality: 'partial',
     width: 140,
     height: 100,
-    terminals: multiPlusTerminals(),
+    terminals: multiPlusTerminals(100, 41),
     inverterChargerRatings: {
       dcVoltageV: 12,
       maxDcCurrentA: 420,
@@ -276,7 +287,7 @@ export const inverterChargers: Product[] = [
     notes: 'Inverter only; placeholder pricing/specs.',
     width: 140,
     height: 100,
-    terminals: multiPlusTerminals(),
+    terminals: multiPlusTerminals(undefined, 10),
     inverterChargerRatings: {
       dcVoltageV: 12,
       continuousInverterW: 1200,
@@ -305,7 +316,7 @@ export const inverterChargers: Product[] = [
     notes: 'Placeholder pricing/specs.',
     width: 140,
     height: 100,
-    terminals: multiPlusTerminals(),
+    terminals: multiPlusTerminals(50, 17),
     inverterChargerRatings: {
       dcVoltageV: 12,
       continuousInverterW: 2000,
@@ -335,7 +346,7 @@ export const inverterChargers: Product[] = [
     dataQuality: 'partial',
     width: 140,
     height: 100,
-    terminals: multiPlusTerminals(),
+    terminals: multiPlusTerminals(32, 13),
     inverterChargerRatings: {
       dcVoltageV: 12,
       continuousInverterW: 3000,
@@ -360,7 +371,7 @@ export const inverterChargers: Product[] = [
     dataQuality: 'partial',
     width: 140,
     height: 100,
-    terminals: multiPlusTerminals(),
+    terminals: multiPlusTerminals(50, 33),
     inverterChargerRatings: {
       dcVoltageV: 12,
       continuousInverterW: 4000,
@@ -390,7 +401,7 @@ export const inverterChargers: Product[] = [
     dataQuality: 'partial',
     width: 140,
     height: 100,
-    terminals: multiPlusTerminals(),
+    terminals: multiPlusTerminals(32, 13),
     inverterChargerRatings: {
       dcVoltageV: 24,
       continuousInverterW: 3000,
@@ -415,7 +426,7 @@ export const inverterChargers: Product[] = [
     dataQuality: 'partial',
     width: 140,
     height: 100,
-    terminals: multiPlusTerminals(),
+    terminals: multiPlusTerminals(50, 25),
     inverterChargerRatings: {
       dcVoltageV: 24,
       continuousInverterW: 3000,
@@ -440,7 +451,7 @@ export const inverterChargers: Product[] = [
     dataQuality: 'partial',
     width: 140,
     height: 100,
-    terminals: multiPlusTerminals(),
+    terminals: multiPlusTerminals(50, 22),
     inverterChargerRatings: {
       dcVoltageV: 24,
       continuousInverterW: 5000,
@@ -471,7 +482,7 @@ export const inverterChargers: Product[] = [
     notes: 'Placeholder pricing/specs.',
     width: 140,
     height: 100,
-    terminals: multiPlusTerminals(),
+    terminals: multiPlusTerminals(50, 25),
     inverterChargerRatings: {
       dcVoltageV: 48,
       continuousInverterW: 3000,
@@ -496,7 +507,7 @@ export const inverterChargers: Product[] = [
     dataQuality: 'partial',
     width: 140,
     height: 100,
-    terminals: multiPlusTerminals(),
+    terminals: multiPlusTerminals(32, 13),
     inverterChargerRatings: {
       dcVoltageV: 48,
       continuousInverterW: 3000,
@@ -521,7 +532,7 @@ export const inverterChargers: Product[] = [
     dataQuality: 'partial',
     width: 140,
     height: 100,
-    terminals: multiPlusTerminals(),
+    terminals: multiPlusTerminals(100, 35),
     inverterChargerRatings: {
       dcVoltageV: 48,
       continuousInverterW: 8000,
@@ -546,7 +557,7 @@ export const inverterChargers: Product[] = [
     dataQuality: 'partial',
     width: 140,
     height: 100,
-    terminals: multiPlusTerminals(),
+    terminals: multiPlusTerminals(100, 44),
     inverterChargerRatings: {
       dcVoltageV: 48,
       continuousInverterW: 10000,
@@ -571,7 +582,7 @@ export const inverterChargers: Product[] = [
     dataQuality: 'partial',
     width: 140,
     height: 100,
-    terminals: multiPlusTerminals(),
+    terminals: multiPlusTerminals(100, 65),
     inverterChargerRatings: {
       dcVoltageV: 48,
       continuousInverterW: 15000,
@@ -597,7 +608,7 @@ export const inverterChargers: Product[] = [
     notes: 'Placeholder pricing/specs.',
     width: 140,
     height: 100,
-    terminals: multiPlusTerminals(),
+    terminals: multiPlusTerminals(95, 42),
     inverterChargerRatings: {
       dcVoltageV: 48,
       continuousInverterW: 5000,
@@ -627,7 +638,7 @@ export const inverterChargers: Product[] = [
     dataQuality: 'partial',
     width: 140,
     height: 100,
-    terminals: multiPlusTerminals(),
+    terminals: multiPlusTerminals(50, 25),
     inverterChargerRatings: {
       dcVoltageV: 12,
       continuousInverterW: 3000,
@@ -655,7 +666,7 @@ export const inverterChargers: Product[] = [
     notes: 'Placeholder pricing/specs.',
     width: 140,
     height: 100,
-    terminals: multiPlusTerminals(),
+    terminals: multiPlusTerminals(100, 42),
     inverterChargerRatings: {
       dcVoltageV: 24,
       continuousInverterW: 5000,
@@ -681,7 +692,7 @@ export const inverterChargers: Product[] = [
     dataQuality: 'partial',
     width: 140,
     height: 100,
-    terminals: multiPlusTerminals(),
+    terminals: multiPlusTerminals(50, 25),
     inverterChargerRatings: {
       dcVoltageV: 24,
       continuousInverterW: 3000,
@@ -707,7 +718,7 @@ export const inverterChargers: Product[] = [
     dataQuality: 'partial',
     width: 140,
     height: 100,
-    terminals: multiPlusTerminals(),
+    terminals: multiPlusTerminals(50, 22),
     inverterChargerRatings: {
       dcVoltageV: 24,
       continuousInverterW: 5000,
@@ -733,7 +744,7 @@ export const inverterChargers: Product[] = [
     dataQuality: 'partial',
     width: 140,
     height: 100,
-    terminals: multiPlusTerminals(),
+    terminals: multiPlusTerminals(50, 22),
     inverterChargerRatings: {
       dcVoltageV: 48,
       continuousInverterW: 5000,
@@ -760,7 +771,7 @@ export const inverterChargers: Product[] = [
     notes: 'Placeholder pricing/specs.',
     width: 140,
     height: 100,
-    terminals: multiPlusTerminals(),
+    terminals: multiPlusTerminals(100, 83),
     inverterChargerRatings: {
       dcVoltageV: 48,
       continuousInverterW: 10000,
@@ -787,7 +798,7 @@ export const inverterChargers: Product[] = [
     notes: 'Placeholder pricing/specs.',
     width: 140,
     height: 100,
-    terminals: multiPlusTerminals(),
+    terminals: multiPlusTerminals(100, 125),
     inverterChargerRatings: {
       dcVoltageV: 48,
       continuousInverterW: 15000,

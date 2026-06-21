@@ -220,10 +220,13 @@ function terminalCurrents(
         sourceCapabilityA: undefined,
       };
     }
-    // bidirectional with declared current (e.g. a battery-like terminal)
+    // Bidirectional with declared current — load-following storage (battery-like).
+    // Do NOT set normalSourceCurrentA: that would size every attached wire at full
+    // discharge current regardless of load. Instead declare capability only and let
+    // edgeCurrentFromSides() propagate the actual load demand.
     return {
-      normalLoadCurrentA: declaredA,
-      normalSourceCurrentA: declaredA,
+      normalLoadCurrentA: 0,
+      normalSourceCurrentA: 0,
       hasNormalSource: true,
       hasLoadFollowingSource: true,
       canReceiveCurrent: true,

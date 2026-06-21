@@ -8,74 +8,82 @@
 
 import type { Product } from '../../types/system';
 
-// Shared terminal layout for all MPPTs.
-// PV input on the left, battery output on the right.
-// Victron SmartSolar MPPT — all connections at the bottom edge, matching
-// physical product where PV and BAT terminals are on the underside (left-to-right: PV- PV+ BAT+ BAT-)
-const mpptTerminals: Product['terminals'] = [
-  {
-    id: 'pv_neg',
-    label: 'PV-',
-    electricalType: 'pv_neg',
-    kind: 'pv_power',
-    polarity: 'negative',
-    role: 'sink',
-    direction: 'input',
-    voltageClass: 'pv_high_voltage',
-    side: 'bottom',
-    offsetX: -28,
-    offsetY: 40,
-    domain: 'pv',
-    notes: 'PV array negative input.',
-  },
-  {
-    id: 'pv_pos',
-    label: 'PV+',
-    electricalType: 'pv_pos',
-    kind: 'pv_power',
-    polarity: 'positive',
-    role: 'sink',
-    direction: 'input',
-    voltageClass: 'pv_high_voltage',
-    side: 'bottom',
-    offsetX: -13,
-    offsetY: 40,
-    domain: 'pv',
-    requiresOvercurrentProtection: false,
-    notes: 'PV array positive input. Do not connect negative PV conductor to chassis.',
-  },
-  {
-    id: 'bat_pos',
-    label: 'BAT+',
-    electricalType: 'dc_pos',
-    kind: 'dc_power',
-    polarity: 'positive',
-    role: 'bidirectional',
-    direction: 'output',
-    voltageClass: 'dc_low_voltage',
-    side: 'bottom',
-    offsetX: 13,
-    offsetY: 40,
-    domain: 'dc',
-    requiresOvercurrentProtection: true,
-    notes: 'Battery positive terminal. Requires fuse on positive conductor between MPPT and busbar.',
-  },
-  {
-    id: 'bat_neg',
-    label: 'BAT-',
-    electricalType: 'dc_neg',
-    kind: 'dc_power',
-    polarity: 'negative',
-    role: 'bidirectional',
-    direction: 'output',
-    voltageClass: 'dc_low_voltage',
-    side: 'bottom',
-    offsetX: 28,
-    offsetY: 40,
-    domain: 'dc',
-    notes: 'Battery negative terminal.',
-  },
-];
+// Terminal factory for MPPTs.
+// pvCurrentA  = max PV input current (ISC or maxPvCurrentA)
+// outputCurrentA = max battery charge current
+// maxPvPowerW = PV power ceiling; resolves output current as min(outputCurrentA, maxPvPowerW/systemV)
+function mpptTerminals(pvCurrentA: number, outputCurrentA: number, maxPvPowerW?: number): Product['terminals'] {
+  return [
+    {
+      id: 'pv_neg',
+      label: 'PV-',
+      electricalType: 'pv_neg',
+      kind: 'pv_power',
+      polarity: 'negative',
+      role: 'sink',
+      direction: 'input',
+      voltageClass: 'pv_high_voltage',
+      side: 'bottom',
+      offsetX: -28,
+      offsetY: 40,
+      domain: 'pv',
+      maxCurrentA: pvCurrentA,
+      notes: 'PV array negative input.',
+    },
+    {
+      id: 'pv_pos',
+      label: 'PV+',
+      electricalType: 'pv_pos',
+      kind: 'pv_power',
+      polarity: 'positive',
+      role: 'sink',
+      direction: 'input',
+      voltageClass: 'pv_high_voltage',
+      side: 'bottom',
+      offsetX: -13,
+      offsetY: 40,
+      domain: 'pv',
+      maxCurrentA: pvCurrentA,
+      requiresOvercurrentProtection: false,
+      notes: 'PV array positive input. Do not connect negative PV conductor to chassis.',
+    },
+    {
+      id: 'bat_pos',
+      label: 'BAT+',
+      electricalType: 'dc_pos',
+      kind: 'dc_power',
+      polarity: 'positive',
+      role: 'source',
+      direction: 'output',
+      voltageClass: 'dc_low_voltage',
+      side: 'bottom',
+      offsetX: 13,
+      offsetY: 40,
+      domain: 'dc',
+      maxCurrentA: outputCurrentA,
+      maxPowerW: maxPvPowerW,
+      requiresOvercurrentProtection: true,
+      notes: 'Battery positive terminal. Requires fuse on positive conductor between MPPT and busbar.',
+    },
+    {
+      id: 'bat_neg',
+      label: 'BAT-',
+      electricalType: 'dc_neg',
+      kind: 'dc_power',
+      polarity: 'negative',
+      role: 'source',
+      direction: 'output',
+      voltageClass: 'dc_low_voltage',
+      side: 'bottom',
+      offsetX: 28,
+      offsetY: 40,
+      domain: 'dc',
+      maxCurrentA: outputCurrentA,
+      maxPowerW: maxPvPowerW,
+      notes: 'Battery negative terminal.',
+    },
+  ];
+}
 
 export const mppts: Product[] = [
   // ----------------------------------------------------------
@@ -101,7 +109,7 @@ export const mppts: Product[] = [
     imageUrl: '/product-images/victron-smartsolar-mppt.svg',
     width: 120,
     height: 80,
-    terminals: mpptTerminals,
+    terminals: mpptTerminals(30, 30, 440),
     mpptRatings: {
       batteryVoltagesV: [12, 24],
       maxPvVoltageV: 100,
@@ -135,7 +143,7 @@ export const mppts: Product[] = [
     imageUrl: '/product-images/victron-smartsolar-mppt.svg',
     width: 120,
     height: 80,
-    terminals: mpptTerminals,
+    terminals: mpptTerminals(60, 60, 880),
     mpptRatings: {
       batteryVoltagesV: [12, 24, 48],
       maxPvVoltageV: 150,
@@ -169,7 +177,7 @@ export const mppts: Product[] = [
     imageUrl: '/product-images/victron-smartsolar-mppt.svg',
     width: 120,
     height: 80,
-    terminals: mpptTerminals,
+    terminals: mpptTerminals(100, 100, 1450),
     mpptRatings: {
       batteryVoltagesV: [12, 24, 48],
       maxPvVoltageV: 150,
@@ -203,7 +211,7 @@ export const mppts: Product[] = [
     imageUrl: '/product-images/victron-smartsolar-mppt.svg',
     width: 120,
     height: 80,
-    terminals: mpptTerminals,
+    terminals: mpptTerminals(100, 100, 1450),
     mpptRatings: {
       batteryVoltagesV: [12, 24, 48],
       maxPvVoltageV: 250,
@@ -238,7 +246,7 @@ export const mppts: Product[] = [
     imageUrl: '/product-images/victron-smartsolar-mppt.svg',
     width: 120,
     height: 80,
-    terminals: mpptTerminals,
+    terminals: mpptTerminals(15, 15, 440),
     mpptRatings: {
       batteryVoltagesV: [12, 24],
       maxPvVoltageV: 75,
@@ -268,7 +276,7 @@ export const mppts: Product[] = [
     imageUrl: '/product-images/victron-smartsolar-mppt.svg',
     width: 120,
     height: 80,
-    terminals: mpptTerminals,
+    terminals: mpptTerminals(20, 20, 1160),
     mpptRatings: {
       batteryVoltagesV: [12, 24, 48],
       maxPvVoltageV: 100,
@@ -298,7 +306,7 @@ export const mppts: Product[] = [
     imageUrl: '/product-images/victron-smartsolar-mppt.svg',
     width: 120,
     height: 80,
-    terminals: mpptTerminals,
+    terminals: mpptTerminals(50, 50, 1400),
     mpptRatings: {
       batteryVoltagesV: [12, 24],
       maxPvVoltageV: 100,
@@ -328,7 +336,7 @@ export const mppts: Product[] = [
     imageUrl: '/product-images/victron-smartsolar-mppt.svg',
     width: 120,
     height: 80,
-    terminals: mpptTerminals,
+    terminals: mpptTerminals(35, 35, 2000),
     mpptRatings: {
       batteryVoltagesV: [12, 24, 48],
       maxPvVoltageV: 150,
@@ -357,7 +365,7 @@ export const mppts: Product[] = [
     imageUrl: '/product-images/victron-smartsolar-mppt.svg',
     width: 120,
     height: 80,
-    terminals: mpptTerminals,
+    terminals: mpptTerminals(45, 45, 2600),
     mpptRatings: {
       batteryVoltagesV: [12, 24, 48],
       maxPvVoltageV: 150,
@@ -386,7 +394,7 @@ export const mppts: Product[] = [
     imageUrl: '/product-images/victron-smartsolar-mppt.svg',
     width: 120,
     height: 80,
-    terminals: mpptTerminals,
+    terminals: mpptTerminals(70, 70, 4000),
     mpptRatings: {
       batteryVoltagesV: [12, 24, 48],
       maxPvVoltageV: 150,
@@ -416,7 +424,7 @@ export const mppts: Product[] = [
     imageUrl: '/product-images/victron-smartsolar-mppt.svg',
     width: 120,
     height: 80,
-    terminals: mpptTerminals,
+    terminals: mpptTerminals(85, 85, 4900),
     mpptRatings: {
       batteryVoltagesV: [12, 24, 48],
       maxPvVoltageV: 150,
@@ -446,7 +454,7 @@ export const mppts: Product[] = [
     imageUrl: '/product-images/victron-smartsolar-mppt.svg',
     width: 120,
     height: 80,
-    terminals: mpptTerminals,
+    terminals: mpptTerminals(70, 70, 4000),
     mpptRatings: {
       batteryVoltagesV: [12, 24, 48],
       maxPvVoltageV: 250,

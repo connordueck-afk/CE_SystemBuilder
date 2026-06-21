@@ -1,47 +1,49 @@
 // ============================================================
 // batteries.ts — Battery product definitions
 // ============================================================
-// All existing product IDs, pricing, and terminal layouts are
-// preserved exactly. New fields (batteryRatings, dataQuality,
-// partNumber, productUrl) are additive only.
-// ============================================================
 
 import type { Product } from '../../types/system';
 
-// Shared terminal layout for all batteries: DC+ top-right, DC- top-left.
-const batteryTerminals: Product['terminals'] = [
-  {
-    id: 'dc_pos',
-    label: '+',
-    electricalType: 'dc_pos',
-    kind: 'dc_power',
-    polarity: 'positive',
-    role: 'bidirectional',
-    direction: 'bidirectional',
-    voltageClass: 'dc_low_voltage',
-    side: 'top',
-    offsetX: 20,
-    offsetY: -50,
-    domain: 'dc',
-    requiresOvercurrentProtection: true,
-    notes: 'DC positive terminal. Requires overcurrent protection (fuse/breaker) on the positive conductor.',
-  },
-  {
-    id: 'dc_neg',
-    label: '-',
-    electricalType: 'dc_neg',
-    kind: 'dc_power',
-    polarity: 'negative',
-    role: 'bidirectional',
-    direction: 'bidirectional',
-    voltageClass: 'dc_low_voltage',
-    side: 'top',
-    offsetX: -20,
-    offsetY: -50,
-    domain: 'dc',
-    notes: 'DC negative terminal.',
-  },
-];
+// Terminal factory for batteries. maxCurrentA = max continuous discharge current,
+// used as the sourceCapabilityA ceiling for overcurrent protection sizing.
+// Current on attached wires is load-driven (not discharge-current-driven).
+function batteryTerminals(dischargeA: number): Product['terminals'] {
+  return [
+    {
+      id: 'dc_pos',
+      label: '+',
+      electricalType: 'dc_pos',
+      kind: 'dc_power',
+      polarity: 'positive',
+      role: 'bidirectional',
+      direction: 'bidirectional',
+      voltageClass: 'dc_low_voltage',
+      side: 'top',
+      offsetX: 20,
+      offsetY: -50,
+      domain: 'dc',
+      maxCurrentA: dischargeA,
+      requiresOvercurrentProtection: true,
+      notes: 'DC positive terminal. Requires overcurrent protection (fuse/breaker) on the positive conductor.',
+    },
+    {
+      id: 'dc_neg',
+      label: '-',
+      electricalType: 'dc_neg',
+      kind: 'dc_power',
+      polarity: 'negative',
+      role: 'bidirectional',
+      direction: 'bidirectional',
+      voltageClass: 'dc_low_voltage',
+      side: 'top',
+      offsetX: -20,
+      offsetY: -50,
+      domain: 'dc',
+      maxCurrentA: dischargeA,
+      notes: 'DC negative terminal.',
+    },
+  ];
+}
 
 export const batteries: Product[] = [
   // ----------------------------------------------------------
@@ -65,7 +67,7 @@ export const batteries: Product[] = [
     dataQuality: 'partial',
     width: 80,
     height: 100,
-    terminals: batteryTerminals,
+    terminals: batteryTerminals(200),
     batteryRatings: {
       nominalVoltageV: 12.8,
       capacityAh: 100,
@@ -103,7 +105,7 @@ export const batteries: Product[] = [
     dataQuality: 'partial',
     width: 80,
     height: 100,
-    terminals: batteryTerminals,
+    terminals: batteryTerminals(300),
     batteryRatings: {
       nominalVoltageV: 12.8,
       capacityAh: 200,
@@ -141,7 +143,7 @@ export const batteries: Product[] = [
     dataQuality: 'partial',
     width: 80,
     height: 100,
-    terminals: batteryTerminals,
+    terminals: batteryTerminals(200),
     batteryRatings: {
       nominalVoltageV: 25.6,
       capacityAh: 100,
@@ -179,7 +181,7 @@ export const batteries: Product[] = [
     dataQuality: 'partial',
     width: 80,
     height: 100,
-    terminals: batteryTerminals,
+    terminals: batteryTerminals(200),
     batteryRatings: {
       nominalVoltageV: 51.2,
       capacityAh: 100,
@@ -217,7 +219,7 @@ export const batteries: Product[] = [
     notes: 'Placeholder pricing/specs.',
     width: 80,
     height: 100,
-    terminals: batteryTerminals,
+    terminals: batteryTerminals(200),
     batteryRatings: {
       nominalVoltageV: 12.8,
       capacityAh: 100,
@@ -246,7 +248,7 @@ export const batteries: Product[] = [
     notes: 'Placeholder pricing/specs.',
     width: 80,
     height: 100,
-    terminals: batteryTerminals,
+    terminals: batteryTerminals(300),
     batteryRatings: {
       nominalVoltageV: 12.8,
       capacityAh: 200,
@@ -275,7 +277,7 @@ export const batteries: Product[] = [
     notes: 'Placeholder pricing/specs.',
     width: 80,
     height: 100,
-    terminals: batteryTerminals,
+    terminals: batteryTerminals(200),
     batteryRatings: {
       nominalVoltageV: 25.6,
       capacityAh: 100,
@@ -304,7 +306,7 @@ export const batteries: Product[] = [
     notes: 'Placeholder pricing/specs.',
     width: 80,
     height: 100,
-    terminals: batteryTerminals,
+    terminals: batteryTerminals(200),
     batteryRatings: {
       nominalVoltageV: 51.2,
       capacityAh: 100,
@@ -339,7 +341,7 @@ export const batteries: Product[] = [
     notes: 'Placeholder pricing/specs. Confirm communication profile and closed-loop compatibility per inverter setup.',
     width: 80,
     height: 100,
-    terminals: batteryTerminals,
+    terminals: batteryTerminals(100),
     batteryRatings: {
       nominalVoltageV: 51.2,
       capacityAh: 100,
@@ -374,7 +376,7 @@ export const batteries: Product[] = [
     notes: 'Placeholder pricing/specs.',
     width: 80,
     height: 100,
-    terminals: batteryTerminals,
+    terminals: batteryTerminals(200),
     batteryRatings: {
       nominalVoltageV: 12.8,
       capacityAh: 200,
@@ -403,7 +405,7 @@ export const batteries: Product[] = [
     notes: 'Placeholder pricing/specs.',
     width: 80,
     height: 100,
-    terminals: batteryTerminals,
+    terminals: batteryTerminals(100),
     batteryRatings: {
       nominalVoltageV: 25.6,
       capacityAh: 100,
@@ -437,7 +439,7 @@ export const batteries: Product[] = [
     notes: 'Placeholder pricing/specs.',
     width: 80,
     height: 100,
-    terminals: batteryTerminals,
+    terminals: batteryTerminals(120),
     batteryRatings: {
       nominalVoltageV: 12.8,
       capacityAh: 120,
@@ -467,7 +469,7 @@ export const batteries: Product[] = [
     notes: 'Placeholder pricing/specs.',
     width: 80,
     height: 100,
-    terminals: batteryTerminals,
+    terminals: batteryTerminals(60),
     batteryRatings: {
       nominalVoltageV: 25.6,
       capacityAh: 60,
@@ -497,7 +499,7 @@ export const batteries: Product[] = [
     notes: 'Placeholder pricing/specs.',
     width: 80,
     height: 100,
-    terminals: batteryTerminals,
+    terminals: batteryTerminals(30),
     batteryRatings: {
       nominalVoltageV: 51.2,
       capacityAh: 30,

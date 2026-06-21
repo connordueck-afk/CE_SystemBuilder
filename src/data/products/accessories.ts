@@ -272,8 +272,8 @@ export const accessories: Product[] = [
     width: 90,
     height: 64,
     terminals: [
-      { id: 'dc_pos', label: 'B+', electricalType: 'dc_pos', kind: 'dc_power', polarity: 'positive', role: 'source', voltageClass: 'dc_low_voltage', side: 'right', offsetX: 45, offsetY: -10, domain: 'dc', requiresOvercurrentProtection: true },
-      { id: 'dc_neg', label: 'B-', electricalType: 'dc_neg', kind: 'dc_power', polarity: 'negative', role: 'source', voltageClass: 'dc_low_voltage', side: 'right', offsetX: 45, offsetY: 10, domain: 'dc' },
+      { id: 'dc_pos', label: 'B+', electricalType: 'dc_pos', kind: 'dc_power', polarity: 'positive', role: 'source', direction: 'output', voltageClass: 'dc_low_voltage', side: 'right', offsetX: 45, offsetY: -10, domain: 'dc', requiresOvercurrentProtection: true, maxCurrentA: 120 },
+      { id: 'dc_neg', label: 'B-', electricalType: 'dc_neg', kind: 'dc_power', polarity: 'negative', role: 'source', direction: 'output', voltageClass: 'dc_low_voltage', side: 'right', offsetX: 45, offsetY: 10, domain: 'dc', maxCurrentA: 120 },
     ],
   },
   {
@@ -291,8 +291,8 @@ export const accessories: Product[] = [
     width: 90,
     height: 86,
     terminals: [
-      { id: 'dc_pos', label: '+', electricalType: 'dc_pos', kind: 'dc_power', polarity: 'positive', role: 'bidirectional', direction: 'bidirectional', voltageClass: 'dc_low_voltage', side: 'top', offsetX: 22, offsetY: -43, domain: 'dc', requiresOvercurrentProtection: true },
-      { id: 'dc_neg', label: '-', electricalType: 'dc_neg', kind: 'dc_power', polarity: 'negative', role: 'bidirectional', direction: 'bidirectional', voltageClass: 'dc_low_voltage', side: 'top', offsetX: -22, offsetY: -43, domain: 'dc' },
+      { id: 'dc_pos', label: '+', electricalType: 'dc_pos', kind: 'dc_power', polarity: 'positive', role: 'bidirectional', direction: 'bidirectional', voltageClass: 'dc_low_voltage', side: 'top', offsetX: 22, offsetY: -43, domain: 'dc', requiresOvercurrentProtection: true, maxCurrentA: 100 },
+      { id: 'dc_neg', label: '-', electricalType: 'dc_neg', kind: 'dc_power', polarity: 'negative', role: 'bidirectional', direction: 'bidirectional', voltageClass: 'dc_low_voltage', side: 'top', offsetX: -22, offsetY: -43, domain: 'dc', maxCurrentA: 100 },
     ],
   },
   {
@@ -310,8 +310,8 @@ export const accessories: Product[] = [
     width: 90,
     height: 86,
     terminals: [
-      { id: 'dc_pos', label: '+', electricalType: 'dc_pos', kind: 'dc_power', polarity: 'positive', role: 'bidirectional', direction: 'bidirectional', voltageClass: 'dc_low_voltage', side: 'top', offsetX: 22, offsetY: -43, domain: 'dc', requiresOvercurrentProtection: true },
-      { id: 'dc_neg', label: '-', electricalType: 'dc_neg', kind: 'dc_power', polarity: 'negative', role: 'bidirectional', direction: 'bidirectional', voltageClass: 'dc_low_voltage', side: 'top', offsetX: -22, offsetY: -43, domain: 'dc' },
+      { id: 'dc_pos', label: '+', electricalType: 'dc_pos', kind: 'dc_power', polarity: 'positive', role: 'bidirectional', direction: 'bidirectional', voltageClass: 'dc_low_voltage', side: 'top', offsetX: 22, offsetY: -43, domain: 'dc', requiresOvercurrentProtection: true, maxCurrentA: 100 },
+      { id: 'dc_neg', label: '-', electricalType: 'dc_neg', kind: 'dc_power', polarity: 'negative', role: 'bidirectional', direction: 'bidirectional', voltageClass: 'dc_low_voltage', side: 'top', offsetX: -22, offsetY: -43, domain: 'dc', maxCurrentA: 100 },
     ],
     batteryRatings: {
       nominalVoltageV: 12,
@@ -462,11 +462,13 @@ export const accessories: Product[] = [
         kind: 'dc_power',
         polarity: 'positive',
         role: 'source',
+        direction: 'output',
         voltageClass: 'dc_low_voltage',
         side: 'right',
         offsetX: 40,
         offsetY: -10,
         domain: 'dc',
+        maxCurrentA: 30,
         notes: 'House battery positive output.',
       },
       {
@@ -476,11 +478,13 @@ export const accessories: Product[] = [
         kind: 'dc_power',
         polarity: 'negative',
         role: 'source',
+        direction: 'output',
         voltageClass: 'dc_low_voltage',
         side: 'right',
         offsetX: 40,
         offsetY: 10,
         domain: 'dc',
+        maxCurrentA: 30,
         notes: 'House battery negative output.',
       },
     ],

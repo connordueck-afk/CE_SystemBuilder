@@ -11,70 +11,78 @@
 
 import type { Product } from '../../types/system';
 
-const dcDcTerminals: Product['terminals'] = [
-  {
-    id: 'in_pos',
-    label: 'In+',
-    electricalType: 'dc_pos',
-    kind: 'dc_power',
-    polarity: 'positive',
-    role: 'sink',
-    direction: 'input',
-    voltageClass: 'dc_low_voltage',
-    side: 'left',
-    offsetX: -40,
-    offsetY: -10,
-    domain: 'dc',
-    requiresOvercurrentProtection: true,
-    notes: 'DC input positive. Fuse required on input positive conductor.',
-  },
-  {
-    id: 'in_neg',
-    label: 'In-',
-    electricalType: 'dc_neg',
-    kind: 'dc_power',
-    polarity: 'negative',
-    role: 'sink',
-    direction: 'input',
-    voltageClass: 'dc_low_voltage',
-    side: 'left',
-    offsetX: -40,
-    offsetY: 10,
-    domain: 'dc',
-    notes: 'DC input negative.',
-  },
-  {
-    id: 'out_pos',
-    label: 'Out+',
-    electricalType: 'dc_pos',
-    kind: 'dc_power',
-    polarity: 'positive',
-    role: 'source',
-    direction: 'output',
-    voltageClass: 'dc_low_voltage',
-    side: 'right',
-    offsetX: 40,
-    offsetY: -10,
-    domain: 'dc',
-    requiresOvercurrentProtection: true,
-    notes: 'DC output positive. Fuse required on output positive conductor.',
-  },
-  {
-    id: 'out_neg',
-    label: 'Out-',
-    electricalType: 'dc_neg',
-    kind: 'dc_power',
-    polarity: 'negative',
-    role: 'source',
-    direction: 'output',
-    voltageClass: 'dc_low_voltage',
-    side: 'right',
-    offsetX: 40,
-    offsetY: 10,
-    domain: 'dc',
-    notes: 'DC output negative.',
-  },
-];
+// Output terminals get maxCurrentA so the terminal-first path sizes output wires/fuses
+// correctly. Input terminals stay without maxCurrentA — for voltage-converting units the
+// input current differs from output current; the productType switch derives input current
+// from outputPowerW / inputVoltage, which is correct.
+function dcDcTerminals(outputCurrentA: number): Product['terminals'] {
+  return [
+    {
+      id: 'in_pos',
+      label: 'In+',
+      electricalType: 'dc_pos',
+      kind: 'dc_power',
+      polarity: 'positive',
+      role: 'sink',
+      direction: 'input',
+      voltageClass: 'dc_low_voltage',
+      side: 'left',
+      offsetX: -40,
+      offsetY: -10,
+      domain: 'dc',
+      requiresOvercurrentProtection: true,
+      notes: 'DC input positive. Fuse required on input positive conductor.',
+    },
+    {
+      id: 'in_neg',
+      label: 'In-',
+      electricalType: 'dc_neg',
+      kind: 'dc_power',
+      polarity: 'negative',
+      role: 'sink',
+      direction: 'input',
+      voltageClass: 'dc_low_voltage',
+      side: 'left',
+      offsetX: -40,
+      offsetY: 10,
+      domain: 'dc',
+      notes: 'DC input negative.',
+    },
+    {
+      id: 'out_pos',
+      label: 'Out+',
+      electricalType: 'dc_pos',
+      kind: 'dc_power',
+      polarity: 'positive',
+      role: 'source',
+      direction: 'output',
+      voltageClass: 'dc_low_voltage',
+      side: 'right',
+      offsetX: 40,
+      offsetY: -10,
+      domain: 'dc',
+      requiresOvercurrentProtection: true,
+      maxCurrentA: outputCurrentA,
+      notes: 'DC output positive. Fuse required on output positive conductor.',
+    },
+    {
+      id: 'out_neg',
+      label: 'Out-',
+      electricalType: 'dc_neg',
+      kind: 'dc_power',
+      polarity: 'negative',
+      role: 'source',
+      direction: 'output',
+      voltageClass: 'dc_low_voltage',
+      side: 'right',
+      offsetX: 40,
+      offsetY: 10,
+      domain: 'dc',
+      maxCurrentA: outputCurrentA,
+      notes: 'DC output negative.',
+    },
+  ];
+}
 
 export const dcDcChargers: Product[] = [
   // ==========================================================
@@ -97,7 +105,7 @@ export const dcDcChargers: Product[] = [
     dataQuality: 'partial',
     width: 80,
     height: 60,
-    terminals: dcDcTerminals,
+    terminals: dcDcTerminals(50),
     dcDcChargerRatings: { inputVoltageMinV: 9, inputVoltageMaxV: 17, outputVoltageV: 12, outputCurrentA: 50, outputPowerW: 600, isolated: false },
   },
   {
@@ -116,7 +124,7 @@ export const dcDcChargers: Product[] = [
     dataQuality: 'partial',
     width: 80,
     height: 60,
-    terminals: dcDcTerminals,
+    terminals: dcDcTerminals(50),
     dcDcChargerRatings: { inputVoltageMinV: 18, inputVoltageMaxV: 35, outputVoltageV: 24, outputCurrentA: 50, outputPowerW: 1200, isolated: false },
   },
 
@@ -140,7 +148,7 @@ export const dcDcChargers: Product[] = [
     dataQuality: 'partial',
     width: 80,
     height: 60,
-    terminals: dcDcTerminals,
+    terminals: dcDcTerminals(25),
     dcDcChargerRatings: { outputCurrentA: 25, outputPowerW: 300, isolated: false },
   },
   {
@@ -159,7 +167,7 @@ export const dcDcChargers: Product[] = [
     dataQuality: 'partial',
     width: 80,
     height: 60,
-    terminals: dcDcTerminals,
+    terminals: dcDcTerminals(50),
     dcDcChargerRatings: { outputCurrentA: 50, outputPowerW: 600, isolated: false },
   },
   {
@@ -178,7 +186,7 @@ export const dcDcChargers: Product[] = [
     dataQuality: 'partial',
     width: 80,
     height: 60,
-    terminals: dcDcTerminals,
+    terminals: dcDcTerminals(100),
     dcDcChargerRatings: { outputCurrentA: 100, outputPowerW: 1200, isolated: false },
   },
 
@@ -203,7 +211,7 @@ export const dcDcChargers: Product[] = [
     dataQuality: 'partial',
     width: 80,
     height: 60,
-    terminals: dcDcTerminals,
+    terminals: dcDcTerminals(30),
     dcDcChargerRatings: { inputVoltageMinV: 9, inputVoltageMaxV: 17, outputVoltageV: 12, outputCurrentA: 30, outputPowerW: 360, isolated: false },
   },
   {
@@ -223,7 +231,7 @@ export const dcDcChargers: Product[] = [
     dataQuality: 'partial',
     width: 80,
     height: 60,
-    terminals: dcDcTerminals,
+    terminals: dcDcTerminals(30),
     dcDcChargerRatings: { inputVoltageMinV: 18, inputVoltageMaxV: 35, outputVoltageV: 12, outputCurrentA: 30, outputPowerW: 360, isolated: false },
   },
   {
@@ -243,7 +251,7 @@ export const dcDcChargers: Product[] = [
     dataQuality: 'partial',
     width: 80,
     height: 60,
-    terminals: dcDcTerminals,
+    terminals: dcDcTerminals(15),
     dcDcChargerRatings: { inputVoltageMinV: 9, inputVoltageMaxV: 17, outputVoltageV: 24, outputCurrentA: 15, outputPowerW: 360, isolated: false },
   },
   {
@@ -263,7 +271,7 @@ export const dcDcChargers: Product[] = [
     dataQuality: 'partial',
     width: 80,
     height: 60,
-    terminals: dcDcTerminals,
+    terminals: dcDcTerminals(17),
     dcDcChargerRatings: { inputVoltageMinV: 18, inputVoltageMaxV: 35, outputVoltageV: 24, outputCurrentA: 17, outputPowerW: 408, isolated: false },
   },
 
@@ -288,7 +296,7 @@ export const dcDcChargers: Product[] = [
     dataQuality: 'partial',
     width: 80,
     height: 60,
-    terminals: dcDcTerminals,
+    terminals: dcDcTerminals(18),
     dcDcChargerRatings: { outputVoltageV: 12, outputCurrentA: 18, outputPowerW: 216, isolated: true },
   },
   {
@@ -308,7 +316,7 @@ export const dcDcChargers: Product[] = [
     dataQuality: 'partial',
     width: 80,
     height: 60,
-    terminals: dcDcTerminals,
+    terminals: dcDcTerminals(20),
     dcDcChargerRatings: { inputVoltageMinV: 18, inputVoltageMaxV: 35, outputVoltageV: 12, outputCurrentA: 20, outputPowerW: 240, isolated: true },
   },
   {
@@ -328,7 +336,7 @@ export const dcDcChargers: Product[] = [
     dataQuality: 'partial',
     width: 80,
     height: 60,
-    terminals: dcDcTerminals,
+    terminals: dcDcTerminals(30),
     dcDcChargerRatings: { inputVoltageMinV: 18, inputVoltageMaxV: 35, outputVoltageV: 12, outputCurrentA: 30, outputPowerW: 360, isolated: true },
   },
   {
@@ -347,7 +355,7 @@ export const dcDcChargers: Product[] = [
     dataQuality: 'partial',
     width: 80,
     height: 60,
-    terminals: dcDcTerminals,
+    terminals: dcDcTerminals(20),
     dcDcChargerRatings: { inputVoltageMinV: 36, inputVoltageMaxV: 70, outputVoltageV: 12, outputCurrentA: 20, outputPowerW: 240, isolated: true },
   },
   {
@@ -366,7 +374,7 @@ export const dcDcChargers: Product[] = [
     dataQuality: 'partial',
     width: 80,
     height: 60,
-    terminals: dcDcTerminals,
+    terminals: dcDcTerminals(30),
     dcDcChargerRatings: { inputVoltageMinV: 36, inputVoltageMaxV: 70, outputVoltageV: 12, outputCurrentA: 30, outputPowerW: 360, isolated: true },
   },
 
@@ -391,7 +399,7 @@ export const dcDcChargers: Product[] = [
     dataQuality: 'partial',
     width: 80,
     height: 60,
-    terminals: dcDcTerminals,
+    terminals: dcDcTerminals(10),
     dcDcChargerRatings: { outputVoltageV: 24, outputCurrentA: 10, outputPowerW: 240, isolated: true },
   },
   {
@@ -411,7 +419,7 @@ export const dcDcChargers: Product[] = [
     dataQuality: 'partial',
     width: 80,
     height: 60,
-    terminals: dcDcTerminals,
+    terminals: dcDcTerminals(15),
     dcDcChargerRatings: { outputVoltageV: 24, outputCurrentA: 15, outputPowerW: 360, isolated: true },
   },
   {
@@ -430,7 +438,7 @@ export const dcDcChargers: Product[] = [
     dataQuality: 'partial',
     width: 80,
     height: 60,
-    terminals: dcDcTerminals,
+    terminals: dcDcTerminals(12),
     dcDcChargerRatings: { inputVoltageMinV: 18, inputVoltageMaxV: 35, outputVoltageV: 24, outputCurrentA: 12, outputPowerW: 280, isolated: true },
   },
   {
@@ -450,7 +458,7 @@ export const dcDcChargers: Product[] = [
     dataQuality: 'partial',
     width: 80,
     height: 60,
-    terminals: dcDcTerminals,
+    terminals: dcDcTerminals(17),
     dcDcChargerRatings: { inputVoltageMinV: 18, inputVoltageMaxV: 35, outputVoltageV: 24, outputCurrentA: 17, outputPowerW: 400, isolated: true },
   },
   {
@@ -469,7 +477,7 @@ export const dcDcChargers: Product[] = [
     dataQuality: 'partial',
     width: 80,
     height: 60,
-    terminals: dcDcTerminals,
+    terminals: dcDcTerminals(16),
     dcDcChargerRatings: { inputVoltageMinV: 36, inputVoltageMaxV: 70, outputVoltageV: 24, outputCurrentA: 16, outputPowerW: 380, isolated: true },
   },
 
@@ -493,7 +501,7 @@ export const dcDcChargers: Product[] = [
     dataQuality: 'partial',
     width: 80,
     height: 60,
-    terminals: dcDcTerminals,
+    terminals: dcDcTerminals(8),
     dcDcChargerRatings: { outputVoltageV: 48, outputCurrentA: 8, outputPowerW: 380, isolated: true },
   },
   {
@@ -512,7 +520,7 @@ export const dcDcChargers: Product[] = [
     dataQuality: 'partial',
     width: 80,
     height: 60,
-    terminals: dcDcTerminals,
+    terminals: dcDcTerminals(9),
     dcDcChargerRatings: { inputVoltageMinV: 18, inputVoltageMaxV: 35, outputVoltageV: 48, outputCurrentA: 9, outputPowerW: 400, isolated: true },
   },
   {
@@ -531,7 +539,7 @@ export const dcDcChargers: Product[] = [
     dataQuality: 'partial',
     width: 80,
     height: 60,
-    terminals: dcDcTerminals,
+    terminals: dcDcTerminals(8),
     dcDcChargerRatings: { inputVoltageMinV: 36, inputVoltageMaxV: 70, outputVoltageV: 48, outputCurrentA: 8, outputPowerW: 380, isolated: true },
   },
 
@@ -556,7 +564,7 @@ export const dcDcChargers: Product[] = [
     dataQuality: 'partial',
     width: 80,
     height: 60,
-    terminals: dcDcTerminals,
+    terminals: dcDcTerminals(9),
     dcDcChargerRatings: { outputVoltageV: 12, outputCurrentA: 9, outputPowerW: 110, isolated: true },
   },
   {
@@ -576,7 +584,7 @@ export const dcDcChargers: Product[] = [
     dataQuality: 'partial',
     width: 80,
     height: 60,
-    terminals: dcDcTerminals,
+    terminals: dcDcTerminals(18),
     dcDcChargerRatings: { outputVoltageV: 12, outputCurrentA: 18, outputPowerW: 220, isolated: true },
   },
   {
@@ -596,7 +604,7 @@ export const dcDcChargers: Product[] = [
     dataQuality: 'partial',
     width: 80,
     height: 60,
-    terminals: dcDcTerminals,
+    terminals: dcDcTerminals(9),
     dcDcChargerRatings: { inputVoltageMinV: 18, inputVoltageMaxV: 35, outputVoltageV: 12, outputCurrentA: 9, outputPowerW: 110, isolated: true },
   },
   {
@@ -616,7 +624,7 @@ export const dcDcChargers: Product[] = [
     dataQuality: 'partial',
     width: 80,
     height: 60,
-    terminals: dcDcTerminals,
+    terminals: dcDcTerminals(20),
     dcDcChargerRatings: { inputVoltageMinV: 18, inputVoltageMaxV: 35, outputVoltageV: 12, outputCurrentA: 20, outputPowerW: 240, isolated: true },
   },
   {
@@ -636,7 +644,7 @@ export const dcDcChargers: Product[] = [
     dataQuality: 'partial',
     width: 80,
     height: 60,
-    terminals: dcDcTerminals,
+    terminals: dcDcTerminals(30),
     dcDcChargerRatings: { inputVoltageMinV: 18, inputVoltageMaxV: 35, outputVoltageV: 12, outputCurrentA: 30, outputPowerW: 360, isolated: true },
   },
   {
@@ -656,7 +664,7 @@ export const dcDcChargers: Product[] = [
     dataQuality: 'partial',
     width: 80,
     height: 60,
-    terminals: dcDcTerminals,
+    terminals: dcDcTerminals(9),
     dcDcChargerRatings: { inputVoltageMinV: 36, inputVoltageMaxV: 70, outputVoltageV: 12, outputCurrentA: 9, outputPowerW: 110, isolated: true },
   },
   {
@@ -676,7 +684,7 @@ export const dcDcChargers: Product[] = [
     dataQuality: 'partial',
     width: 80,
     height: 60,
-    terminals: dcDcTerminals,
+    terminals: dcDcTerminals(20),
     dcDcChargerRatings: { inputVoltageMinV: 36, inputVoltageMaxV: 70, outputVoltageV: 12, outputCurrentA: 20, outputPowerW: 240, isolated: true },
   },
   {
@@ -696,7 +704,7 @@ export const dcDcChargers: Product[] = [
     dataQuality: 'partial',
     width: 80,
     height: 60,
-    terminals: dcDcTerminals,
+    terminals: dcDcTerminals(30),
     dcDcChargerRatings: { inputVoltageMinV: 36, inputVoltageMaxV: 70, outputVoltageV: 12, outputCurrentA: 30, outputPowerW: 360, isolated: true },
   },
   {
@@ -715,7 +723,7 @@ export const dcDcChargers: Product[] = [
     dataQuality: 'partial',
     width: 80,
     height: 60,
-    terminals: dcDcTerminals,
+    terminals: dcDcTerminals(30),
     dcDcChargerRatings: { inputVoltageMinV: 75, inputVoltageMaxV: 145, outputVoltageV: 12, outputCurrentA: 30, outputPowerW: 360, isolated: true },
   },
 
@@ -740,7 +748,7 @@ export const dcDcChargers: Product[] = [
     dataQuality: 'partial',
     width: 80,
     height: 60,
-    terminals: dcDcTerminals,
+    terminals: dcDcTerminals(5),
     dcDcChargerRatings: { outputVoltageV: 24, outputCurrentA: 5, outputPowerW: 120, isolated: true },
   },
   {
@@ -760,7 +768,7 @@ export const dcDcChargers: Product[] = [
     dataQuality: 'partial',
     width: 80,
     height: 60,
-    terminals: dcDcTerminals,
+    terminals: dcDcTerminals(10),
     dcDcChargerRatings: { outputVoltageV: 24, outputCurrentA: 10, outputPowerW: 240, isolated: true },
   },
   {
@@ -780,7 +788,7 @@ export const dcDcChargers: Product[] = [
     dataQuality: 'partial',
     width: 80,
     height: 60,
-    terminals: dcDcTerminals,
+    terminals: dcDcTerminals(15),
     dcDcChargerRatings: { outputVoltageV: 24, outputCurrentA: 15, outputPowerW: 360, isolated: true },
   },
   {
@@ -800,7 +808,7 @@ export const dcDcChargers: Product[] = [
     dataQuality: 'partial',
     width: 80,
     height: 60,
-    terminals: dcDcTerminals,
+    terminals: dcDcTerminals(5),
     dcDcChargerRatings: { inputVoltageMinV: 18, inputVoltageMaxV: 35, outputVoltageV: 24, outputCurrentA: 5, outputPowerW: 120, isolated: true },
   },
   {
@@ -820,7 +828,7 @@ export const dcDcChargers: Product[] = [
     dataQuality: 'partial',
     width: 80,
     height: 60,
-    terminals: dcDcTerminals,
+    terminals: dcDcTerminals(12),
     dcDcChargerRatings: { inputVoltageMinV: 18, inputVoltageMaxV: 35, outputVoltageV: 24, outputCurrentA: 12, outputPowerW: 280, isolated: true },
   },
   {
@@ -840,7 +848,7 @@ export const dcDcChargers: Product[] = [
     dataQuality: 'partial',
     width: 80,
     height: 60,
-    terminals: dcDcTerminals,
+    terminals: dcDcTerminals(17),
     dcDcChargerRatings: { inputVoltageMinV: 18, inputVoltageMaxV: 35, outputVoltageV: 24, outputCurrentA: 17, outputPowerW: 400, isolated: true },
   },
   {
@@ -860,7 +868,7 @@ export const dcDcChargers: Product[] = [
     dataQuality: 'partial',
     width: 80,
     height: 60,
-    terminals: dcDcTerminals,
+    terminals: dcDcTerminals(5),
     dcDcChargerRatings: { inputVoltageMinV: 36, inputVoltageMaxV: 70, outputVoltageV: 24, outputCurrentA: 5, outputPowerW: 120, isolated: true },
   },
   {
@@ -880,7 +888,7 @@ export const dcDcChargers: Product[] = [
     dataQuality: 'partial',
     width: 80,
     height: 60,
-    terminals: dcDcTerminals,
+    terminals: dcDcTerminals(12),
     dcDcChargerRatings: { inputVoltageMinV: 36, inputVoltageMaxV: 70, outputVoltageV: 24, outputCurrentA: 12, outputPowerW: 280, isolated: true },
   },
   {
@@ -900,7 +908,7 @@ export const dcDcChargers: Product[] = [
     dataQuality: 'partial',
     width: 80,
     height: 60,
-    terminals: dcDcTerminals,
+    terminals: dcDcTerminals(16),
     dcDcChargerRatings: { inputVoltageMinV: 36, inputVoltageMaxV: 70, outputVoltageV: 24, outputCurrentA: 16, outputPowerW: 380, isolated: true },
   },
   {
@@ -919,7 +927,7 @@ export const dcDcChargers: Product[] = [
     dataQuality: 'partial',
     width: 80,
     height: 60,
-    terminals: dcDcTerminals,
+    terminals: dcDcTerminals(15),
     dcDcChargerRatings: { inputVoltageMinV: 75, inputVoltageMaxV: 145, outputVoltageV: 24, outputCurrentA: 15, outputPowerW: 360, isolated: true },
   },
 
@@ -943,7 +951,7 @@ export const dcDcChargers: Product[] = [
     dataQuality: 'partial',
     width: 80,
     height: 60,
-    terminals: dcDcTerminals,
+    terminals: dcDcTerminals(8),
     dcDcChargerRatings: { outputVoltageV: 48, outputCurrentA: 8, outputPowerW: 380, isolated: true },
   },
   {
@@ -963,7 +971,7 @@ export const dcDcChargers: Product[] = [
     dataQuality: 'partial',
     width: 80,
     height: 60,
-    terminals: dcDcTerminals,
+    terminals: dcDcTerminals(3),
     dcDcChargerRatings: { inputVoltageMinV: 18, inputVoltageMaxV: 35, outputVoltageV: 48, outputCurrentA: 3, outputPowerW: 120, isolated: true },
   },
   {
@@ -983,7 +991,7 @@ export const dcDcChargers: Product[] = [
     dataQuality: 'partial',
     width: 80,
     height: 60,
-    terminals: dcDcTerminals,
+    terminals: dcDcTerminals(6),
     dcDcChargerRatings: { inputVoltageMinV: 18, inputVoltageMaxV: 35, outputVoltageV: 48, outputCurrentA: 6, outputPowerW: 280, isolated: true },
   },
   {
@@ -1003,7 +1011,7 @@ export const dcDcChargers: Product[] = [
     dataQuality: 'partial',
     width: 80,
     height: 60,
-    terminals: dcDcTerminals,
+    terminals: dcDcTerminals(9),
     dcDcChargerRatings: { inputVoltageMinV: 18, inputVoltageMaxV: 35, outputVoltageV: 48, outputCurrentA: 9, outputPowerW: 400, isolated: true },
   },
   {
@@ -1023,7 +1031,7 @@ export const dcDcChargers: Product[] = [
     dataQuality: 'partial',
     width: 80,
     height: 60,
-    terminals: dcDcTerminals,
+    terminals: dcDcTerminals(3),
     dcDcChargerRatings: { inputVoltageMinV: 36, inputVoltageMaxV: 70, outputVoltageV: 48, outputCurrentA: 3, outputPowerW: 120, isolated: true },
   },
   {
@@ -1043,7 +1051,7 @@ export const dcDcChargers: Product[] = [
     dataQuality: 'partial',
     width: 80,
     height: 60,
-    terminals: dcDcTerminals,
+    terminals: dcDcTerminals(6),
     dcDcChargerRatings: { inputVoltageMinV: 36, inputVoltageMaxV: 70, outputVoltageV: 48, outputCurrentA: 6, outputPowerW: 280, isolated: true },
   },
   {
@@ -1063,7 +1071,7 @@ export const dcDcChargers: Product[] = [
     dataQuality: 'partial',
     width: 80,
     height: 60,
-    terminals: dcDcTerminals,
+    terminals: dcDcTerminals(8),
     dcDcChargerRatings: { inputVoltageMinV: 36, inputVoltageMaxV: 70, outputVoltageV: 48, outputCurrentA: 8, outputPowerW: 380, isolated: true },
   },
 ];

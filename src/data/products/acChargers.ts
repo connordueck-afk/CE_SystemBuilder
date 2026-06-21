@@ -8,65 +8,76 @@
 
 import type { Product } from '../../types/system';
 
-const acChargerTerminals: Product['terminals'] = [
-  {
-    id: 'ac_l',
-    label: 'AC L',
-    electricalType: 'ac',
-    kind: 'ac_power',
-    polarity: 'line',
-    role: 'sink',
-    voltageClass: 'ac_120v',
-    side: 'left',
-    offsetX: -40,
-    offsetY: -10,
-    domain: 'ac',
-    notes: 'AC input line conductor.',
-  },
-  {
-    id: 'ac_n',
-    label: 'AC N',
-    electricalType: 'ac',
-    kind: 'ac_power',
-    polarity: 'neutral',
-    role: 'sink',
-    voltageClass: 'ac_120v',
-    side: 'left',
-    offsetX: -40,
-    offsetY: 10,
-    domain: 'ac',
-    notes: 'AC input neutral conductor.',
-  },
-  {
-    id: 'dc_pos',
-    label: 'DC+',
-    electricalType: 'dc_pos',
-    kind: 'dc_power',
-    polarity: 'positive',
-    role: 'source',
-    voltageClass: 'dc_low_voltage',
-    side: 'right',
-    offsetX: 40,
-    offsetY: -10,
-    domain: 'dc',
-    requiresOvercurrentProtection: true,
-    notes: 'DC output positive. Fuse required on positive conductor.',
-  },
-  {
-    id: 'dc_neg',
-    label: 'DC-',
-    electricalType: 'dc_neg',
-    kind: 'dc_power',
-    polarity: 'negative',
-    role: 'source',
-    voltageClass: 'dc_low_voltage',
-    side: 'right',
-    offsetX: 40,
-    offsetY: 10,
-    domain: 'dc',
-    notes: 'DC output negative.',
-  },
-];
+// DC output terminals get maxCurrentA for terminal-first wire/fuse sizing.
+// AC input terminals stay without maxCurrentA; the productType switch derives
+// AC input current from the charger output power, which is correct.
+function acChargerTerminals(outputCurrentA: number): Product['terminals'] {
+  return [
+    {
+      id: 'ac_l',
+      label: 'AC L',
+      electricalType: 'ac',
+      kind: 'ac_power',
+      polarity: 'line',
+      role: 'sink',
+      direction: 'input',
+      voltageClass: 'ac_120v',
+      side: 'left',
+      offsetX: -40,
+      offsetY: -10,
+      domain: 'ac',
+      notes: 'AC input line conductor.',
+    },
+    {
+      id: 'ac_n',
+      label: 'AC N',
+      electricalType: 'ac',
+      kind: 'ac_power',
+      polarity: 'neutral',
+      role: 'sink',
+      direction: 'input',
+      voltageClass: 'ac_120v',
+      side: 'left',
+      offsetX: -40,
+      offsetY: 10,
+      domain: 'ac',
+      notes: 'AC input neutral conductor.',
+    },
+    {
+      id: 'dc_pos',
+      label: 'DC+',
+      electricalType: 'dc_pos',
+      kind: 'dc_power',
+      polarity: 'positive',
+      role: 'source',
+      direction: 'output',
+      voltageClass: 'dc_low_voltage',
+      side: 'right',
+      offsetX: 40,
+      offsetY: -10,
+      domain: 'dc',
+      requiresOvercurrentProtection: true,
+      maxCurrentA: outputCurrentA,
+      notes: 'DC output positive. Fuse required on positive conductor.',
+    },
+    {
+      id: 'dc_neg',
+      label: 'DC-',
+      electricalType: 'dc_neg',
+      kind: 'dc_power',
+      polarity: 'negative',
+      role: 'source',
+      direction: 'output',
+      voltageClass: 'dc_low_voltage',
+      side: 'right',
+      offsetX: 40,
+      offsetY: 10,
+      domain: 'dc',
+      maxCurrentA: outputCurrentA,
+      notes: 'DC output negative.',
+    },
+  ];
+}
 
 export const acChargers: Product[] = [
   // ==========================================================
@@ -89,7 +100,7 @@ export const acChargers: Product[] = [
     notes: 'Placeholder pricing/specs.',
     width: 80,
     height: 60,
-    terminals: acChargerTerminals,
+    terminals: acChargerTerminals(15),
   },
   {
     id: 'blue-smart-ip22-30',
@@ -108,7 +119,7 @@ export const acChargers: Product[] = [
     notes: 'Placeholder pricing/specs.',
     width: 80,
     height: 60,
-    terminals: acChargerTerminals,
+    terminals: acChargerTerminals(30),
   },
   {
     id: 'blue-smart-ip22-24-16',
@@ -127,7 +138,7 @@ export const acChargers: Product[] = [
     notes: 'Placeholder pricing/specs.',
     width: 80,
     height: 60,
-    terminals: acChargerTerminals,
+    terminals: acChargerTerminals(16),
   },
 
   // ==========================================================
@@ -151,7 +162,7 @@ export const acChargers: Product[] = [
     notes: 'Placeholder pricing/specs.',
     width: 80,
     height: 60,
-    terminals: acChargerTerminals,
+    terminals: acChargerTerminals(15),
   },
 
   // ==========================================================
@@ -175,6 +186,6 @@ export const acChargers: Product[] = [
     notes: 'Placeholder pricing/specs.',
     width: 80,
     height: 60,
-    terminals: acChargerTerminals,
+    terminals: acChargerTerminals(70),
   },
 ];
