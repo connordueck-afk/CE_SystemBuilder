@@ -25,3 +25,12 @@ const GENERIC_IMAGE_MAP: Partial<Record<ProductType, string>> = {
 export function getProductImageUrl(productType: ProductType): string | undefined {
   return GENERIC_IMAGE_MAP[productType];
 }
+
+export function resolveProductImageUrl(imageUrl: string | undefined): string | undefined {
+  if (!imageUrl) return undefined;
+  if (/^(?:[a-z]+:)?\/\//i.test(imageUrl) || imageUrl.startsWith('data:')) return imageUrl;
+  if (!imageUrl.startsWith('/')) return imageUrl;
+
+  const baseUrl = import.meta.env.BASE_URL || '/';
+  return `${baseUrl.replace(/\/?$/, '/')}${imageUrl.replace(/^\/+/, '')}`;
+}

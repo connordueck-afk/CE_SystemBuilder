@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import type { NominalVoltage, Product, ProductType, SystemComponent } from '../../types/system';
 import { ALL_PRODUCTS } from '../../data/products';
 import { fmt } from '../../utils/priceCalculations';
-import { getProductImageUrl } from '../../utils/productImages';
+import { getProductImageUrl, resolveProductImageUrl } from '../../utils/productImages';
 
 interface SourceLoadOptions {
   voltageV?: number;
@@ -393,6 +393,9 @@ export function PartLibrary({
   }, [catalogForSelector, selectedManufacturer]);
 
   const selectedProduct = products.get(selectedProductId) ?? visibleProducts[0];
+  const selectedProductImageUrl = resolveProductImageUrl(
+    selectedProduct?.imageUrl ?? (selectedProduct ? getProductImageUrl(selectedProduct.productType) : undefined)
+  );
   const isFuseSelector = activeSelector?.id === 'protection-fuses';
 
   const fuseStyles = useMemo(() => {
@@ -590,10 +593,10 @@ export function PartLibrary({
 
             <div className="product-selector-body">
               <div className={`product-preview ${getProductIconClass(activeSelector.id)}`}>
-                {selectedProduct && (selectedProduct.imageUrl ?? getProductImageUrl(selectedProduct.productType)) ? (
+                {selectedProduct && selectedProductImageUrl ? (
                   <img
                     key={selectedProduct.id}
-                    src={selectedProduct.imageUrl ?? getProductImageUrl(selectedProduct.productType)}
+                    src={selectedProductImageUrl}
                     alt={selectedProduct.name}
                     className="product-preview-image"
                   />

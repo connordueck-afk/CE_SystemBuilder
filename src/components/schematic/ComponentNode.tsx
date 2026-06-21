@@ -8,7 +8,7 @@ import { FuseSymbol } from './symbols/FuseSymbol';
 import { GenericSymbol } from './symbols/GenericSymbol';
 import { Terminal } from './Terminal';
 import { getEffectiveTerminals } from '../../utils/effectiveTerminals';
-import { getProductImageUrl } from '../../utils/productImages';
+import { getProductImageUrl, resolveProductImageUrl } from '../../utils/productImages';
 import type { BusColorMap } from '../../utils/busColors';
 import { orientationTransform } from '../../utils/componentOrientation';
 
@@ -34,7 +34,7 @@ function Symbol({
 }) {
   const w = product.width;
   const h = product.height;
-  const imageUrl = product.imageUrl ?? getProductImageUrl(product.productType);
+  const imageUrl = resolveProductImageUrl(product.imageUrl ?? getProductImageUrl(product.productType));
 
   if (imageUrl) {
     return (
