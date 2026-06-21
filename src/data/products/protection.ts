@@ -140,144 +140,74 @@ const fuses: Product[] = fuseCatalog.flatMap(({ type, ratings, msrpBase, source 
 );
 
 // -----------------------------------------------------------
-// Circuit breakers
+// Circuit breaker catalog — types and ratings
 // -----------------------------------------------------------
 
 const breakerTerminals: Product['terminals'] = fuseTerminals;
 
+const breakerCatalog = [
+  {
+    type: 'DC Breaker',
+    ratings: [5, 10, 15, 20, 25, 30, 40, 50, 60, 70, 80, 100, 125, 150, 175, 200, 250, 300],
+    msrpBase: 20,
+    voltageRatingV: 48,
+    source: 'Catalog estimate: DC circuit breakers',
+  },
+  {
+    type: 'Smart BatteryProtect',
+    ratings: [65, 100, 220],
+    msrpBase: 60,
+    voltageRatingV: 34,
+    source: 'Victron 2025',
+  },
+] as const;
+
+function breakerId(type: string, rating: number): string {
+  return `breaker-${type.toLowerCase().replace(/\s+/g, '-')}-${rating}a`;
+}
+
+function breakerPrice(type: string, rating: number, base: number): number {
+  const multiplier = type === 'Smart BatteryProtect' ? 0.3 : 0.25;
+  return Math.round(base + rating * multiplier);
+}
+
+function breakerImageUrl(type: string): string {
+  return `/product-images/breaker-${type.toLowerCase().replace(/\s+/g, '-')}.svg`;
+}
+
+const breakers: Product[] = breakerCatalog.flatMap(({ type, ratings, msrpBase, voltageRatingV, source }) =>
+  ratings.map((rating) => {
+    const msrp = breakerPrice(type, rating, msrpBase);
+    return {
+      id: breakerId(type, rating),
+      manufacturer: 'Generic',
+      name: `${type} ${rating}A`,
+      productType: 'breaker' as const,
+      category: type,
+      maxCurrentA: rating,
+      msrpUsd: msrp,
+      oemPriceUsd: Math.round(msrp * 0.7),
+      description: `${type} ${rating}A DC protection`,
+      source,
+      dataQuality: 'placeholder' as const,
+      imageUrl: breakerImageUrl(type),
+      width: 60,
+      height: 30,
+      terminals: breakerTerminals,
+      protectionRatings: {
+        currentRatingA: rating,
+        voltageRatingV,
+        acDcCompatibility: 'dc' as const,
+        breakerStyle: type,
+        protectionType: 'breaker' as const,
+      },
+    };
+  })
+);
+
 export const protection: Product[] = [
   ...fuses,
-
-  // ----------------------------------------------------------
-  // Blue Sea 60A DC Circuit Breaker
-  // ----------------------------------------------------------
-  {
-    id: 'breaker-dc-60a',
-    manufacturer: 'Blue Sea',
-    name: 'Circuit Breaker 60A DC',
-    productType: 'breaker',
-    category: 'Protection',
-    maxCurrentA: 60,
-    msrpUsd: 45,
-    oemPriceUsd: 32,
-    description: 'Blue Sea 60A DC circuit breaker - branch protection',
-    productUrl: 'https://www.bluesea.com/products/breakers',
-    source: 'Blue Sea 2024',
-    dataQuality: 'partial',
-    width: 60,
-    height: 30,
-    terminals: breakerTerminals,
-    protectionRatings: {
-      currentRatingA: 60,
-      voltageRatingV: 48,
-      acDcCompatibility: 'dc',
-      protectionType: 'breaker',
-    },
-  },
-
-  // ----------------------------------------------------------
-  // Blue Sea 100A DC Circuit Breaker
-  // ----------------------------------------------------------
-  {
-    id: 'breaker-dc-100a',
-    manufacturer: 'Blue Sea',
-    name: 'Circuit Breaker 100A DC',
-    productType: 'breaker',
-    category: 'Protection',
-    maxCurrentA: 100,
-    msrpUsd: 59,
-    oemPriceUsd: 41,
-    description: 'Blue Sea 100A DC circuit breaker',
-    productUrl: 'https://www.bluesea.com/products/breakers',
-    source: 'Blue Sea 2024',
-    dataQuality: 'partial',
-    width: 60,
-    height: 30,
-    terminals: breakerTerminals,
-    protectionRatings: {
-      currentRatingA: 100,
-      voltageRatingV: 48,
-      acDcCompatibility: 'dc',
-      protectionType: 'breaker',
-    },
-  },
-
-  // ==========================================================
-  // Smart BatteryProtect — low-power load disconnect
-  // ==========================================================
-
-  {
-    id: 'batteryprotect-65',
-    manufacturer: 'Victron Energy',
-    name: 'Smart BatteryProtect 12/24V 65A',
-    productType: 'breaker',
-    category: 'Protection',
-    nominalVoltage: [12, 24],
-    maxCurrentA: 65,
-    msrpUsd: 66,
-    description: 'Victron Smart BatteryProtect 65A — low-voltage load disconnect with Bluetooth. Protects battery from deep discharge.',
-    partNumber: 'BPR065012000',
-    source: 'Victron 2025',
-    dataQuality: 'partial',
-    notes: 'Placeholder pricing/specs.',
-    width: 60,
-    height: 30,
-    terminals: fuseTerminals,
-    protectionRatings: {
-      currentRatingA: 65,
-      voltageRatingV: 34,
-      acDcCompatibility: 'dc',
-      protectionType: 'breaker',
-    },
-  },
-  {
-    id: 'batteryprotect-100',
-    manufacturer: 'Victron Energy',
-    name: 'Smart BatteryProtect 12/24V 100A',
-    productType: 'breaker',
-    category: 'Protection',
-    nominalVoltage: [12, 24],
-    maxCurrentA: 100,
-    msrpUsd: 87,
-    description: 'Victron Smart BatteryProtect 100A — low-voltage load disconnect with Bluetooth.',
-    partNumber: 'BPR100012000',
-    source: 'Victron 2025',
-    dataQuality: 'partial',
-    notes: 'Placeholder pricing/specs.',
-    width: 60,
-    height: 30,
-    terminals: fuseTerminals,
-    protectionRatings: {
-      currentRatingA: 100,
-      voltageRatingV: 34,
-      acDcCompatibility: 'dc',
-      protectionType: 'breaker',
-    },
-  },
-  {
-    id: 'batteryprotect-220',
-    manufacturer: 'Victron Energy',
-    name: 'Smart BatteryProtect 12/24V 220A',
-    productType: 'breaker',
-    category: 'Protection',
-    nominalVoltage: [12, 24],
-    maxCurrentA: 220,
-    msrpUsd: 130,
-    description: 'Victron Smart BatteryProtect 220A — low-voltage load disconnect with Bluetooth.',
-    partNumber: 'BPR220012000',
-    source: 'Victron 2025',
-    dataQuality: 'partial',
-    notes: 'Placeholder pricing/specs.',
-    width: 60,
-    height: 30,
-    terminals: fuseTerminals,
-    protectionRatings: {
-      currentRatingA: 220,
-      voltageRatingV: 34,
-      acDcCompatibility: 'dc',
-      protectionType: 'breaker',
-    },
-  },
+  ...breakers,
 
   // ==========================================================
   // Transfer switches and isolation transformers

@@ -8,6 +8,7 @@ import type {
 } from '../types/system';
 import { getEffectiveTerminal, getEffectiveTerminals, isDynamicSingleConductorProduct } from './effectiveTerminals';
 import { canProvidePower } from './terminalDirection';
+import { buildInternalDistributionEdges, hasDistributionTopology } from './distributionTopology';
 
 export type BusType =
   | 'dc_pos'
@@ -126,11 +127,25 @@ export function isReturnOrGroundBus(busType: BusType): boolean {
 function estimateProductCurrentA(product: Product, component: SystemComponent, system: SystemDesign): number {
   const voltage = component.instanceVoltageV ?? system.nominalVoltage;
   if (component.instanceMaxCurrentA != null) return component.instanceMaxCurrentA;
+  if (product.productType === 'battery') return 0;
   if (product.productType === 'solar_array') {
     return product.maxPvCurrentA ?? product.solarPanelRatings?.iscA ?? product.solarPanelRatings?.impA ?? 0;
   }
+  if (product.productType === 'mppt') {
+    return product.mpptRatings?.maxOutputCurrentA ?? product.maxCurrentA ?? 0;
+  }
+  if (product.productType === 'dc_dc_charger') {
+    return product.dcDcChargerRatings?.outputCurrentA ?? product.maxCurrentA ?? 0;
+  }
   if (product.productType === 'inverter_charger' && product.continuousPowerW) {
-    return product.continuousPowerW / (system.nominalVoltage * system.assumptions.inverterEfficiency);
+    return product.inverterChargerRatings?.maxDcCurrentA ??
+      product.continuousPowerW / (system.nominalVoltage * system.assumptions.inverterEfficiency);
+  }
+  if (product.loadRatings?.currentA != null) {
+    return product.loadRatings.currentA;
+  }
+  if (product.loadRatings?.powerW && voltage > 0) {
+    return product.loadRatings.powerW / voltage;
   }
   if (product.continuousPowerW && voltage > 0) return product.continuousPowerW / voltage;
   if (product.maxCurrentA && !PROTECTION_TYPES.has(product.productType) && !PASS_THROUGH_TYPES.has(product.productType)) {
@@ -140,6 +155,7 @@ function estimateProductCurrentA(product: Product, component: SystemComponent, s
 }
 
 function shouldInternallyJoin(product: Product): boolean {
+  if (hasDistributionTopology(product)) return false;
   return PASS_THROUGH_TYPES.has(product.productType) || isDynamicSingleConductorProduct(product);
 }
 
@@ -198,6 +214,7 @@ export function buildElectricalNetlist(system: SystemDesign, products: Map<strin
   const dsu = new DisjointSet();
   const conflicts: string[] = [];
   const protectionBoundaries = new Map<string, ProtectionBoundary>();
+  const terminalProtectionBoundaries = new Map<string, ProtectionBoundary[]>();
   const solarSeriesConnectionIds = new Set<string>();
 
   for (const component of system.components) {
@@ -222,6 +239,32 @@ export function buildElectricalNetlist(system: SystemDesign, products: Map<strin
 
     const boundary = protectionBoundaryFor(component, product);
     if (boundary) protectionBoundaries.set(component.id, boundary);
+
+    if (hasDistributionTopology(product)) {
+      const edges = buildInternalDistributionEdges(component, product);
+      for (const edge of edges) {
+        const fromKey = terminalKey(component.id, edge.fromTerminalId);
+        const toKey = terminalKey(component.id, edge.toTerminalId);
+        if (!terminals.has(fromKey) || !terminals.has(toKey)) continue;
+
+        if (edge.fuseSlotId) {
+          const slotBoundary: ProtectionBoundary = {
+            componentId: component.id,
+            productId: product.id,
+            label: `${component.label ?? product.name} ${edge.protectionLabel ?? edge.fuseSlotId}`,
+            ratingA: edge.protectionRatingA,
+            protectionType: edge.protectionType ?? 'fuse',
+            terminalKeys: [fromKey, toKey],
+          };
+          terminalProtectionBoundaries.set(toKey, [
+            ...(terminalProtectionBoundaries.get(toKey) ?? []),
+            slotBoundary,
+          ]);
+        } else {
+          dsu.union(fromKey, toKey);
+        }
+      }
+    }
 
     if (shouldInternallyJoin(product) && !PROTECTION_TYPES.has(product.productType)) {
       const powerKeys = effectiveTerminals
@@ -306,6 +349,21 @@ export function buildElectricalNetlist(system: SystemDesign, products: Map<strin
   const netsById = new Map(nets.map((net) => [net.id, net]));
   const connectionContexts = new Map<string, ConnectionElectricalContext>();
 
+  for (const [key, boundaries] of terminalProtectionBoundaries) {
+    const netId = terminalNetIds.get(key);
+    const net = netId ? netsById.get(netId) : undefined;
+    if (!net) continue;
+
+    for (const boundary of boundaries) {
+      net.protectedBy = [...(net.protectedBy ?? []), boundary];
+      net.availableCurrentA = net.availableCurrentA == null
+        ? boundary.ratingA
+        : boundary.ratingA == null
+          ? net.availableCurrentA
+          : Math.min(net.availableCurrentA, boundary.ratingA);
+    }
+  }
+
   for (const connection of system.connections) {
     const fromKey = terminalKey(connection.fromComponentId, connection.fromTerminalId);
     const toKey = terminalKey(connection.toComponentId, connection.toTerminalId);
@@ -329,7 +387,16 @@ export function buildElectricalNetlist(system: SystemDesign, products: Map<strin
     const toRef = terminals.get(toKey);
     const boundaryComponent = [fromRef, toRef].find((ref) => ref && PROTECTION_TYPES.has(ref.product.productType));
     const boundary = boundaryComponent ? protectionBoundaries.get(boundaryComponent.componentId) : undefined;
-    const availableCurrentA = boundary?.ratingA;
+    const slotBoundaries = [
+      ...(terminalProtectionBoundaries.get(fromKey) ?? []),
+      ...(terminalProtectionBoundaries.get(toKey) ?? []),
+    ];
+    const availableCurrentA = [
+      boundary?.ratingA,
+      ...slotBoundaries.map((slotBoundary) => slotBoundary.ratingA),
+      fromNet?.availableCurrentA,
+      toNet?.availableCurrentA,
+    ].filter((value): value is number => value != null && Number.isFinite(value)).sort((a, b) => a - b)[0];
 
     if (boundary) {
       for (const netId of [fromNetId, toNetId]) {
@@ -341,6 +408,19 @@ export function buildElectricalNetlist(system: SystemDesign, products: Map<strin
           : boundary.ratingA == null
             ? net.availableCurrentA
             : Math.min(net.availableCurrentA, boundary.ratingA);
+      }
+    }
+
+    for (const slotBoundary of slotBoundaries) {
+      for (const netId of [fromNetId, toNetId]) {
+        const net = netId ? netsById.get(netId) : undefined;
+        if (!net) continue;
+        net.protectedBy = [...(net.protectedBy ?? []), slotBoundary];
+        net.availableCurrentA = net.availableCurrentA == null
+          ? slotBoundary.ratingA
+          : slotBoundary.ratingA == null
+            ? net.availableCurrentA
+            : Math.min(net.availableCurrentA, slotBoundary.ratingA);
       }
     }
 

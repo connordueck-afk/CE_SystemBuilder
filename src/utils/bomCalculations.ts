@@ -12,6 +12,8 @@ export function buildBom(
   const rowsByKey = new Map<string, BomRow>();
 
   for (const comp of system.components) {
+    if (comp.includeInBom === false) continue;
+
     const product = products.get(comp.productId);
     if (!product) continue;
 

@@ -18,7 +18,7 @@ interface Props {
   onSave: () => void;
   onLoad: () => void;
   onReset: () => void;
-  onExportCsv: () => void;
+  onOpenBom: () => void;
 }
 
 export function HeaderBar({
@@ -34,7 +34,7 @@ export function HeaderBar({
   onSave,
   onLoad,
   onReset,
-  onExportCsv,
+  onOpenBom,
 }: Props) {
   const [busColorsOpen, setBusColorsOpen] = useState(false);
   const errorCount = warnings.filter((w) => w.severity === 'error').length;
@@ -44,7 +44,7 @@ export function HeaderBar({
     <header className="header-bar">
       {/* Logo */}
       <div className="header-logo">
-        <span className="header-logo-text">Nomadeus</span>
+        <span className="header-logo-text">Canadian Energy</span>
         <span className="header-logo-sub">System Builder</span>
       </div>
 
@@ -71,10 +71,10 @@ export function HeaderBar({
       </div>
 
       {/* Price total */}
-      <div className="header-price">
-        <span className="header-field-label">Est MSRP</span>
+      <button className="header-price" onClick={onOpenBom} title="Open BOM summary">
+        <span className="header-field-label">BOM Total</span>
         <span className="header-price-value">{fmt(totalMsrp)}</span>
-      </div>
+      </button>
 
       {/* Warnings badge */}
       {(errorCount > 0 || warnCount > 0) && (
@@ -124,7 +124,6 @@ export function HeaderBar({
         )}
         <button className="btn-header" onClick={onSave} title="Save system">Save</button>
         <button className="btn-header" onClick={onLoad} title="Load saved system">Load</button>
-        <button className="btn-header" onClick={onExportCsv} title="Export BOM as CSV">CSV</button>
         <button className="btn-header btn-danger" onClick={onReset} title="Reset to default sample system">Reset</button>
       </div>
     </header>

@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import type { BomRow, PriceSummary } from '../../types/system';
 import type { ElectricalSummary } from '../../utils/systemSummary';
+import { fmt } from '../../utils/priceCalculations';
 import { BomTable } from '../summary/BomTable';
 import { ElectricalSummaryPanel } from '../summary/ElectricalSummary';
 import { PriceSummaryPanel } from '../summary/PriceSummary';
-import { fmt } from '../../utils/priceCalculations';
 
 type BomTab = 'bom' | 'price' | 'electrical';
 
@@ -12,24 +12,39 @@ interface Props {
   bomRows: BomRow[];
   priceSummary: PriceSummary;
   electricalSummary: ElectricalSummary;
-  isOpen: boolean;
-  onToggle: () => void;
+  onClose: () => void;
   onExportCsv: () => void;
 }
 
-export function BomPanel({ bomRows, priceSummary, electricalSummary, isOpen, onToggle, onExportCsv }: Props) {
+export function BomSummaryModal({
+  bomRows,
+  priceSummary,
+  electricalSummary,
+  onClose,
+  onExportCsv,
+}: Props) {
   const [activeTab, setActiveTab] = useState<BomTab>('bom');
   const [priceTab, setPriceTab] = useState<'overview' | 'section' | 'manufacturer'>('overview');
 
   return (
-    <aside className={`bom-panel${isOpen ? ' bom-panel-open' : ''}`}>
-      <button className="bom-panel-tab" onClick={onToggle} title={isOpen ? 'Collapse panel' : 'Expand BOM'}>
-        <span className="bom-panel-tab-icon">{isOpen ? '>' : '<'}</span>
-        <span className="bom-panel-tab-label">BOM</span>
-      </button>
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal bom-summary-modal" onClick={(event) => event.stopPropagation()}>
+        <div className="bom-summary-header">
+          <div>
+            <div className="modal-title">BOM Summary</div>
+            <div className="bom-summary-totals">
+              <span className="bottom-total-label">MSRP</span>
+              <span className="bottom-total-msrp">{fmt(priceSummary.totalMsrp)}</span>
+              <span className="bottom-total-label">OEM</span>
+              <span className="bottom-total-oem">{fmt(priceSummary.totalOem)}</span>
+              <span className="bottom-total-label">Save</span>
+              <span className="bottom-total-save">{fmt(priceSummary.savings)}</span>
+            </div>
+          </div>
+          <button className="product-selector-close" onClick={onClose} title="Close">x</button>
+        </div>
 
-      <div className="bom-panel-inner">
-        <div className="bom-panel-header">
+        <div className="bom-summary-toolbar">
           <button
             className={`bottom-tab ${activeTab === 'bom' ? 'bottom-tab-active' : ''}`}
             onClick={() => setActiveTab('bom')}
@@ -48,25 +63,14 @@ export function BomPanel({ bomRows, priceSummary, electricalSummary, isOpen, onT
           >
             Electrical
           </button>
-          <div style={{ flex: 1 }} />
+          <div className="bom-summary-toolbar-spacer" />
           <button className="btn-header" onClick={onExportCsv} title="Export BOM as CSV">
-            CSV
+            Export CSV
           </button>
         </div>
 
-        <div className="bom-panel-totals">
-          <span className="bottom-total-label">MSRP</span>
-          <span className="bottom-total-msrp">{fmt(priceSummary.totalMsrp)}</span>
-          <span className="bottom-total-label">OEM</span>
-          <span className="bottom-total-oem">{fmt(priceSummary.totalOem)}</span>
-          <span className="bottom-total-label">Save</span>
-          <span className="bottom-total-save">{fmt(priceSummary.savings)}</span>
-        </div>
-
-        <div className="bom-panel-content">
-          {activeTab === 'bom' && (
-            <BomTable rows={bomRows} />
-          )}
+        <div className="bom-summary-content">
+          {activeTab === 'bom' && <BomTable rows={bomRows} />}
           {activeTab === 'price' && (
             <PriceSummaryPanel
               summary={priceSummary}
@@ -74,11 +78,9 @@ export function BomPanel({ bomRows, priceSummary, electricalSummary, isOpen, onT
               onTabChange={setPriceTab}
             />
           )}
-          {activeTab === 'electrical' && (
-            <ElectricalSummaryPanel summary={electricalSummary} />
-          )}
+          {activeTab === 'electrical' && <ElectricalSummaryPanel summary={electricalSummary} />}
         </div>
       </div>
-    </aside>
+    </div>
   );
 }

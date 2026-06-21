@@ -7,6 +7,7 @@ import { getEffectiveTerminal } from '../../utils/effectiveTerminals';
 import { getEffectiveProductForComponent } from '../../utils/solarCalculations';
 import type { ProtectionRecommendation } from '../../utils/protectionRecommendations';
 import type { BusColorMap } from '../../utils/busColors';
+import type { PathMarker } from '../../utils/connectionGeometry';
 import { isVerticalOrientation, transformOrientationOffset } from '../../utils/componentOrientation';
 
 interface DragState {
@@ -22,6 +23,12 @@ interface PendingConn {
   fromTerminalId: string;
   startX: number;
   startY: number;
+}
+
+interface FusePrompt {
+  connectionId: string;
+  recommendation: ProtectionRecommendation;
+  marker: PathMarker;
 }
 
 interface PanState {
@@ -66,6 +73,8 @@ interface Props {
   onRemoveConnection: (id: string) => void;
   onRemoveAnnotation: (id: string) => void;
   onMoveConnectionRoute: (id: string, routePoints: Array<{ x: number; y: number }>) => void;
+  onInsertProtection: (recommendation: ProtectionRecommendation, marker: PathMarker) => void;
+  onEnterFullView: () => void;
   onAddConnection: (
     fromComp: string,
     fromTerm: string,
@@ -76,16 +85,18 @@ interface Props {
 
 const VIEW_W = 1200;
 const VIEW_H = 760;
-const WORLD_X = -600;
-const WORLD_Y = -420;
-const WORLD_W = 2400;
-const WORLD_H = 1600;
+const WORLD_X = -10000;
+const WORLD_Y = -10000;
+const WORLD_W = 30000;
+const WORLD_H = 30000;
 const GRID = 20;
 const MIN_ZOOM = 0.5;
 const MAX_ZOOM = 2.5;
 const ZOOM_STEP = 0.2;
 const TRACKPAD_ZOOM_SENSITIVITY = 0.004;
 const FIT_PADDING = 80;
+const EDGE_SCROLL_ZONE = 80; // screen px from canvas edge to trigger auto-scroll
+const EDGE_SCROLL_MAX = 10;  // screen px per frame at maximum scroll speed
 
 function snapToGrid(v: number): number {
   return Math.round(v / GRID) * GRID;
@@ -209,6 +220,8 @@ export function SchematicCanvas({
   onRemoveConnection,
   onRemoveAnnotation,
   onMoveConnectionRoute,
+  onInsertProtection,
+  onEnterFullView,
   onAddConnection,
 }: Props) {
   const canvasRef = useRef<HTMLDivElement>(null);
@@ -217,11 +230,19 @@ export function SchematicCanvas({
   const [pendingConn, setPendingConn] = useState<PendingConn | null>(null);
   const [panning, setPanning] = useState<PanState | null>(null);
   const [scrollDragging, setScrollDragging] = useState<ScrollDragState | null>(null);
+  const [fusePrompt, setFusePrompt] = useState<FusePrompt | null>(null);
   const [mousePos, setMousePos] = useState<{ x: number; y: number } | null>(null);
   const [zoom, setZoom] = useState(1);
   const [viewportCenter, setViewportCenter] = useState({ x: VIEW_W / 2, y: VIEW_H / 2 });
   const [canvasSize, setCanvasSize] = useState<CanvasSize>({ width: VIEW_W, height: VIEW_H });
   const didPanRef = useRef(false);
+  const handledFocusRequestIdRef = useRef(0);
+  const mouseClientRef = useRef<{ x: number; y: number } | null>(null);
+  const autoScrollRafRef = useRef<number | null>(null);
+  const zoomRef = useRef(zoom);
+  const canvasSizeRef = useRef(canvasSize);
+  zoomRef.current = zoom;
+  canvasSizeRef.current = canvasSize;
 
   const viewport = viewportFor(viewportCenter, zoom, canvasSize);
 
@@ -253,10 +274,71 @@ export function SchematicCanvas({
 
   useEffect(() => {
     if (!focusedComponentId) return;
+    if (focusRequestId === handledFocusRequestIdRef.current) return;
     const component = system.components.find((c) => c.id === focusedComponentId);
     if (!component) return;
+    handledFocusRequestIdRef.current = focusRequestId;
     setViewportCenter(clampCenter({ x: component.x, y: component.y }, zoom, canvasSize));
   }, [canvasSize, focusRequestId, focusedComponentId, system.components, zoom]);
+
+  useEffect(() => {
+    if (!dragging && !panning && !scrollDragging) return;
+    const previousUserSelect = document.body.style.userSelect;
+    document.body.style.userSelect = 'none';
+    window.getSelection()?.removeAllRanges();
+
+    return () => {
+      document.body.style.userSelect = previousUserSelect;
+      window.getSelection()?.removeAllRanges();
+    };
+  }, [dragging, panning, scrollDragging]);
+
+  useEffect(() => {
+    if (fusePrompt && selectedConnectionId !== fusePrompt.connectionId) {
+      setFusePrompt(null);
+    }
+  }, [fusePrompt, selectedConnectionId]);
+
+  useEffect(() => {
+    if (!dragging) return;
+
+    const tick = () => {
+      autoScrollRafRef.current = requestAnimationFrame(tick);
+      const canvas = canvasRef.current;
+      const mouse = mouseClientRef.current;
+      if (!canvas || !mouse) return;
+
+      const rect = canvas.getBoundingClientRect();
+      const z = zoomRef.current;
+      const cs = canvasSizeRef.current;
+
+      let px = 0;
+      let py = 0;
+      const dl = mouse.x - rect.left;
+      const dr = rect.right - mouse.x;
+      const dt = mouse.y - rect.top;
+      const db = rect.bottom - mouse.y;
+
+      if (dl >= 0 && dl < EDGE_SCROLL_ZONE) px = -EDGE_SCROLL_MAX * (1 - dl / EDGE_SCROLL_ZONE);
+      else if (dr >= 0 && dr < EDGE_SCROLL_ZONE) px = EDGE_SCROLL_MAX * (1 - dr / EDGE_SCROLL_ZONE);
+      if (dt >= 0 && dt < EDGE_SCROLL_ZONE) py = -EDGE_SCROLL_MAX * (1 - dt / EDGE_SCROLL_ZONE);
+      else if (db >= 0 && db < EDGE_SCROLL_ZONE) py = EDGE_SCROLL_MAX * (1 - db / EDGE_SCROLL_ZONE);
+
+      if (px === 0 && py === 0) return;
+
+      setViewportCenter((center) =>
+        clampCenter({ x: center.x + px / z, y: center.y + py / z }, z, cs)
+      );
+    };
+
+    autoScrollRafRef.current = requestAnimationFrame(tick);
+    return () => {
+      if (autoScrollRafRef.current !== null) {
+        cancelAnimationFrame(autoScrollRafRef.current);
+        autoScrollRafRef.current = null;
+      }
+    };
+  }, [dragging]);
 
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
@@ -441,10 +523,12 @@ export function SchematicCanvas({
 
   const handleDragStart = useCallback((componentId: string, e: React.MouseEvent) => {
     if (!svgRef.current || pendingConn) return;
+    e.preventDefault();
     const pos = svgCoords(e, svgRef.current);
     const comp = system.components.find((c) => c.id === componentId);
     if (!comp) return;
     e.stopPropagation();
+    setFusePrompt(null);
     setDragging({
       componentId,
       startMouseX: pos.x,
@@ -456,6 +540,7 @@ export function SchematicCanvas({
 
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
     if (!svgRef.current) return;
+    mouseClientRef.current = { x: e.clientX, y: e.clientY };
     const pos = svgCoords(e, svgRef.current);
     setMousePos(pos);
 
@@ -498,6 +583,7 @@ export function SchematicCanvas({
     if (!svgRef.current || pendingConn || e.button !== 0) return;
     const target = e.target as Element;
     if (target !== e.currentTarget && target.getAttribute('data-canvas-bg') !== 'true') return;
+    e.preventDefault();
     didPanRef.current = false;
     setPanning({
       startClientX: e.clientX,
@@ -512,6 +598,7 @@ export function SchematicCanvas({
   const handleTerminalMouseDown = useCallback((compId: string, termId: string, e: React.MouseEvent) => {
     if (!svgRef.current) return;
     e.stopPropagation();
+    setFusePrompt(null);
     const pos = svgCoords(e, svgRef.current);
 
     if (pendingConn) {
@@ -540,8 +627,10 @@ export function SchematicCanvas({
     }
     if (pendingConn) {
       setPendingConn(null);
+      setFusePrompt(null);
       return;
     }
+    setFusePrompt(null);
     onSelectComponent(null);
     onSelectConnection(null);
     onSelectAnnotation(null);
@@ -578,6 +667,9 @@ export function SchematicCanvas({
         </button>
         <button type="button" className="canvas-zoom-btn canvas-fit-btn" onClick={fitDiagram} title="Fit diagram to screen">
           Fit
+        </button>
+        <button type="button" className="canvas-zoom-btn canvas-full-btn" onClick={onEnterFullView} title="Collapse side panels">
+          Full
         </button>
       </div>
       {pendingConn && (
@@ -622,9 +714,14 @@ export function SchematicCanvas({
           protectionRecommendations={protectionRecommendations}
           busColors={busColors}
           onSelectConnection={(id) => {
+            setFusePrompt(null);
             onSelectConnection(id);
             onSelectComponent(null);
           }}
+          onShowProtectionPrompt={(connectionId, recommendation, marker) => {
+            setFusePrompt({ connectionId, recommendation, marker });
+          }}
+          onClearProtectionPrompt={() => setFusePrompt(null)}
           onMoveConnectionRoute={onMoveConnectionRoute}
           pendingLine={pendingLine}
         />
@@ -641,7 +738,10 @@ export function SchematicCanvas({
               selected={comp.id === selectedComponentId}
               pendingFromTerminal={pendingConn?.fromTerminalId ?? null}
               busColors={busColors}
-              onSelect={onSelectComponent}
+              onSelect={(id) => {
+                setFusePrompt(null);
+                onSelectComponent(id);
+              }}
               onDragStart={handleDragStart}
               onTerminalMouseDown={handleTerminalMouseDown}
             />
@@ -654,6 +754,7 @@ export function SchematicCanvas({
             annotation={annotation}
             selected={annotation.id === selectedAnnotationId}
             onSelect={(id) => {
+              setFusePrompt(null);
               onSelectAnnotation(id);
               onSelectComponent(null);
               onSelectConnection(null);
@@ -662,6 +763,41 @@ export function SchematicCanvas({
             onResize={onResizeAnnotation}
           />
         ))}
+
+        {fusePrompt && (
+          <g
+            transform={`translate(${fusePrompt.marker.point.x + 16} ${fusePrompt.marker.point.y + 14})`}
+            style={{ cursor: 'pointer' }}
+            onClick={(e) => {
+              e.stopPropagation();
+              onInsertProtection(fusePrompt.recommendation, fusePrompt.marker);
+              setFusePrompt(null);
+            }}
+          >
+            <title>Add recommended fuse</title>
+            <rect
+              x={0}
+              y={0}
+              width={70}
+              height={24}
+              rx={6}
+              fill="#1769d2"
+              stroke="#1055ad"
+              strokeWidth={1}
+            />
+            <text
+              x={35}
+              y={16}
+              textAnchor="middle"
+              fill="#ffffff"
+              fontSize={10}
+              fontWeight={900}
+              style={{ pointerEvents: 'none', userSelect: 'none' }}
+            >
+              Add Fuse
+            </text>
+          </g>
+        )}
       </svg>
       <div
         className="canvas-scrollbar canvas-scrollbar-horizontal"

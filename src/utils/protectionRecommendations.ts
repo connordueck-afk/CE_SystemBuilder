@@ -1,6 +1,7 @@
 import type { Product, SystemDesign } from '../types/system';
-import { buildElectricalNetlist, busTypeRequiresFuse, type BusType } from './electricalNetlist';
+import type { BusType } from './electricalNetlist';
 import { buildBatteryInterconnectMap } from './batteryPackAnalysis';
+import { analyzeSystemCircuits } from './circuitAnalysis';
 
 export type ProtectionRecommendationKind = 'missing_overcurrent_protection';
 
@@ -16,18 +17,12 @@ export interface ProtectionRecommendation {
   recommendedCableAwg?: string;
 }
 
-const PROTECTION_TYPES = new Set(['fuse', 'breaker']);
-
 function busLabel(busType: BusType): string {
   return busType.replace('_', ' ').toUpperCase();
 }
 
 function protectionName(busType: BusType): string {
   return busType === 'ac_line' ? 'breaker' : 'fuse/breaker';
-}
-
-function isProtectionProduct(product: Product | undefined): boolean {
-  return Boolean(product && PROTECTION_TYPES.has(product.productType));
 }
 
 function canRecommendInlineProtection(busType: BusType): boolean {
@@ -38,25 +33,18 @@ export function buildProtectionRecommendations(
   system: SystemDesign,
   products: Map<string, Product>
 ): ProtectionRecommendation[] {
-  const netlist = buildElectricalNetlist(system, products);
-  const componentProducts = new Map(
-    system.components.map((component) => [component.id, products.get(component.productId)])
-  );
+  const analysis = analyzeSystemCircuits(system, products);
   const batteryInterconnects = buildBatteryInterconnectMap(system, products);
   const recommendations: ProtectionRecommendation[] = [];
 
   for (const connection of system.connections) {
     if (batteryInterconnects.has(connection.id)) continue;
 
-    const context = netlist.connectionContexts.get(connection.id);
-    if (!context || !busTypeRequiresFuse(context.busType)) continue;
+    const context = analysis.connections.get(connection.id);
+    if (!context || !context.protectionRequired) continue;
     if (!canRecommendInlineProtection(context.busType)) continue;
-    if (context.operatingCurrentA <= 0) continue;
-    if (context.availableCurrentA != null) continue;
-
-    const fromProduct = componentProducts.get(connection.fromComponentId);
-    const toProduct = componentProducts.get(connection.toComponentId);
-    if (isProtectionProduct(fromProduct) || isProtectionProduct(toProduct)) continue;
+    if (context.designCurrentA <= 0) continue;
+    if (context.protectedBy.length > 0) continue;
 
     recommendations.push({
       id: `rec-protection-${connection.id}`,

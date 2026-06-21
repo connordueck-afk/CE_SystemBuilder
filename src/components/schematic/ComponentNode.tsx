@@ -104,6 +104,7 @@ export function ComponentNode({
       style={{ cursor: 'grab' }}
       onMouseDown={(e) => {
         if (e.button !== 0) return;
+        e.preventDefault();
         onDragStart(component.id, e);
       }}
       onClick={(e) => {

@@ -1,4 +1,4 @@
-import type { SystemComponent, Product, NominalVoltage } from '../../types/system';
+import type { FuseSlotState, SystemComponent, Product, NominalVoltage } from '../../types/system';
 import { fmt } from '../../utils/priceCalculations';
 import type { SolarArrayAggregation } from '../../utils/solarCalculations';
 import {
@@ -24,11 +24,16 @@ interface Props {
   product: Product;
   systemVoltage: NominalVoltage;
   solarArray?: SolarArrayAggregation;
+  availableFuseProducts?: Array<{ ratingA: number; productId: string }>;
+  autoSizedProductId?: string | null;
+  onChangeProduct?: (productId: string) => void;
   onUpdateLabel: (id: string, label: string) => void;
   onUpdatePrice: (id: string, price: number | undefined) => void;
+  onUpdateIncludeInBom: (id: string, includeInBom: boolean) => void;
   onUpdateInstanceVoltage: (id: string, voltageV: number | undefined) => void;
   onUpdateInstanceMaxCurrent: (id: string, currentA: number | undefined) => void;
   onUpdateBusPolarity: (id: string, busPolarity: SystemComponent['busPolarity']) => void;
+  onUpdateFuseSlot: (id: string, slotId: string, patch: FuseSlotState) => void;
   onUpdateSolarConfiguration: (id: string, seriesCount: number, parallelCount: number) => void;
   onRemove: (id: string) => void;
 }
@@ -47,11 +52,16 @@ export function ComponentInspector({
   product,
   systemVoltage,
   solarArray,
+  availableFuseProducts,
+  autoSizedProductId,
+  onChangeProduct,
   onUpdateLabel,
   onUpdatePrice,
+  onUpdateIncludeInBom,
   onUpdateInstanceVoltage,
   onUpdateInstanceMaxCurrent,
   onUpdateBusPolarity,
+  onUpdateFuseSlot,
   onUpdateSolarConfiguration,
   onRemove,
 }: Props) {
@@ -66,6 +76,8 @@ export function ComponentInspector({
   const solarUnit = getSolarPanelUnitRatings(product);
   const arrayStats = solarArray?.stats;
   const supplierUrl = product.productUrl ?? product.datasheetUrl;
+  const includeInBom = component.includeInBom !== false;
+  const fuseSlots = product.distributionTopology?.fuseSlots ?? [];
 
   return (
     <div className="inspector-content">
@@ -83,6 +95,38 @@ export function ComponentInspector({
         <div style={{ color: '#182235', fontSize: 12, fontWeight: 900 }}>{product.name}</div>
         <div style={{ color: '#6d7b90', fontSize: 10, fontWeight: 700 }}>{product.manufacturer}</div>
       </div>
+
+      {(product.productType === 'fuse' || product.productType === 'breaker') &&
+        availableFuseProducts && availableFuseProducts.length > 0 && onChangeProduct && (
+        <div className="inspector-section">
+          <div className="inspector-label">Rating</div>
+          <div style={{ display: 'flex', gap: 6 }}>
+            <select
+              className="inspector-input"
+              style={{ flex: 1 }}
+              value={product.maxCurrentA ?? ''}
+              onChange={(e) => {
+                const ratingA = Number(e.target.value);
+                const match = availableFuseProducts.find((p) => p.ratingA === ratingA);
+                if (match) onChangeProduct(match.productId);
+              }}
+            >
+              {availableFuseProducts.map(({ ratingA, productId }) => (
+                <option key={productId} value={ratingA}>{ratingA} A</option>
+              ))}
+            </select>
+            {autoSizedProductId && (
+              <button
+                className="btn-secondary-inline"
+                onClick={() => onChangeProduct(autoSizedProductId!)}
+                title="Apply recommended rating based on circuit current"
+              >
+                Auto Size
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       {product.productType === 'solar_array' && solarPanelCount > 1 && (
         <div className="inspector-section">
@@ -118,7 +162,9 @@ export function ComponentInspector({
         )}
         {capacityKwh && <SpecRow label="Total Capacity" value={`${capacityKwh} kWh`} />}
         {product.continuousPowerW && <SpecRow label="Continuous Power" value={`${product.continuousPowerW} W`} />}
-        {product.maxCurrentA && !sourceLoadKind && <SpecRow label="Max Current" value={`${product.maxCurrentA} A`} />}
+        {product.maxCurrentA && !sourceLoadKind && product.productType !== 'fuse' && product.productType !== 'breaker' && (
+          <SpecRow label="Max Current" value={`${product.maxCurrentA} A`} />
+        )}
         {product.maxPvVoltageV && <SpecRow label="Max PV Voltage" value={`${product.maxPvVoltageV} V`} />}
         {sourceLoadKind && (
           <>
@@ -203,8 +249,59 @@ export function ComponentInspector({
         </div>
       )}
 
+      {fuseSlots.length > 0 && (
+        <div className="inspector-section">
+          <div className="inspector-label">Fuse Slots</div>
+          <div className="fuse-slot-list">
+            {fuseSlots.map((slot) => {
+              const state = component.fuseSlots?.[slot.id] ?? {};
+              const installed = state.installed ?? slot.defaultInstalled ?? true;
+              const ratingA = state.ratingA ?? slot.defaultFuseA ?? '';
+
+              return (
+                <div key={slot.id} className={`fuse-slot-row${installed ? '' : ' fuse-slot-row-empty'}`}>
+                  <label className="fuse-slot-enabled">
+                    <input
+                      type="checkbox"
+                      checked={installed}
+                      onChange={(e) => onUpdateFuseSlot(component.id, slot.id, { installed: e.target.checked })}
+                    />
+                    <span>{slot.label}</span>
+                  </label>
+                  <input
+                    type="number"
+                    className="inspector-input fuse-slot-rating"
+                    min={0}
+                    max={slot.maxFuseA}
+                    value={ratingA}
+                    placeholder={installed ? 'A' : 'Empty'}
+                    disabled={!installed}
+                    onChange={(e) => {
+                      const v = parseFloat(e.target.value);
+                      onUpdateFuseSlot(component.id, slot.id, {
+                        installed: true,
+                        ratingA: isNaN(v) ? undefined : v,
+                      });
+                    }}
+                  />
+                  <span className="fuse-slot-style">{slot.fuseStyle ?? slot.protectionType ?? 'Fuse'}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       <div className="inspector-section">
         <div className="inspector-label">Pricing</div>
+        <label className="inspector-checkbox-row">
+          <input
+            type="checkbox"
+            checked={includeInBom}
+            onChange={(e) => onUpdateIncludeInBom(component.id, e.target.checked)}
+          />
+          <span>Include In BOM</span>
+        </label>
         <SpecRow label="MSRP" value={fmt(product.msrpUsd ?? null)} />
         <SpecRow label="OEM Est." value={fmt(product.oemPriceUsd ?? null)} />
         <div style={{ marginTop: 6 }}>

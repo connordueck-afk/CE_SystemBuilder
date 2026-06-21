@@ -4,18 +4,15 @@ import { getEffectiveTerminal } from '../../utils/effectiveTerminals';
 import type { ProtectionRecommendation } from '../../utils/protectionRecommendations';
 import { busTypeFromTerminal } from '../../utils/electricalNetlist';
 import type { BusColorMap } from '../../utils/busColors';
-import { transformOrientationOffset, transformOrientationSide } from '../../utils/componentOrientation';
-
-type TerminalSide = 'left' | 'right' | 'top' | 'bottom';
-
-interface Point {
-  x: number;
-  y: number;
-}
-
-interface TerminalPos extends Point {
-  side: TerminalSide;
-}
+import {
+  connectionPoints,
+  getConnectionTerminalPos,
+  orthogonalizePoints,
+  pathMidpointWithAngle,
+  simplifyPoints,
+  type PathMarker,
+  type Point,
+} from '../../utils/connectionGeometry';
 
 interface SegmentDrag {
   connectionId: string;
@@ -33,71 +30,6 @@ function snapRouteValue(value: number): number {
   return Math.round(value / ROUTE_GRID) * ROUTE_GRID;
 }
 
-function rotateOffset(comp: SystemComponent, offsetX: number, offsetY: number): Point {
-  return transformOrientationOffset(comp.rotationDeg, offsetX, offsetY);
-}
-
-function rotateSide(comp: SystemComponent, side: TerminalSide): TerminalSide {
-  return transformOrientationSide(comp.rotationDeg, side);
-}
-
-function getTerminalPos(
-  comp: SystemComponent,
-  terminalId: string,
-  product: Product
-): TerminalPos | null {
-  const t = getEffectiveTerminal(product, terminalId, comp);
-  if (!t) return null;
-  const offset = rotateOffset(comp, t.offsetX, t.offsetY);
-  return {
-    x: comp.x + offset.x,
-    y: comp.y + offset.y,
-    side: rotateSide(comp, t.side),
-  };
-}
-
-function offsetFromSide(pos: TerminalPos, dist = 36): Point {
-  switch (pos.side) {
-    case 'left':   return { x: pos.x - dist, y: pos.y };
-    case 'right':  return { x: pos.x + dist, y: pos.y };
-    case 'top':    return { x: pos.x, y: pos.y - dist };
-    case 'bottom': return { x: pos.x, y: pos.y + dist };
-    default:       return { x: pos.x, y: pos.y };
-  }
-}
-
-function defaultOrthogonalPoints(from: TerminalPos, to: TerminalPos): Point[] {
-  const fromStub = offsetFromSide(from);
-  const toStub = offsetFromSide(to);
-  const points: Point[] = [
-    { x: from.x, y: from.y },
-    fromStub,
-  ];
-
-  if (fromStub.x === toStub.x || fromStub.y === toStub.y) {
-    points.push(toStub);
-  } else if (
-    (from.side === 'left' || from.side === 'right') &&
-    (to.side === 'top' || to.side === 'bottom')
-  ) {
-    points.push({ x: toStub.x, y: fromStub.y }, toStub);
-  } else if (
-    (from.side === 'top' || from.side === 'bottom') &&
-    (to.side === 'left' || to.side === 'right')
-  ) {
-    points.push({ x: fromStub.x, y: toStub.y }, toStub);
-  } else if (from.side === 'left' || from.side === 'right') {
-    const midX = (fromStub.x + toStub.x) / 2;
-    points.push({ x: midX, y: fromStub.y }, { x: midX, y: toStub.y }, toStub);
-  } else {
-    const midY = (fromStub.y + toStub.y) / 2;
-    points.push({ x: fromStub.x, y: midY }, { x: toStub.x, y: midY }, toStub);
-  }
-
-  points.push({ x: to.x, y: to.y });
-  return simplifyPoints(points);
-}
-
 function pendingOrthogonalPath(line: Props['pendingLine']): string {
   if (!line) return '';
   const midX = (line.x1 + line.x2) / 2;
@@ -106,49 +38,6 @@ function pendingOrthogonalPath(line: Props['pendingLine']): string {
     { x: midX, y: line.y1 },
     { x: midX, y: line.y2 },
     { x: line.x2, y: line.y2 },
-  ]);
-}
-
-function simplifyPoints(points: Point[]): Point[] {
-  return points.filter((point, index) => {
-    const prev = points[index - 1];
-    const next = points[index + 1];
-    if (!prev || !next) return true;
-    return !(
-      (prev.x === point.x && point.x === next.x) ||
-      (prev.y === point.y && point.y === next.y)
-    );
-  });
-}
-
-function orthogonalizePoints(points: Point[]): Point[] {
-  const orthogonal: Point[] = [];
-
-  points.forEach((point) => {
-    const prev = orthogonal[orthogonal.length - 1];
-    if (!prev) {
-      orthogonal.push(point);
-      return;
-    }
-
-    if (prev.x !== point.x && prev.y !== point.y) {
-      orthogonal.push({ x: point.x, y: prev.y });
-    }
-    orthogonal.push(point);
-  });
-
-  return simplifyPoints(orthogonal);
-}
-
-function connectionPoints(conn: SystemConnection, from: TerminalPos, to: TerminalPos): Point[] {
-  if (!conn.routePoints || conn.routePoints.length === 0) {
-    return defaultOrthogonalPoints(from, to);
-  }
-
-  return orthogonalizePoints([
-    { x: from.x, y: from.y },
-    ...conn.routePoints,
-    { x: to.x, y: to.y },
   ]);
 }
 
@@ -243,34 +132,6 @@ function prepareSegmentDrag(points: Point[], segmentIndex: number, orientation: 
   return { segmentIndex, startPoints: points };
 }
 
-function pathMidpoint(points: Point[]): Point {
-  if (points.length === 0) return { x: 0, y: 0 };
-  if (points.length === 1) return points[0];
-
-  const segmentLengths = points.slice(0, -1).map((point, index) => {
-    const next = points[index + 1];
-    return Math.abs(next.x - point.x) + Math.abs(next.y - point.y);
-  });
-  const totalLength = segmentLengths.reduce((sum, length) => sum + length, 0);
-  let remaining = totalLength / 2;
-
-  for (let index = 0; index < segmentLengths.length; index += 1) {
-    const length = segmentLengths[index];
-    const point = points[index];
-    const next = points[index + 1];
-    if (remaining <= length) {
-      const ratio = length === 0 ? 0 : remaining / length;
-      return {
-        x: point.x + (next.x - point.x) * ratio,
-        y: point.y + (next.y - point.y) * ratio,
-      };
-    }
-    remaining -= length;
-  }
-
-  return points[points.length - 1];
-}
-
 function svgCoords(e: React.PointerEvent<SVGPathElement>): Point {
   const svg = e.currentTarget.ownerSVGElement;
   if (!svg) return { x: 0, y: 0 };
@@ -325,6 +186,8 @@ interface Props {
   protectionRecommendations: ProtectionRecommendation[];
   busColors: BusColorMap;
   onSelectConnection: (id: string) => void;
+  onShowProtectionPrompt: (connectionId: string, recommendation: ProtectionRecommendation, marker: PathMarker) => void;
+  onClearProtectionPrompt: () => void;
   onMoveConnectionRoute: (id: string, routePoints: Point[]) => void;
   pendingLine: { x1: number; y1: number; x2: number; y2: number } | null;
 }
@@ -337,6 +200,8 @@ export function ConnectionLayer({
   protectionRecommendations,
   busColors,
   onSelectConnection,
+  onShowProtectionPrompt,
+  onClearProtectionPrompt,
   onMoveConnectionRoute,
   pendingLine,
 }: Props) {
@@ -390,8 +255,8 @@ export function ConnectionLayer({
         const toProd = products.get(toComp.productId);
         if (!fromProd || !toProd) return null;
 
-        const from = getTerminalPos(fromComp, conn.fromTerminalId, fromProd);
-        const to = getTerminalPos(toComp, conn.toTerminalId, toProd);
+        const from = getConnectionTerminalPos(fromComp, conn.fromTerminalId, fromProd);
+        const to = getConnectionTerminalPos(toComp, conn.toTerminalId, toProd);
         if (!from || !to) return null;
 
         const isSelected = conn.id === selectedConnectionId;
@@ -399,7 +264,8 @@ export function ConnectionLayer({
         const points = connectionPoints(conn, from, to);
         const path = pointsToPath(points);
         const roundedPath = pointsToRoundedPath(points);
-        const marker = pathMidpoint(points);
+        const marker = pathMidpointWithAngle(points);
+        const markerPoint = marker.point;
         const strokeWidth = connectionStrokeWidth(conn);
         const protectionRecommendation = recommendationByConnection.get(conn.id);
         const hasProtectionRecommendation = Boolean(protectionRecommendation);
@@ -415,6 +281,7 @@ export function ConnectionLayer({
               style={{ cursor: 'pointer' }}
               onClick={(e) => {
                 e.stopPropagation();
+                onClearProtectionPrompt();
                 onSelectConnection(conn.id);
               }}
             />
@@ -435,6 +302,7 @@ export function ConnectionLayer({
                     e.preventDefault();
                     e.stopPropagation();
                     e.currentTarget.setPointerCapture(e.pointerId);
+                    onClearProtectionPrompt();
                     onSelectConnection(conn.id);
                     const dragRoute = prepareSegmentDrag(points, index, orientation);
                     setSegmentDrag({
@@ -468,8 +336,8 @@ export function ConnectionLayer({
             {/* AWG label near midpoint */}
             {conn.recommendedCableAwg && (
               <text
-                x={marker.x}
-                y={marker.y - (hasProtectionRecommendation ? 18 : 8)}
+                x={markerPoint.x}
+                y={markerPoint.y - (hasProtectionRecommendation ? 18 : 8)}
                 textAnchor="middle"
                 fill={isSelected ? '#1769d2' : hasProtectionRecommendation ? '#c2410c' : '#6d7b90'}
                 fontSize={8}
@@ -481,11 +349,12 @@ export function ConnectionLayer({
             )}
             {protectionRecommendation && (
               <g
-                transform={`translate(${marker.x} ${marker.y})`}
+                transform={`translate(${markerPoint.x} ${markerPoint.y})`}
                 style={{ cursor: 'pointer' }}
                 onClick={(e) => {
                   e.stopPropagation();
                   onSelectConnection(conn.id);
+                  onShowProtectionPrompt(conn.id, protectionRecommendation, marker);
                 }}
               >
                 <title>{protectionRecommendation.message}</title>

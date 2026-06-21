@@ -1,38 +1,51 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
-import type { SystemDesign, NominalVoltage, Product, SystemComponent, SystemConnection, SolarWiringMode, SystemTextAnnotation } from './types/system';
+import type { FuseSlotState, SystemDesign, NominalVoltage, Product, SystemComponent, SystemConnection, SolarWiringMode, SystemTextAnnotation } from './types/system';
 import { ALL_PRODUCTS, getProduct } from './data/products';
 import { DEFAULT_SYSTEM } from './data/defaultSystem';
 import { DEFAULT_ASSUMPTIONS } from './data/electricalRules';
 import { buildBom } from './utils/bomCalculations';
 import { buildPriceSummary } from './utils/priceCalculations';
 import { buildElectricalSummary } from './utils/systemSummary';
-import { generateWarnings, enrichConnection } from './utils/electricalCalculations';
+import { generateWarnings } from './utils/electricalCalculations';
 import { validateSystemConnection } from './utils/connectionRules';
 import { exportBomCsv } from './utils/csvExport';
 import { saveCurrentSystem, loadCurrentSystem, loadSavedSystems } from './utils/storage';
 import { genId } from './utils/ids';
-import { getEffectiveProductForComponent, getSolarPanelCount } from './utils/solarCalculations';
+import { getSolarPanelCount } from './utils/solarCalculations';
 import { getEffectiveTerminal, isDynamicSingleConductorProduct } from './utils/effectiveTerminals';
-import { buildElectricalNetlist } from './utils/electricalNetlist';
 import type { BusType } from './utils/electricalNetlist';
 import { buildProtectionRecommendations } from './utils/protectionRecommendations';
+import type { ProtectionRecommendation } from './utils/protectionRecommendations';
+import { analyzeSystemCircuits } from './utils/circuitAnalysis';
 import { DEFAULT_BUS_COLORS, type BusColorMap } from './utils/busColors';
 import { isVerticalOrientation } from './utils/componentOrientation';
 import { HeaderBar } from './components/layout/HeaderBar';
 import { LeftPartSidebar } from './components/layout/LeftPartSidebar';
 import { RightInspector } from './components/layout/RightInspector';
-import { BomPanel } from './components/layout/BomPanel';
+import { BomSummaryModal } from './components/layout/BomSummaryModal';
 import { SchematicCanvas } from './components/schematic/SchematicCanvas';
+import { InlineFuseInsertModal } from './components/parts/InlineFuseInsertModal';
+import {
+  connectionPoints,
+  getConnectionTerminalPos,
+  splitPointsAtMarker,
+  type PathMarker,
+} from './utils/connectionGeometry';
 import './styles/app.css';
 
 const PRODUCT_MAP = new Map(ALL_PRODUCTS.map((p) => [p.id, p]));
-const CANVAS_WORLD_X = -600;
-const CANVAS_WORLD_Y = -420;
-const CANVAS_WORLD_W = 2400;
-const CANVAS_WORLD_H = 1600;
+const CANVAS_WORLD_X = -10000;
+const CANVAS_WORLD_Y = -10000;
+const CANVAS_WORLD_W = 30000;
+const CANVAS_WORLD_H = 30000;
 const PLACEMENT_GRID = 20;
 const PASTE_OFFSET = 40;
 const HISTORY_LIMIT = 50;
+
+interface PendingProtectionInsert {
+  recommendation: ProtectionRecommendation;
+  marker: PathMarker;
+}
 
 function productFootprint(product: Product, rotationDeg = 0): { halfWidth: number; halfHeight: number } {
   const rotated = isVerticalOrientation(rotationDeg);
@@ -60,6 +73,17 @@ function clampComponentPosition(
 
 function snapPlacement(value: number): number {
   return Math.round(value / PLACEMENT_GRID) * PLACEMENT_GRID;
+}
+
+function normalizeCardinalRotation(value: number): 0 | 90 | 180 | 270 {
+  const normalized = ((value % 360) + 360) % 360;
+  if (normalized === 90 || normalized === 180 || normalized === 270) return normalized;
+  return 0;
+}
+
+function routePointsFromSplit(points: Array<{ x: number; y: number }>): Array<{ x: number; y: number }> | undefined {
+  const routePoints = points.slice(1, -1);
+  return routePoints.length > 0 ? routePoints : undefined;
 }
 
 function voltageCompatible(productId: string, systemVoltage: NominalVoltage): boolean {
@@ -160,52 +184,25 @@ function withInferredConductors(system: SystemDesign): SystemDesign {
 }
 
 function enrichConnections(system: SystemDesign): SystemDesign {
-  const getCompProduct = (compId: string) => {
-    const comp = system.components.find((c) => c.id === compId);
-    return comp ? getEffectiveProductForComponent(comp, PRODUCT_MAP.get(comp.productId)) : undefined;
+  const analysis = analyzeSystemCircuits(system, PRODUCT_MAP);
+
+  return {
+    ...system,
+    connections: system.connections.map((conn) => {
+      const connectionAnalysis = analysis.connections.get(conn.id);
+      if (!connectionAnalysis) return conn;
+
+      return {
+        ...conn,
+        calculatedCurrentA: connectionAnalysis.designCurrentA,
+        recommendedFuseA: connectionAnalysis.recommendedFuseA,
+        recommendedCableAwg: connectionAnalysis.recommendedCableAwg,
+        voltageDropV: connectionAnalysis.voltageDropV,
+        voltageDropPercent: connectionAnalysis.voltageDropPercent,
+        warnings: connectionAnalysis.warnings,
+      };
+    }),
   };
-  const getComp = (compId: string) => system.components.find((c) => c.id === compId);
-  const getTerminal = (compId: string, terminalId: string) => {
-    const comp = getComp(compId);
-    const product = comp ? getCompProduct(compId) : undefined;
-    return comp && product ? getEffectiveTerminal(product, terminalId, comp) : undefined;
-  };
-
-  // First pass: enrich based on adjacent product specs
-  let enriched = system.connections.map((conn) =>
-    enrichConnection(
-      conn,
-      getCompProduct(conn.fromComponentId),
-      getCompProduct(conn.toComponentId),
-      system.nominalVoltage,
-      system.assumptions.inverterEfficiency,
-      getTerminal(conn.fromComponentId, conn.fromTerminalId),
-      getTerminal(conn.toComponentId, conn.toTerminalId)
-    )
-  );
-
-  const netlist = buildElectricalNetlist({ ...system, connections: enriched }, PRODUCT_MAP);
-
-  // Second pass: use the derived netlist to fill unknown pass-through currents.
-  // Known branch currents are left alone so bus totals do not overwrite individual load branches.
-  enriched = enriched.map((conn) => {
-    if ((conn.calculatedCurrentA ?? 0) > 0) return conn;
-    const context = netlist.connectionContexts.get(conn.id);
-    if (!context || context.operatingCurrentA <= 0) return conn;
-
-    return enrichConnection(
-      { ...conn, calculatedCurrentA: context.operatingCurrentA },
-      getCompProduct(conn.fromComponentId),
-      getCompProduct(conn.toComponentId),
-      system.nominalVoltage,
-      system.assumptions.inverterEfficiency,
-      getTerminal(conn.fromComponentId, conn.fromTerminalId),
-      getTerminal(conn.toComponentId, conn.toTerminalId),
-      context.busType
-    );
-  });
-
-  return { ...system, connections: enriched };
 }
 
 export function App() {
@@ -224,9 +221,11 @@ export function App() {
   const [focusRequestId, setFocusRequestId] = useState(0);
   const [canvasViewportCenter, setCanvasViewportCenter] = useState({ x: 600, y: 380 });
   const [busColors, setBusColors] = useState<BusColorMap>(DEFAULT_BUS_COLORS);
-  const [bomOpen, setBomOpen] = useState(true);
+  const [bomModalOpen, setBomModalOpen] = useState(false);
   const [leftDetailOpen, setLeftDetailOpen] = useState(false);
   const [leftCollapsed, setLeftCollapsed] = useState(false);
+  const [rightCollapsed, setRightCollapsed] = useState(false);
+  const [pendingProtectionInsert, setPendingProtectionInsert] = useState<PendingProtectionInsert | null>(null);
   const [showLoadModal, setShowLoadModal] = useState(false);
   const [savedSystems, setSavedSystems] = useState(() => loadSavedSystems());
 
@@ -313,6 +312,7 @@ export function App() {
       quantity: 1,
       x: bounded.x,
       y: bounded.y,
+      includeInBom: true,
       ...(options?.voltageV != null && { instanceVoltageV: options.voltageV }),
       ...(options?.maxCurrentA != null && { instanceMaxCurrentA: options.maxCurrentA }),
     };
@@ -383,6 +383,15 @@ export function App() {
     }));
   }, [updateSystem]);
 
+  const handleUpdateIncludeInBom = useCallback((id: string, includeInBom: boolean) => {
+    updateSystem((s) => ({
+      ...s,
+      components: s.components.map((c) =>
+        c.id === id ? { ...c, includeInBom } : c
+      ),
+    }));
+  }, [updateSystem]);
+
   const handleUpdateInstanceVoltage = useCallback((id: string, voltageV: number | undefined) => {
     updateSystem((s) => ({
       ...s,
@@ -405,6 +414,26 @@ export function App() {
     updateSystem((s) => ({
       ...s,
       components: s.components.map((c) => (c.id === id ? { ...c, busPolarity } : c)),
+    }));
+  }, [updateSystem]);
+
+  const handleUpdateFuseSlot = useCallback((id: string, slotId: string, patch: FuseSlotState) => {
+    updateSystem((s) => ({
+      ...s,
+      components: s.components.map((c) => {
+        if (c.id !== id) return c;
+        const current = c.fuseSlots?.[slotId] ?? {};
+        return {
+          ...c,
+          fuseSlots: {
+            ...(c.fuseSlots ?? {}),
+            [slotId]: {
+              ...current,
+              ...patch,
+            },
+          },
+        };
+      }),
     }));
   }, [updateSystem]);
 
@@ -451,6 +480,15 @@ export function App() {
     }), { recordHistory: true });
     setSelectedComponentId(null);
     setSelectedAnnotationId(null);
+  }, [updateSystem]);
+
+  const handleChangeComponentProduct = useCallback((id: string, productId: string) => {
+    updateSystem((s) => ({
+      ...s,
+      components: s.components.map((c) =>
+        c.id === id ? { ...c, productId } : c
+      ),
+    }), { recordHistory: true });
   }, [updateSystem]);
 
   const handleAddConnection = useCallback(
@@ -519,6 +557,15 @@ export function App() {
     }));
   }, [updateSystem]);
 
+  const handleUpdateConnectionDesignCurrent = useCallback((id: string, currentA: number | undefined) => {
+    updateSystem((s) => ({
+      ...s,
+      connections: s.connections.map((c) =>
+        c.id === id ? { ...c, designCurrentOverrideA: currentA } : c
+      ),
+    }));
+  }, [updateSystem]);
+
   const handleUpdateConnectionCableAwg = useCallback((id: string, awg: string) => {
     updateSystem((s) => ({
       ...s,
@@ -536,6 +583,128 @@ export function App() {
       ),
     }));
   }, [updateSystem]);
+
+  const handleInsertProtection = useCallback((recommendation: ProtectionRecommendation, marker: PathMarker) => {
+    if (recommendation.busType !== 'dc_pos') {
+      alert('Inline fuse insertion is currently available for DC positive conductors.');
+      return;
+    }
+    setPendingProtectionInsert({ recommendation, marker });
+  }, []);
+
+  const handleConfirmInlineFuse = useCallback((productId: string) => {
+    const pending = pendingProtectionInsert;
+    const product = getProduct(productId);
+    if (!pending || !product || product.productType !== 'fuse') return;
+
+    const original = system.connections.find((connection) => connection.id === pending.recommendation.connectionId);
+    if (!original) {
+      setPendingProtectionInsert(null);
+      return;
+    }
+
+    const insertedComponentId = genId('comp');
+    const firstLength = Math.max(0.1, original.cableLengthFt / 2);
+    const secondLength = Math.max(0.1, original.cableLengthFt - firstLength);
+    const commonConnectionFields = {
+      designCurrentOverrideA: original.designCurrentOverrideA,
+      manualCableAwg: original.manualCableAwg,
+      autoGenerated: original.autoGenerated,
+    };
+
+    const originalFromComp = system.components.find((component) => component.id === original.fromComponentId);
+    const originalToComp = system.components.find((component) => component.id === original.toComponentId);
+    const originalFromProduct = originalFromComp ? PRODUCT_MAP.get(originalFromComp.productId) : undefined;
+    const originalToProduct = originalToComp ? PRODUCT_MAP.get(originalToComp.productId) : undefined;
+    const originalFromPos = originalFromComp && originalFromProduct
+      ? getConnectionTerminalPos(originalFromComp, original.fromTerminalId, originalFromProduct)
+      : null;
+    const originalToPos = originalToComp && originalToProduct
+      ? getConnectionTerminalPos(originalToComp, original.toTerminalId, originalToProduct)
+      : null;
+    const split = originalFromPos && originalToPos
+      ? splitPointsAtMarker(connectionPoints(original, originalFromPos, originalToPos), pending.marker)
+      : null;
+
+    const buildCandidate = (mapping: 'forward' | 'reverse') => {
+      const rotationDeg = normalizeCardinalRotation(
+        pending.marker.angleDeg + (mapping === 'reverse' ? 180 : 0)
+      );
+      const bounded = clampComponentPosition(
+        pending.marker.point.x,
+        pending.marker.point.y,
+        product,
+        rotationDeg
+      );
+      const protectionComponent: SystemComponent = {
+        id: insertedComponentId,
+        productId: product.id,
+        label: product.name,
+        quantity: 1,
+        x: bounded.x,
+        y: bounded.y,
+        rotationDeg,
+        includeInBom: true,
+      };
+      const routeBefore = original.routePoints && split ? routePointsFromSplit(split.before) : undefined;
+      const routeAfter = original.routePoints && split ? routePointsFromSplit(split.after) : undefined;
+      const before: SystemConnection = {
+        ...commonConnectionFields,
+        id: genId('conn'),
+        fromComponentId: original.fromComponentId,
+        fromTerminalId: original.fromTerminalId,
+        toComponentId: protectionComponent.id,
+        toTerminalId: mapping === 'forward' ? 'in' : 'out',
+        cableLengthFt: firstLength,
+        routePoints: routeBefore,
+      };
+      const after: SystemConnection = {
+        ...commonConnectionFields,
+        id: genId('conn'),
+        fromComponentId: protectionComponent.id,
+        fromTerminalId: mapping === 'forward' ? 'out' : 'in',
+        toComponentId: original.toComponentId,
+        toTerminalId: original.toTerminalId,
+        cableLengthFt: secondLength,
+        routePoints: routeAfter,
+      };
+
+      return { protectionComponent, before, after };
+    };
+
+    const forward = buildCandidate('forward');
+    const forwardComponents = [...system.components, forward.protectionComponent];
+    const forwardValid =
+      validateSystemConnection(forward.before, forwardComponents, PRODUCT_MAP).valid &&
+      validateSystemConnection(forward.after, forwardComponents, PRODUCT_MAP).valid;
+    const selected = forwardValid ? forward : buildCandidate('reverse');
+    const selectedComponents = [...system.components, selected.protectionComponent];
+    const selectedValid =
+      validateSystemConnection(selected.before, selectedComponents, PRODUCT_MAP).valid &&
+      validateSystemConnection(selected.after, selectedComponents, PRODUCT_MAP).valid;
+
+    if (!selectedValid) {
+      alert('That fuse cannot be inserted into this connection with the current terminal rules.');
+      return;
+    }
+
+    updateSystem((s) => ({
+      ...s,
+      components: [...s.components, selected.protectionComponent],
+      connections: [
+        ...s.connections.filter((connection) => connection.id !== original.id),
+        selected.before,
+        selected.after,
+      ],
+    }), { recordHistory: true });
+
+    setPendingProtectionInsert(null);
+    setSelectedComponentId(selected.protectionComponent.id);
+    setSelectedConnectionId(null);
+    setSelectedAnnotationId(null);
+    setFocusedComponentId(selected.protectionComponent.id);
+    setFocusRequestId((current) => current + 1);
+  }, [pendingProtectionInsert, system, updateSystem]);
 
   const handleMoveConnectionRoute = useCallback((id: string, routePoints: Array<{ x: number; y: number }>) => {
     updateSystem((s) => ({
@@ -750,10 +919,17 @@ export function App() {
     setFocusRequestId((current) => current + 1);
   }, []);
 
+  const handleEnterFullView = useCallback(() => {
+    setLeftCollapsed(true);
+    setRightCollapsed(true);
+  }, []);
+
   return (
     <div
       className="app-grid"
-      style={{ gridTemplateColumns: `${leftCollapsed ? '58px' : leftDetailOpen ? '460px' : '300px'} minmax(0, 1fr) 280px ${bomOpen ? '320px' : '28px'}` }}
+      style={{
+        gridTemplateColumns: `${leftCollapsed ? '58px' : leftDetailOpen ? '460px' : '300px'} minmax(0, 1fr) ${rightCollapsed ? '58px' : '280px'}`,
+      }}
     >
       <HeaderBar
         systemName={system.name}
@@ -768,7 +944,7 @@ export function App() {
         onSave={handleSave}
         onLoad={handleLoad}
         onReset={handleReset}
-        onExportCsv={handleExportCsv}
+        onOpenBom={() => setBomModalOpen(true)}
       />
 
       <LeftPartSidebar
@@ -809,6 +985,8 @@ export function App() {
           onRemoveConnection={handleRemoveConnection}
           onRemoveAnnotation={handleRemoveAnnotation}
           onMoveConnectionRoute={handleMoveConnectionRoute}
+          onInsertProtection={handleInsertProtection}
+          onEnterFullView={handleEnterFullView}
           onAddConnection={handleAddConnection}
         />
       </main>
@@ -824,14 +1002,20 @@ export function App() {
         systemVoltage={system.nominalVoltage}
         warnings={warnings}
         protectionRecommendations={protectionRecommendations}
+        collapsed={rightCollapsed}
+        onToggleCollapsed={() => setRightCollapsed((collapsed) => !collapsed)}
         onUpdateLabel={handleUpdateLabel}
         onUpdatePrice={handleUpdatePrice}
+        onUpdateIncludeInBom={handleUpdateIncludeInBom}
         onUpdateInstanceVoltage={handleUpdateInstanceVoltage}
         onUpdateInstanceMaxCurrent={handleUpdateInstanceMaxCurrent}
         onUpdateBusPolarity={handleUpdateBusPolarity}
+        onUpdateFuseSlot={handleUpdateFuseSlot}
+        onChangeComponentProduct={handleChangeComponentProduct}
         onUpdateSolarWiringMode={handleUpdateSolarWiringMode}
         onUpdateSolarConfiguration={handleUpdateSolarConfiguration}
         onUpdateConnectionLength={handleUpdateConnectionLength}
+        onUpdateConnectionDesignCurrent={handleUpdateConnectionDesignCurrent}
         onUpdateConnectionCableAwg={handleUpdateConnectionCableAwg}
         onAutoConnectionCableAwg={handleAutoConnectionCableAwg}
         onResetConnectionRoute={handleResetConnectionRoute}
@@ -843,14 +1027,25 @@ export function App() {
         onSelectConnection={handleSelectConnection}
       />
 
-      <BomPanel
-        bomRows={bomRows}
-        priceSummary={priceSummary}
-        electricalSummary={electricalSummary}
-        isOpen={bomOpen}
-        onToggle={() => setBomOpen((v) => !v)}
-        onExportCsv={handleExportCsv}
-      />
+      {bomModalOpen && (
+        <BomSummaryModal
+          bomRows={bomRows}
+          priceSummary={priceSummary}
+          electricalSummary={electricalSummary}
+          onClose={() => setBomModalOpen(false)}
+          onExportCsv={handleExportCsv}
+        />
+      )}
+
+      {pendingProtectionInsert && (
+        <InlineFuseInsertModal
+          recommendation={pendingProtectionInsert.recommendation}
+          products={PRODUCT_MAP}
+          systemVoltage={system.nominalVoltage}
+          onCancel={() => setPendingProtectionInsert(null)}
+          onConfirm={handleConfirmInlineFuse}
+        />
+      )}
 
       {/* Load System Modal */}
       {showLoadModal && (

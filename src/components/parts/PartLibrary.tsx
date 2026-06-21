@@ -312,6 +312,10 @@ function getFuseStyle(product: Product): string {
   return product.protectionRatings?.fuseStyle ?? product.category ?? 'Fuse';
 }
 
+function getBreakerStyle(product: Product): string {
+  return product.protectionRatings?.breakerStyle ?? product.category ?? 'Breaker';
+}
+
 function getFuseRating(product: Product): number {
   return product.protectionRatings?.currentRatingA ?? product.maxCurrentA ?? 0;
 }
@@ -367,7 +371,7 @@ export function PartLibrary({
   const [activeSelector, setActiveSelector] = useState<SelectorType | null>(null);
   const [selectedManufacturer, setSelectedManufacturer] = useState('All');
   const [selectedProductId, setSelectedProductId] = useState('');
-  const [selectedFuseStyle, setSelectedFuseStyle] = useState('');
+  const [selectedStyle, setSelectedStyle] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [instanceVoltageV, setInstanceVoltageV] = useState<number | undefined>(undefined);
   const [instanceMaxCurrentA, setInstanceMaxCurrentA] = useState<number | undefined>(undefined);
@@ -397,6 +401,7 @@ export function PartLibrary({
     selectedProduct?.imageUrl ?? (selectedProduct ? getProductImageUrl(selectedProduct.productType) : undefined)
   );
   const isFuseSelector = activeSelector?.id === 'protection-fuses';
+  const isBreakerSelector = activeSelector?.id === 'protection-breakers';
 
   const fuseStyles = useMemo(() => {
     if (!isFuseSelector) return [];
@@ -406,9 +411,21 @@ export function PartLibrary({
   const fuseProductsForStyle = useMemo(() => {
     if (!isFuseSelector) return [];
     return catalogForSelector
-      .filter((product) => getFuseStyle(product) === selectedFuseStyle)
+      .filter((product) => getFuseStyle(product) === selectedStyle)
       .sort((a, b) => getFuseRating(a) - getFuseRating(b));
-  }, [catalogForSelector, isFuseSelector, selectedFuseStyle]);
+  }, [catalogForSelector, isFuseSelector, selectedStyle]);
+
+  const breakerStyles = useMemo(() => {
+    if (!isBreakerSelector) return [];
+    return [...new Set(catalogForSelector.map(getBreakerStyle))].sort((a, b) => a.localeCompare(b));
+  }, [catalogForSelector, isBreakerSelector]);
+
+  const breakerProductsForStyle = useMemo(() => {
+    if (!isBreakerSelector) return [];
+    return catalogForSelector
+      .filter((product) => getBreakerStyle(product) === selectedStyle)
+      .sort((a, b) => getFuseRating(a) - getFuseRating(b));
+  }, [catalogForSelector, isBreakerSelector, selectedStyle]);
 
   const componentsOnDiagram = useMemo(() => {
     return components
@@ -430,7 +447,11 @@ export function PartLibrary({
     setActiveSelector(selector);
     setSelectedManufacturer('All');
     setSelectedProductId(firstProduct?.id ?? '');
-    setSelectedFuseStyle(selector.id === 'protection-fuses' && firstProduct ? getFuseStyle(firstProduct) : '');
+    setSelectedStyle(
+      selector.id === 'protection-fuses' && firstProduct ? getFuseStyle(firstProduct)
+      : selector.id === 'protection-breakers' && firstProduct ? getBreakerStyle(firstProduct)
+      : ''
+    );
 
     if (SOURCE_LOAD_SELECTOR_IDS.has(selector.id)) {
       const defaultV = isAcSelector(selector.id) ? 120 : systemVoltage;
@@ -448,16 +469,17 @@ export function PartLibrary({
     setActiveSelector(null);
     setSelectedManufacturer('All');
     setSelectedProductId('');
-    setSelectedFuseStyle('');
+    setSelectedStyle('');
     setInstanceVoltageV(undefined);
     setInstanceMaxCurrentA(undefined);
   }
 
-  function selectFuseStyle(style: string) {
+  function selectStyle(style: string) {
+    const styleGetter = isBreakerSelector ? getBreakerStyle : getFuseStyle;
     const productsForStyle = catalogForSelector
-      .filter((product) => getFuseStyle(product) === style)
+      .filter((product) => styleGetter(product) === style)
       .sort((a, b) => getFuseRating(a) - getFuseRating(b));
-    setSelectedFuseStyle(style);
+    setSelectedStyle(style);
     setSelectedProductId(productsForStyle[0]?.id ?? '');
   }
 
@@ -555,10 +577,11 @@ export function PartLibrary({
         ) : (
           componentsOnDiagram.map(({ component, product }) => {
             const isSelected = component.id === selectedComponentId;
+            const isExcludedFromBom = component.includeInBom === false;
             return (
               <div
                 key={component.id}
-                className={`system-item${isSelected ? ' system-item-selected' : ''}`}
+                className={`system-item${isSelected ? ' system-item-selected' : ''}${isExcludedFromBom ? ' system-item-excluded-bom' : ''}`}
                 onClick={() => onSelectComponent(component.id)}
               >
                 <span className="system-item-main">
@@ -612,8 +635,8 @@ export function PartLibrary({
                       <span>Fuse type</span>
                       <select
                         className="category-select"
-                        value={selectedFuseStyle}
-                        onChange={(event) => selectFuseStyle(event.target.value)}
+                        value={selectedStyle}
+                        onChange={(event) => selectStyle(event.target.value)}
                         disabled={fuseStyles.length === 0}
                       >
                         {fuseStyles.map((style) => (
@@ -631,6 +654,36 @@ export function PartLibrary({
                         disabled={fuseProductsForStyle.length === 0}
                       >
                         {fuseProductsForStyle.map((product) => (
+                          <option key={product.id} value={product.id}>{getFuseRating(product)}A</option>
+                        ))}
+                      </select>
+                    </label>
+                  </>
+                ) : isBreakerSelector ? (
+                  <>
+                    <label className="selector-field">
+                      <span>Breaker type</span>
+                      <select
+                        className="category-select"
+                        value={selectedStyle}
+                        onChange={(event) => selectStyle(event.target.value)}
+                        disabled={breakerStyles.length === 0}
+                      >
+                        {breakerStyles.map((style) => (
+                          <option key={style} value={style}>{style}</option>
+                        ))}
+                      </select>
+                    </label>
+
+                    <label className="selector-field">
+                      <span>Rating</span>
+                      <select
+                        className="category-select"
+                        value={selectedProduct?.id ?? ''}
+                        onChange={(event) => setSelectedProductId(event.target.value)}
+                        disabled={breakerProductsForStyle.length === 0}
+                      >
+                        {breakerProductsForStyle.map((product) => (
                           <option key={product.id} value={product.id}>{getFuseRating(product)}A</option>
                         ))}
                       </select>

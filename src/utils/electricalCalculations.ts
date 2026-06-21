@@ -6,6 +6,7 @@ import { validateSystemConnection } from './connectionRules';
 import { findSolarArrayFeedingComponent } from './solarCalculations';
 import { canProvidePower, inferTerminalDirection, terminalCurrentLimitA } from './terminalDirection';
 import { buildBatteryInterconnectMap } from './batteryPackAnalysis';
+import { analyzeSystemCircuits } from './circuitAnalysis';
 import {
   buildElectricalNetlist,
   busTypeFromTerminal,
@@ -219,6 +220,7 @@ export function generateWarnings(
   }
 
   const netlist = buildElectricalNetlist(system, products);
+  const circuitAnalysis = analyzeSystemCircuits(system, products);
   const batteryInterconnects = buildBatteryInterconnectMap(system, products);
   for (const conflict of netlist.conflicts) {
     warn('error', conflict, 'BUS_TYPE_CONFLICT');
@@ -259,13 +261,20 @@ export function generateWarnings(
       );
     }
 
-    if (net.requiresFuse && net.operatingCurrentA > 0 && !net.protectedBy?.length) {
-      warn(
-        'warning',
-        `${net.id} carries ${net.operatingCurrentA.toFixed(0)}A on ${net.busType.replace('_', ' ')} without detected fuse or breaker protection`,
-        'NET_MISSING_PROTECTION'
-      );
-    }
+    // Missing protection is evaluated per conductor in circuitAnalysis. A whole net can contain
+    // multiple feeder and branch conductors with different protection requirements.
+  }
+
+  for (const connection of system.connections) {
+    const context = circuitAnalysis.connections.get(connection.id);
+    if (!context || !context.protectionRequired || context.designCurrentA <= 0 || context.protectedBy.length > 0) continue;
+    warn(
+      'warning',
+      `Connection carries ${context.designCurrentA.toFixed(0)}A on ${context.busType.replace('_', ' ')} without local fuse or breaker protection`,
+      'CONNECTION_MISSING_PROTECTION',
+      undefined,
+      connection.id
+    );
   }
 
   for (const comp of system.components) {
@@ -434,6 +443,11 @@ export function generateWarnings(
         undefined,
         conn.id
       );
+    }
+
+    for (const connectionWarning of conn.warnings ?? []) {
+      if (connectionWarning.toLowerCase().includes('voltage drop')) continue;
+      warn('warning', connectionWarning, 'CONNECTION_SIZING_WARNING', undefined, conn.id);
     }
   }
 

@@ -13,6 +13,7 @@ interface Props {
   systemVoltage: number;
   protectionRecommendations: ProtectionRecommendation[];
   onUpdateLength: (id: string, ft: number) => void;
+  onUpdateDesignCurrent: (id: string, currentA: number | undefined) => void;
   onUpdateCableAwg: (id: string, awg: string) => void;
   onAutoCableAwg: (id: string) => void;
   onResetRoute: (id: string) => void;
@@ -37,6 +38,7 @@ export function ConnectionInspector({
   systemVoltage,
   protectionRecommendations,
   onUpdateLength,
+  onUpdateDesignCurrent,
   onUpdateCableAwg,
   onAutoCableAwg,
   onResetRoute,
@@ -70,6 +72,22 @@ export function ConnectionInspector({
 
       <div className="inspector-section">
         <div className="inspector-label">Electrical</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+          <span className="connection-row-label" style={{ flex: 1 }}>Design Current</span>
+          <input
+            type="number"
+            className="inspector-input"
+            style={{ width: 70 }}
+            min={0}
+            value={connection.designCurrentOverrideA ?? ''}
+            placeholder="Auto"
+            onChange={(e) => {
+              const v = parseFloat(e.target.value);
+              onUpdateDesignCurrent(connection.id, isNaN(v) ? undefined : v);
+            }}
+          />
+          <span style={{ color: '#6d7b90', fontSize: 10, fontWeight: 800 }}>A</span>
+        </div>
         <Row label="Calculated Current" value={connection.calculatedCurrentA != null ? `${connection.calculatedCurrentA.toFixed(0)} A` : null} />
         <Row
           label="Flow Points"
