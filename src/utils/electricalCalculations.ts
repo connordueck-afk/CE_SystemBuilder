@@ -14,6 +14,7 @@ import {
   isReturnOrGroundBus,
   type BusType,
 } from './electricalNetlist';
+import { resolveTerminalCurrentA } from './terminalElectrics';
 
 const PASS_THROUGH_TYPES = new Set<string>(['fuse', 'breaker']);
 
@@ -74,6 +75,12 @@ export function enrichConnection(
   let currentA = solarCurrentA ?? conn.calculatedCurrentA;
 
   if (currentA == null) {
+    // Terminal-first: prefer declared terminal current/power over product-type switches.
+    if (sourceTerminal) {
+      const declaredA = resolveTerminalCurrentA(sourceTerminal, systemVoltage);
+      if (declaredA != null) currentA = declaredA;
+    }
+
     // Derive from source product (skip pass-throughs - their maxCurrentA is a rating, not circuit current)
     if (currentA == null && sourceProduct?.productType === 'inverter_charger' && sourceProduct.continuousPowerW) {
       currentA = estimateInverterDcCurrent(sourceProduct.continuousPowerW, systemVoltage, efficiency);
@@ -83,7 +90,15 @@ export function enrichConnection(
       currentA = sourceProduct.maxCurrentA;
     }
 
-    // Fallback: derive from consuming product when source is a pass-through or has no power specs
+    // Fallback: derive from consuming product when source is a pass-through or has no power specs.
+    // Check load-side terminal declarations before falling back to product-type switches.
+    if (!currentA) {
+      const loadTerminal = sourceProduct === fromProduct ? toTerminal : fromTerminal;
+      if (loadTerminal) {
+        const declaredA = resolveTerminalCurrentA(loadTerminal, systemVoltage);
+        if (declaredA != null) currentA = declaredA;
+      }
+    }
     if (!currentA && loadProduct) {
       if (loadProduct.productType === 'inverter_charger' && loadProduct.continuousPowerW) {
         currentA = estimateInverterDcCurrent(loadProduct.continuousPowerW, systemVoltage, efficiency);

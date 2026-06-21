@@ -137,6 +137,13 @@ export interface TerminalDefinition {
   conductorCount?: number;
   /** Human-readable notes about this terminal. */
   notes?: string;
+  /**
+   * Power ceiling for this terminal (W). When set alongside maxCurrentA, the engine
+   * resolves effective current as min(maxCurrentA, maxPowerW / systemVoltage).
+   * Use this for conversion products whose output current varies with system voltage
+   * (e.g. an MPPT rated 1200W outputs 100A at 12V but only 25A at 48V).
+   */
+  maxPowerW?: number;
 }
 
 // -----------------------------------------------------------

@@ -14,6 +14,7 @@ import { getEffectiveTerminals, isDynamicSingleConductorProduct } from './effect
 import { canProvidePower, canReceivePower, inferTerminalDirection } from './terminalDirection';
 import { busTypeFromTerminal, busTypeRequiresFuse, type BusType } from './electricalNetlist';
 import { buildInternalDistributionEdges, hasDistributionTopology } from './distributionTopology';
+import { resolveTerminalCurrentA } from './terminalElectrics';
 
 const PROTECTION_TYPES = new Set(['fuse', 'breaker']);
 const CONDUCTIVE_PASS_THROUGH_TYPES = new Set([
@@ -192,6 +193,42 @@ function terminalCurrents(
 
   if (!isPowerBus(busType)) {
     return { normalLoadCurrentA: 0, normalSourceCurrentA: 0, hasNormalSource: false, hasLoadFollowingSource: false, canReceiveCurrent: false };
+  }
+
+  // Terminal-first: if this terminal declares maxCurrentA or maxPowerW, resolve current
+  // directly from terminal data without needing a product-type switch. This is what
+  // makes new "open" products work — they just define terminals with the right values.
+  const declaredA = resolveTerminalCurrentA(terminal, voltage);
+  if (declaredA != null) {
+    if (direction === 'output' || terminal.role === 'source') {
+      return {
+        normalLoadCurrentA: 0,
+        normalSourceCurrentA: declaredA,
+        hasNormalSource: declaredA > 0,
+        hasLoadFollowingSource: false,
+        canReceiveCurrent: false,
+        sourceCapabilityA: declaredA,
+      };
+    }
+    if (direction === 'input' || terminal.role === 'sink') {
+      return {
+        normalLoadCurrentA: declaredA,
+        normalSourceCurrentA: 0,
+        hasNormalSource: false,
+        hasLoadFollowingSource: false,
+        canReceiveCurrent: true,
+        sourceCapabilityA: undefined,
+      };
+    }
+    // bidirectional with declared current (e.g. a battery-like terminal)
+    return {
+      normalLoadCurrentA: declaredA,
+      normalSourceCurrentA: declaredA,
+      hasNormalSource: true,
+      hasLoadFollowingSource: true,
+      canReceiveCurrent: true,
+      sourceCapabilityA: declaredA,
+    };
   }
 
   switch (product.productType) {

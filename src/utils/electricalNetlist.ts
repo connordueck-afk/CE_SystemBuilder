@@ -9,6 +9,7 @@ import type {
 import { getEffectiveTerminal, getEffectiveTerminals, isDynamicSingleConductorProduct } from './effectiveTerminals';
 import { canProvidePower } from './terminalDirection';
 import { buildInternalDistributionEdges, hasDistributionTopology } from './distributionTopology';
+import { resolveTerminalCurrentA } from './terminalElectrics';
 
 export type BusType =
   | 'dc_pos'
@@ -124,7 +125,13 @@ export function isReturnOrGroundBus(busType: BusType): boolean {
   return busType === 'dc_neg' || busType === 'pv_neg' || busType === 'ac_neutral' || busType === 'ac_ground' || busType === 'chassis_ground';
 }
 
-function estimateProductCurrentA(product: Product, component: SystemComponent, system: SystemDesign): number {
+function estimateProductCurrentA(product: Product, component: SystemComponent, system: SystemDesign, terminal?: TerminalDefinition): number {
+  // Terminal-first: if the terminal declares current/power, use that directly.
+  if (terminal) {
+    const declaredA = resolveTerminalCurrentA(terminal, system.nominalVoltage);
+    if (declaredA != null) return declaredA;
+  }
+
   const voltage = component.instanceVoltageV ?? system.nominalVoltage;
   if (component.instanceMaxCurrentA != null) return component.instanceMaxCurrentA;
   if (product.productType === 'battery') return 0;
@@ -325,7 +332,7 @@ export function buildElectricalNetlist(system: SystemDesign, products: Map<strin
     let sourceCurrentA = 0;
     let loadCurrentA = 0;
     for (const ref of group) {
-      const currentA = estimateProductCurrentA(ref.product, ref.component, system);
+      const currentA = estimateProductCurrentA(ref.product, ref.component, system, ref.terminal);
       if (currentA <= 0) continue;
       if (canProvidePower(ref.terminal)) sourceCurrentA += currentA;
       else loadCurrentA += currentA;
