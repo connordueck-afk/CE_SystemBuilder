@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import type { NominalVoltage, Product, ProductType, ShapeAnnotationType, SystemComponent } from '../../types/system';
 import { ALL_PRODUCTS } from '../../data/products';
 import { fmt } from '../../utils/priceCalculations';
-import { getProductImageUrl, resolveProductImageUrl } from '../../utils/productImages';
+import { getProductDisplayImageUrl, resolveProductImageUrl } from '../../utils/productImages';
 
 interface SourceLoadOptions {
   voltageV?: number;
@@ -442,7 +442,7 @@ export function PartLibrary({
 
   const selectedProduct = products.get(selectedProductId) ?? visibleProducts[0];
   const selectedProductImageUrl = resolveProductImageUrl(
-    selectedProduct?.imageUrl ?? (selectedProduct ? getProductImageUrl(selectedProduct.productType) : undefined)
+    selectedProduct ? getProductDisplayImageUrl(selectedProduct) : undefined
   );
   const isFuseSelector = activeSelector?.id === 'protection-fuses';
   const isBreakerSelector = activeSelector?.id === 'protection-breakers';

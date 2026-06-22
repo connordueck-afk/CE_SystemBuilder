@@ -131,6 +131,8 @@ export interface TerminalDefinition {
   recommendedFuseA?: number;
   /** Maximum allowable fuse rating for this terminal's circuit. */
   maxFuseA?: number;
+  /** Largest cable this terminal can physically accept, e.g. "6" or "1/0". */
+  maxCableAwg?: string;
   /** Whether a disconnect switch is required on this terminal's circuit. */
   requiresDisconnect?: boolean;
   /** Nominal voltage at this terminal. */
@@ -512,6 +514,8 @@ export interface SystemComponent {
   x: number;
   y: number;
   rotationDeg?: number;
+  /** Visual scale for the placed product image/symbol in the schematic canvas. */
+  imageScale?: number;
   locked?: boolean;
   busPolarity?: BusPolarity;
   /** Legacy quick selector for arrays that are all-series or all-parallel. */
@@ -529,6 +533,8 @@ export interface SystemComponent {
   dcNominalVoltage?: number;
   /** Per-instance max current for source/load blocks — overrides product default (A). */
   instanceMaxCurrentA?: number;
+  /** Largest cable this placed component/node can physically accept, e.g. "6" or "1/0". */
+  maxCableAwg?: string;
   /** Whether raw fuse components should add a matching holder/base to the BOM. */
   includeFuseHolder?: boolean;
   /** Optional explicit holder/base product for a raw fuse component. */

@@ -133,6 +133,20 @@ function minDefined(...values: Array<number | undefined>): number | undefined {
   return defined.length ? Math.min(...defined) : undefined;
 }
 
+function cableTableIndex(awg: string | undefined): number | undefined {
+  if (!awg) return undefined;
+  const index = CABLE_TABLE.findIndex((cable) => cable.awg === awg);
+  return index >= 0 ? index : undefined;
+}
+
+function smallerMaxCableAwg(...awgs: Array<string | undefined>): string | undefined {
+  const indexes = awgs
+    .map(cableTableIndex)
+    .filter((index): index is number => index != null);
+  if (indexes.length === 0) return undefined;
+  return CABLE_TABLE[Math.min(...indexes)].awg;
+}
+
 function estimatePowerCurrent(powerW: number | undefined, voltageV: number | undefined): number | undefined {
   if (!powerW || !voltageV || voltageV <= 0) return undefined;
   return powerW / voltageV;
@@ -594,6 +608,10 @@ function summarizeSide(keys: Set<string>, nodes: Map<string, TerminalNode>): Sid
 }
 
 function edgeCurrentFromSides(from: SideSummary, to: SideSummary): number {
+  const canAcceptNormalSourceCurrent = (side: SideSummary): boolean => {
+    return side.canReceiveCurrent || side.normalLoadCurrentA > 0;
+  };
+
   const currentAvailableToLoad = (sourceSide: SideSummary, loadDemandA: number): number => {
     if (!sourceSide.hasNormalSource && !sourceSide.canSourceFaultCurrent) return 0;
 
@@ -609,8 +627,8 @@ function edgeCurrentFromSides(from: SideSummary, to: SideSummary): number {
     currentAvailableToLoad(from, to.normalLoadCurrentA)
   );
   const sourceDriven = Math.max(
-    to.canReceiveCurrent || to.normalLoadCurrentA > 0 || to.canSourceFaultCurrent ? from.normalSourceCurrentA : 0,
-    from.canReceiveCurrent || from.normalLoadCurrentA > 0 || from.canSourceFaultCurrent ? to.normalSourceCurrentA : 0
+    canAcceptNormalSourceCurrent(to) ? from.normalSourceCurrentA : 0,
+    canAcceptNormalSourceCurrent(from) ? to.normalSourceCurrentA : 0
   );
 
   return Math.max(loadDriven, sourceDriven);
@@ -638,12 +656,16 @@ function cableForAmpacityAndDrop(
   voltageDropCurrentA: number,
   lengthFt: number,
   voltageV: number,
-  maxDropPercent: number
+  maxDropPercent: number,
+  maxCableAwg?: string
 ): { awg: string; dropV: number; dropPercent: number; satisfiesDrop: boolean } {
   const firstAmpacityMatch = cableForCurrent(ampacityCurrentA);
   const startIndex = Math.max(0, CABLE_TABLE.findIndex((cable) => cable.awg === firstAmpacityMatch.awg));
+  const maxCableIndex = cableTableIndex(maxCableAwg);
+  const endIndex = maxCableIndex == null ? CABLE_TABLE.length - 1 : maxCableIndex;
+  const cappedStartIndex = Math.min(startIndex, endIndex);
 
-  for (const cable of CABLE_TABLE.slice(startIndex)) {
+  for (const cable of CABLE_TABLE.slice(cappedStartIndex, endIndex + 1)) {
     const dropV = voltageDropV(voltageDropCurrentA, lengthFt, cable.awg);
     const dropPercent = voltageV > 0 ? (dropV / voltageV) * 100 : 0;
     if (dropPercent <= maxDropPercent) {
@@ -651,10 +673,10 @@ function cableForAmpacityAndDrop(
     }
   }
 
-  const largest = CABLE_TABLE[CABLE_TABLE.length - 1];
-  const dropV = voltageDropV(voltageDropCurrentA, lengthFt, largest.awg);
+  const largestAllowed = CABLE_TABLE[endIndex];
+  const dropV = voltageDropV(voltageDropCurrentA, lengthFt, largestAllowed.awg);
   const dropPercent = voltageV > 0 ? (dropV / voltageV) * 100 : 0;
-  return { awg: largest.awg, dropV, dropPercent, satisfiesDrop: dropPercent <= maxDropPercent };
+  return { awg: largestAllowed.awg, dropV, dropPercent, satisfiesDrop: dropPercent <= maxDropPercent };
 }
 
 function chooseFuse(minimumA: number, maximumA: number | undefined, preferredA: number | undefined): number | undefined {
@@ -762,6 +784,12 @@ function analyzeConnection(
     fromNode?.behavior.maxFuseA,
     toNode?.behavior.maxFuseA
   );
+  const maxCableAwg = smallerMaxCableAwg(
+    fromNode?.component.maxCableAwg,
+    toNode?.component.maxCableAwg,
+    fromNode?.terminal.maxCableAwg,
+    toNode?.terminal.maxCableAwg
+  );
 
   // PV source/output conductors are sized at 156% of design current (NEC 690.8);
   // all other circuits use the standard 125% continuous-load factor.
@@ -774,7 +802,8 @@ function analyzeConnection(
     designCurrentA,
     connection.cableLengthFt,
     voltageV,
-    system.assumptions.maxVoltageDropPercent
+    system.assumptions.maxVoltageDropPercent,
+    maxCableAwg
   );
   const selectedAwg = connection.manualCableAwg && cableByAwg(connection.manualCableAwg)
     ? connection.manualCableAwg
@@ -798,6 +827,25 @@ function analyzeConnection(
 
   if (minimumFuseA != null && terminalMaxFuseA != null && minimumFuseA > terminalMaxFuseA) {
     warnings.push(`Required fuse ${minimumFuseA}A exceeds terminal maximum fuse rating of ${terminalMaxFuseA}A`);
+  }
+
+  const selectedCableIndex = cableTableIndex(selectedAwg);
+  const maxCableIndex = cableTableIndex(maxCableAwg);
+  if (maxCableAwg && selectedCableIndex != null && maxCableIndex != null && selectedCableIndex > maxCableIndex) {
+    warnings.push(`${selectedAwg} AWG exceeds endpoint maximum cable size of ${maxCableAwg} AWG`);
+  }
+
+  if (maxCableAwg && autoCable.awg === maxCableAwg) {
+    const uncappedCable = cableForAmpacityAndDrop(
+      cableSizingCurrentA,
+      designCurrentA,
+      connection.cableLengthFt,
+      voltageV,
+      system.assumptions.maxVoltageDropPercent
+    );
+    if (cableTableIndex(uncappedCable.awg)! > cableTableIndex(maxCableAwg)!) {
+      warnings.push(`Auto cable recommendation capped at endpoint maximum of ${maxCableAwg} AWG`);
+    }
   }
 
   if (!autoCable.satisfiesDrop && !connection.manualCableAwg) {

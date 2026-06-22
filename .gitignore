@@ -15,3 +15,9 @@ Thumbs.db
 
 .vscode/
 .claude/
+
+# Source/working asset directories (not deployed)
+accessory_rebuild_pngs/
+accessory_rebuild_pngs.zip
+pure_svg_accessories/
+victron-svg-assets/

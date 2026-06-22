@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="248" height="348" viewBox="132 82 248 348" role="img" aria-label="inverter_vedirect_medium_120v">
+  <defs>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="5" stdDeviation="5" flood-color="#000" flood-opacity="0.2"/>
+    </filter>
+  </defs>
+  <g id="product" filter="url(#shadow)">
+    <rect x="146" y="96" width="220" height="320" rx="20" fill="#0096D6"/>
+    <path d="M146 116 Q146 96 166 96 H202 V416 H166 Q146 416 146 396 Z" fill="#007DB7" opacity="0.45"/>
+    <rect x="184" y="138" width="144" height="12" rx="6" fill="#F0F4F5" opacity="0.88"/>
+    <rect x="184" y="182" width="164" height="16" fill="#F28C28"/>
+    <rect x="191" y="222" width="110" height="6" rx="3.0" fill="#F0F4F5" opacity="0.82"/>
+<rect x="191" y="240" width="128" height="6" rx="3.0" fill="#F0F4F5" opacity="0.82"/>
+<rect x="191" y="258" width="90" height="6" rx="3.0" fill="#F0F4F5" opacity="0.82"/>
+    <circle cx="194" cy="288" r="7" fill="#66D6FF"/>
+    <rect x="222.0" y="324" width="68" height="48" rx="12" fill="#101417"/><circle cx="240.0" cy="348" r="6" fill="#D8DEE0"/><circle cx="272.0" cy="348" r="6" fill="#D8DEE0"/><path d="M239.0 362 Q256.0 374 273.0 362" fill="none" stroke="#D8DEE0" stroke-width="4"/>
+  </g>
+</svg>

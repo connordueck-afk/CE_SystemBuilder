@@ -31,6 +31,7 @@ import { analyzeSystemCircuits } from './utils/circuitAnalysis';
 import { buildCableLengthSummary } from './utils/cableSummary';
 import { DEFAULT_BUS_COLORS, type BusColorMap } from './utils/busColors';
 import { isVerticalOrientation } from './utils/componentOrientation';
+import { clampComponentScale, componentScale, scaledProductSize } from './utils/componentScale';
 import { HeaderBar } from './components/layout/HeaderBar';
 import { LeftPartSidebar } from './components/layout/LeftPartSidebar';
 import { RightInspector } from './components/layout/RightInspector';
@@ -59,14 +60,15 @@ interface PendingProtectionInsert {
   marker: PathMarker;
 }
 
-function productFootprint(product: Product, rotationDeg = 0): { halfWidth: number; halfHeight: number } {
+function productFootprint(product: Product, rotationDeg = 0, scale = 1): { halfWidth: number; halfHeight: number } {
+  const { width, height } = scaledProductSize(product, scale);
   const rotated = isVerticalOrientation(rotationDeg);
-  const symbolWidth = rotated ? product.height : product.width;
-  const symbolHeight = rotated ? product.width : product.height;
+  const symbolWidth = rotated ? height : width;
+  const symbolHeight = rotated ? width : height;
 
   return {
     halfWidth: symbolWidth / 2,
-    halfHeight: Math.max(symbolHeight / 2, product.height / 2 + 22),
+    halfHeight: Math.max(symbolHeight / 2, height / 2 + 22),
   };
 }
 
@@ -74,9 +76,10 @@ function clampComponentPosition(
   x: number,
   y: number,
   product: Product,
-  rotationDeg = 0
+  rotationDeg = 0,
+  scale = 1
 ): { x: number; y: number } {
-  const { halfWidth, halfHeight } = productFootprint(product, rotationDeg);
+  const { halfWidth, halfHeight } = productFootprint(product, rotationDeg, scale);
   return {
     x: Math.min(CANVAS_WORLD_X + CANVAS_WORLD_W - halfWidth, Math.max(CANVAS_WORLD_X + halfWidth, x)),
     y: Math.min(CANVAS_WORLD_Y + CANVAS_WORLD_H - halfHeight, Math.max(CANVAS_WORLD_Y + halfHeight, y)),
@@ -251,6 +254,8 @@ export function App() {
   const [selectedAnnotationId, setSelectedAnnotationId] = useState<string | null>(null);
   const [focusedComponentId, setFocusedComponentId] = useState<string | null>(null);
   const [focusRequestId, setFocusRequestId] = useState(0);
+  const [focusedConnectionId, setFocusedConnectionId] = useState<string | null>(null);
+  const [focusConnectionRequestId, setFocusConnectionRequestId] = useState(0);
   const [canvasViewportCenter, setCanvasViewportCenter] = useState({ x: 600, y: 380 });
   const [busColors, setBusColors] = useState<BusColorMap>(DEFAULT_BUS_COLORS);
   const [bomModalOpen, setBomModalOpen] = useState(false);
@@ -416,7 +421,7 @@ export function App() {
         const product = getProduct(c.productId);
         const rotationDeg = ((c.rotationDeg ?? 0) + 90) % 360;
         if (!product) return { ...c, rotationDeg };
-        const bounded = clampComponentPosition(c.x, c.y, product, rotationDeg);
+        const bounded = clampComponentPosition(c.x, c.y, product, rotationDeg, componentScale(c));
         return { ...c, rotationDeg, x: bounded.x, y: bounded.y };
       }),
     }));
@@ -493,6 +498,29 @@ export function App() {
       components: s.components.map((c) =>
         c.id === id ? { ...c, instanceMaxCurrentA: currentA } : c
       ),
+    }));
+  }, [updateSystem]);
+
+  const handleUpdateComponentMaxCableAwg = useCallback((id: string, awg: string | undefined) => {
+    updateSystem((s) => ({
+      ...s,
+      components: s.components.map((c) =>
+        c.id === id ? { ...c, maxCableAwg: awg } : c
+      ),
+    }));
+  }, [updateSystem]);
+
+  const handleUpdateComponentImageScale = useCallback((id: string, scale: number) => {
+    updateSystem((s) => ({
+      ...s,
+      components: s.components.map((c) => {
+        if (c.id !== id) return c;
+        const imageScale = clampComponentScale(scale);
+        const product = getProduct(c.productId);
+        if (!product) return { ...c, imageScale };
+        const bounded = clampComponentPosition(c.x, c.y, product, c.rotationDeg, imageScale);
+        return { ...c, imageScale, x: bounded.x, y: bounded.y };
+      }),
     }));
   }, [updateSystem]);
 
@@ -882,7 +910,8 @@ export function App() {
       source.x + PASTE_OFFSET,
       source.y + PASTE_OFFSET,
       product,
-      source.rotationDeg
+      source.rotationDeg,
+      componentScale(source)
     );
     const pasted: SystemComponent = {
       ...source,
@@ -1023,6 +1052,14 @@ export function App() {
     setFocusRequestId((current) => current + 1);
   }, []);
 
+  const handleFocusConnection = useCallback((id: string) => {
+    setSelectedConnectionId(id);
+    setSelectedComponentId(null);
+    setSelectedAnnotationId(null);
+    setFocusedConnectionId(id);
+    setFocusConnectionRequestId((current) => current + 1);
+  }, []);
+
   const handleEnterFullView = useCallback(() => {
     setLeftCollapsed(true);
     setRightCollapsed(true);
@@ -1078,6 +1115,8 @@ export function App() {
           busColors={busColors}
           focusedComponentId={focusedComponentId}
           focusRequestId={focusRequestId}
+          focusedConnectionId={focusedConnectionId}
+          focusConnectionRequestId={focusConnectionRequestId}
           onViewportCenterChange={setCanvasViewportCenter}
           onSelectComponent={handleSelectComponent}
           onSelectConnection={handleSelectConnection}
@@ -1097,6 +1136,7 @@ export function App() {
           onMoveConnectionRoute={handleMoveConnectionRoute}
           onInsertProtection={handleInsertProtection}
           onEnterFullView={handleEnterFullView}
+          onScaleComponent={handleUpdateComponentImageScale}
           onAddConnection={handleAddConnection}
         />
       </main>
@@ -1121,6 +1161,8 @@ export function App() {
         onUpdateInstanceVoltage={handleUpdateInstanceVoltage}
         onUpdateDcBusNominalVoltage={handleUpdateDcBusNominalVoltage}
         onUpdateInstanceMaxCurrent={handleUpdateInstanceMaxCurrent}
+        onUpdateComponentMaxCableAwg={handleUpdateComponentMaxCableAwg}
+        onUpdateComponentImageScale={handleUpdateComponentImageScale}
         onUpdateBusPolarity={handleUpdateBusPolarity}
         onUpdateFuseSlot={handleUpdateFuseSlot}
         onChangeComponentProduct={handleChangeComponentProduct}
@@ -1137,7 +1179,7 @@ export function App() {
         onRemoveConnection={handleRemoveConnection}
         onRemoveAnnotation={handleRemoveAnnotation}
         onSelectComponent={handleFocusComponent}
-        onSelectConnection={handleSelectConnection}
+        onSelectConnection={handleFocusConnection}
       />
 
       {bomModalOpen && (

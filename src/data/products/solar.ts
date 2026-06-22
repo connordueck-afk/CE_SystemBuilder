@@ -83,12 +83,19 @@ function solarCombinerTerminals(strings: number): Product['terminals'] {
   ];
 }
 
-function solarBranchConnectorTerminals(branches: number): Product['terminals'] {
-  const spacing = branches > 1 ? 56 / (branches - 1) : 0;
+function solarBranchConnectorSize(branches: number): { width: number; height: number } {
+  if (branches === 2) return { width: 70, height: 100 };
+  if (branches === 3) return { width: 52, height: 144 };
+  return { width: 120, height: 76 };
+}
+
+function solarBranchConnectorTerminals(branches: number, width: number, height: number): Product['terminals'] {
+  const usableHeight = height * 0.62;
+  const spacing = branches > 1 ? usableHeight / (branches - 1) : 0;
 
   const inputs = Array.from({ length: branches }, (_, index) => {
     const label = index + 1;
-    const y = branches === 1 ? 0 : -28 + spacing * index;
+    const y = branches === 1 ? 0 : -usableHeight / 2 + spacing * index;
     return {
       id: `in_${label}`,
       label: `In ${label}+`,
@@ -98,7 +105,7 @@ function solarBranchConnectorTerminals(branches: number): Product['terminals'] {
       role: 'bus' as const,
       voltageClass: 'pv_high_voltage' as const,
       side: 'left' as const,
-      offsetX: -60,
+      offsetX: -width / 2,
       offsetY: y,
       domain: 'pv' as const,
       notes: `PV branch input ${label}. Polarity is selected on the component.`,
@@ -116,7 +123,7 @@ function solarBranchConnectorTerminals(branches: number): Product['terminals'] {
       role: 'bus',
       voltageClass: 'pv_high_voltage',
       side: 'right',
-      offsetX: 60,
+      offsetX: width / 2,
       offsetY: 0,
       domain: 'pv' as const,
       notes: 'Combined PV branch output. Polarity is selected on the component.',
@@ -154,32 +161,35 @@ const solarCombinerBoxes: Product[] = [2, 3, 4, 6].map((strings) => ({
   },
 }));
 
-const solarBranchConnectors: Product[] = [2, 3, 4].map((branches) => ({
-  id: `solar-branch-${branches}-1`,
-  manufacturer: 'Generic',
-  name: `${branches}-1 PV Branch Connector`,
-  productType: 'solar_combiner' as const,
-  category: 'Connectors',
-  imageUrl: `/product-images/pv-branch-${branches}-1.svg`,
-  maxPvVoltageV: 1000,
-  maxPvCurrentA: branches * 15,
-  msrpUsd: 18 + branches * 6,
-  oemPriceUsd: Math.round((18 + branches * 6) * 0.7),
-  description: `${branches}-to-1 PV branch connector for combining ${branches} same-polarity solar conductors. Select PV+ or PV- on the placed component.`,
-  source: 'Estimate',
-  dataQuality: 'placeholder' as const,
-  width: 120,
-  height: 76,
-  terminals: solarBranchConnectorTerminals(branches),
-  solarCombinerRatings: {
-    stringCount: branches,
-    inputCount: branches,
-    outputCount: 1,
-    maxVoltageV: 1000,
-    maxCurrentA: branches * 15,
-    includedProtection: 'None (branch connector only)',
-  },
-}));
+const solarBranchConnectors: Product[] = [2, 3, 4].map((branches) => {
+  const { width, height } = solarBranchConnectorSize(branches);
+  return {
+    id: `solar-branch-${branches}-1`,
+    manufacturer: 'Generic',
+    name: `${branches}-1 PV Branch Connector`,
+    productType: 'solar_combiner' as const,
+    category: 'Connectors',
+    imageUrl: `/product-images/pv-branch-${branches}-1.svg`,
+    maxPvVoltageV: 1000,
+    maxPvCurrentA: branches * 15,
+    msrpUsd: 18 + branches * 6,
+    oemPriceUsd: Math.round((18 + branches * 6) * 0.7),
+    description: `${branches}-to-1 PV branch connector for combining ${branches} same-polarity solar conductors. Select PV+ or PV- on the placed component.`,
+    source: 'Estimate',
+    dataQuality: 'placeholder' as const,
+    width,
+    height,
+    terminals: solarBranchConnectorTerminals(branches, width, height),
+    solarCombinerRatings: {
+      stringCount: branches,
+      inputCount: branches,
+      outputCount: 1,
+      maxVoltageV: 1000,
+      maxCurrentA: branches * 15,
+      includedProtection: 'None (branch connector only)',
+    },
+  };
+});
 
 // -----------------------------------------------------------
 // Solar arrays and panels

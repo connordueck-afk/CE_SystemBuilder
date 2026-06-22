@@ -24,7 +24,7 @@ const fuseTerminals: Product['terminals'] = [
     direction: 'input',
     voltageClass: 'dc_low_voltage',
     side: 'left',
-    offsetX: -30,
+    offsetX: -40,
     offsetY: 0,
     domain: 'dc',
     notes: 'Source-side positive terminal.',
@@ -39,7 +39,7 @@ const fuseTerminals: Product['terminals'] = [
     direction: 'output',
     voltageClass: 'dc_low_voltage',
     side: 'right',
-    offsetX: 30,
+    offsetX: 40,
     offsetY: 0,
     domain: 'dc',
     notes: 'Load-side positive terminal.',
@@ -124,8 +124,8 @@ const fuses: Product[] = fuseCatalog.flatMap(({ type, ratings, msrpBase, source 
       source,
       dataQuality: 'placeholder' as const,
       imageUrl: fuseImageUrl(type),
-      width: 60,
-      height: 30,
+      width: 80,
+      height: 34,
       terminals: fuseTerminals,
       protectionRatings: {
         currentRatingA: rating,
@@ -172,7 +172,8 @@ function breakerPrice(type: string, rating: number, base: number): number {
 }
 
 function breakerImageUrl(type: string): string {
-  return `/product-images/breaker-${type.toLowerCase().replace(/\s+/g, '-')}.svg`;
+  if (type === 'DC Breaker') return '/product-images/breaker-dc-breaker.svg';
+  return '/product-images/generic-breaker.svg';
 }
 
 const breakers: Product[] = breakerCatalog.flatMap(({ type, ratings, msrpBase, voltageRatingV, source }) =>
@@ -191,8 +192,8 @@ const breakers: Product[] = breakerCatalog.flatMap(({ type, ratings, msrpBase, v
       source,
       dataQuality: 'placeholder' as const,
       imageUrl: breakerImageUrl(type),
-      width: 60,
-      height: 30,
+      width: 80,
+      height: 34,
       terminals: breakerTerminals,
       protectionRatings: {
         currentRatingA: rating,

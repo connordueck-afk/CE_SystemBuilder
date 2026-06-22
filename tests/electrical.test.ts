@@ -113,11 +113,62 @@ function mpptOnBusbar(nominalVoltage: 12 | 24, lengthFt: number, busProductId: s
   } as SystemDesign;
 }
 
+function mpptOnBusyPositiveBus(lengthFt: number, maxCableAwg?: string): SystemDesign {
+  return {
+    id: 'busy-bus',
+    name: 'busy-bus',
+    nominalVoltage: 12,
+    assumptions: { ...DEFAULT_ASSUMPTIONS },
+    createdAt: '',
+    updatedAt: '',
+    components: [
+      { id: 'mppt', productId: 'mppt-100-50', label: 'MPPT', quantity: 1, x: 0, y: 0, maxCableAwg },
+      { id: 'dcdc', productId: 'orion-tr-smart-12-12-30-non-isolated', label: 'DC-DC', quantity: 1, x: 0, y: 100 },
+      { id: 'inv', productId: 'inv-vic-mp2-12-3000', label: 'Inverter', quantity: 1, x: 0, y: 200 },
+      { id: 'bat', productId: 'bat-vic-smart-12-200', label: 'Bat', quantity: 1, x: 0, y: 300 },
+      {
+        id: 'bus',
+        productId: 'dist-generic-busbar-5pt',
+        label: 'Positive Bus',
+        quantity: 1,
+        x: 200,
+        y: 100,
+        inferredConnectionKind: 'dc_power',
+        inferredPolarity: 'positive',
+        inferredElectricalType: 'dc_pos',
+        inferredVoltageClass: 'dc_low_voltage',
+      },
+    ],
+    connections: [
+      { id: 'mppt-p', fromComponentId: 'mppt', fromTerminalId: 'bat_pos', toComponentId: 'bus', toTerminalId: 'terminal_1', cableLengthFt: lengthFt },
+      { id: 'dcdc-p', fromComponentId: 'dcdc', fromTerminalId: 'out_pos', toComponentId: 'bus', toTerminalId: 'terminal_2', cableLengthFt: 4 },
+      { id: 'inv-p', fromComponentId: 'bus', fromTerminalId: 'terminal_3', toComponentId: 'inv', toTerminalId: 'dc_pos', cableLengthFt: 5 },
+      { id: 'bat-p', fromComponentId: 'bat', fromTerminalId: 'dc_pos', toComponentId: 'bus', toTerminalId: 'terminal_4', cableLengthFt: 2 },
+    ],
+  } as SystemDesign;
+}
+
 test('50A MPPT on a busbar: design 50A, fuse 70A, no busbar-rating leak', () => {
   const analysis = analyzeSystemCircuits(mpptOnBusbar(12, 4, 'dist-generic-busbar-5pt'), PRODUCT_MAP);
   const c = analysis.connections.get('mppt-p')!;
   assert.equal(c.designCurrentA, 50, 'MPPT output branch should carry its own 50A, not the busbar rating');
   assert.equal(c.recommendedFuseA, 70, '50A * 1.25 -> next standard fuse = 70A');
+});
+
+test('50A MPPT branch ignores other normal sources on the same DC bus', () => {
+  const analysis = analyzeSystemCircuits(mpptOnBusyPositiveBus(4), PRODUCT_MAP);
+  const c = analysis.connections.get('mppt-p')!;
+  assert.equal(c.designCurrentA, 50, 'MPPT output branch should not inherit inverter-charger or DC-DC source current');
+  assert.equal(c.recommendedFuseA, 70, '50A * 1.25 -> next standard fuse = 70A');
+});
+
+test('component max cable override caps automatic cable recommendation', () => {
+  const analysis = analyzeSystemCircuits(mpptOnBusyPositiveBus(30, '6'), PRODUCT_MAP);
+  const c = analysis.connections.get('mppt-p')!;
+  assert.equal(c.designCurrentA, 50);
+  assert.equal(c.recommendedFuseA, 70);
+  assert.equal(c.recommendedCableAwg, '6');
+  assert.ok(c.warnings.some((warning) => warning.includes('capped at endpoint maximum of 6 AWG')));
 });
 
 test('50A MPPT fuse is unchanged by busbar ampacity rating (400A vs 600A bars)', () => {

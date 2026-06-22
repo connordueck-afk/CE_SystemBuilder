@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="278" height="358" viewBox="117 68 278 358" role="img" aria-label="smartsolar_mppt_medium_screw_terminal">
+  <defs>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="5" stdDeviation="5" flood-color="#000" flood-opacity="0.2"/>
+    </filter>
+  </defs>
+  <g id="product" filter="url(#shadow)">
+    <rect x="131" y="82" width="250" height="330" rx="20" fill="#0096D6"/>
+    <path d="M131 104 Q131 82 153 82 H189 V412 H153 Q131 412 131 390 Z" fill="#007DB7" opacity="0.48"/>
+    <path d="M363 90 Q381 90 381 108 V387 Q381 405 363 405 Z" fill="#007DB7" opacity="0.35"/>
+    <rect x="169" y="140" width="174" height="14" rx="7" fill="#F0F4F5" opacity="0.9"/>
+    <rect x="169" y="178" width="194" height="18" rx="8" fill="#F0F4F5" opacity="0.88"/>
+    <rect x="169" y="227" width="195" height="18" fill="#F28C28"/>
+    <rect x="175" y="267" width="145" height="6" rx="3.0" fill="#F0F4F5" opacity="0.82"/>
+<rect x="175" y="285" width="170" height="6" rx="3.0" fill="#F0F4F5" opacity="0.82"/>
+<rect x="175" y="303" width="130" height="6" rx="3.0" fill="#F0F4F5" opacity="0.82"/>
+    <rect x="149" y="322" width="214" height="72" rx="12" fill="#007DB7"/>
+    <rect x="167" y="340" width="178" height="48" rx="10" fill="#1D2428"/>
+    <circle cx="159.0" cy="363" r="10" fill="#222" stroke="#050607" stroke-width="2"/><line x1="153.0" y1="363" x2="165.0" y2="363" stroke="#4B4B4B" stroke-width="3"/>
+<circle cx="223.66666666666669" cy="363" r="10" fill="#222" stroke="#050607" stroke-width="2"/><line x1="217.66666666666669" y1="363" x2="229.66666666666669" y2="363" stroke="#4B4B4B" stroke-width="3"/>
+<circle cx="288.33333333333337" cy="363" r="10" fill="#222" stroke="#050607" stroke-width="2"/><line x1="282.33333333333337" y1="363" x2="294.33333333333337" y2="363" stroke="#4B4B4B" stroke-width="3"/>
+<circle cx="353.0" cy="363" r="10" fill="#222" stroke="#050607" stroke-width="2"/><line x1="347.0" y1="363" x2="359.0" y2="363" stroke="#4B4B4B" stroke-width="3"/>
+    <text x="202.0" y="394" font-size="16" fill="#F0F4F5" font-family="Arial">+</text><text x="302.0" y="394" font-size="18" fill="#F0F4F5" font-family="Arial">-</text>
+    <rect x="159" y="377" width="42" height="18" rx="5" fill="#1D2428"/><circle cx="173" cy="386" r="5" fill="#050607"/><circle cx="188" cy="386" r="5" fill="#050607"/>
+  </g>
+</svg>

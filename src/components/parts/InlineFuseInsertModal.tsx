@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import type { NominalVoltage, Product } from '../../types/system';
 import type { ProtectionRecommendation } from '../../utils/protectionRecommendations';
 import { fmt } from '../../utils/priceCalculations';
-import { getProductImageUrl, resolveProductImageUrl } from '../../utils/productImages';
+import { getProductDisplayImageUrl, resolveProductImageUrl } from '../../utils/productImages';
 import {
   selectBestFuseProduct,
   getFuseStyle,
@@ -69,7 +69,7 @@ export function InlineFuseInsertModal({
 
   const selectedProduct = products.get(selectedProductId) ?? fuseProductsForStyle[0];
   const selectedProductImageUrl = resolveProductImageUrl(
-    selectedProduct?.imageUrl ?? (selectedProduct ? getProductImageUrl(selectedProduct.productType) : undefined)
+    selectedProduct ? getProductDisplayImageUrl(selectedProduct) : undefined
   );
 
   function selectFuseStyle(style: string) {

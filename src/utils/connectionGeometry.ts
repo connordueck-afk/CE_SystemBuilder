@@ -1,6 +1,7 @@
 import type { Product, SystemComponent, SystemConnection, TerminalSide } from '../types/system';
 import { getEffectiveTerminal } from './effectiveTerminals';
 import { transformOrientationOffset, transformOrientationSide } from './componentOrientation';
+import { scaledTerminalOffset } from './componentScale';
 
 export interface Point {
   x: number;
@@ -34,7 +35,8 @@ export function getConnectionTerminalPos(
 ): TerminalPos | null {
   const terminal = getEffectiveTerminal(product, terminalId, comp);
   if (!terminal) return null;
-  const offset = rotateOffset(comp, terminal.offsetX, terminal.offsetY);
+  const scaledOffset = scaledTerminalOffset(comp, terminal);
+  const offset = rotateOffset(comp, scaledOffset.offsetX, scaledOffset.offsetY);
   return {
     x: comp.x + offset.x,
     y: comp.y + offset.y,

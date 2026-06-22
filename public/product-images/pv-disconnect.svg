@@ -1,79 +1,67 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="-40 -32 80 64">
-  <!--
-    Terminal positions:
-    In+  (-40, -10)   Out+ (40, -10)
-    In-  (-40,  10)   Out- (40,  10)
-  -->
+<svg xmlns="http://www.w3.org/2000/svg" width="568" height="698" viewBox="228 150 568 698" role="img" aria-label="pv_disconnect">
   <defs>
-    <linearGradient id="discbg" x1="0" y1="-32" x2="0" y2="32" gradientUnits="userSpaceOnUse">
-      <stop offset="0%"   stop-color="#16101e"/>
-      <stop offset="100%" stop-color="#100c16"/>
+    <linearGradient id="metal" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#f5f5f5"/>
+      <stop offset="55%" stop-color="#d8d8d8"/>
+      <stop offset="100%" stop-color="#c5c5c5"/>
     </linearGradient>
-    <linearGradient id="dischousing" x1="0" y1="-26" x2="0" y2="26" gradientUnits="userSpaceOnUse">
-      <stop offset="0%"   stop-color="#1e1830"/>
-      <stop offset="100%" stop-color="#150f22"/>
+    <linearGradient id="metalDark" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#efefef"/>
+      <stop offset="100%" stop-color="#b7b7b7"/>
     </linearGradient>
-    <linearGradient id="knob" x1="0" y1="-1" x2="0" y2="1" gradientUnits="objectBoundingBox">
-      <stop offset="0%"   stop-color="#d03020"/>
-      <stop offset="50%"  stop-color="#f04030"/>
-      <stop offset="100%" stop-color="#901810"/>
+    <linearGradient id="darkBody" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#4a5059"/>
+      <stop offset="45%" stop-color="#2f343b"/>
+      <stop offset="100%" stop-color="#171b21"/>
     </linearGradient>
+    <linearGradient id="darkBody2" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#59616c"/>
+      <stop offset="100%" stop-color="#1d2229"/>
+    </linearGradient>
+    <linearGradient id="creamBody" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#f0ece2"/>
+      <stop offset="100%" stop-color="#d8d1c4"/>
+    </linearGradient>
+    <linearGradient id="glass" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#cfd3d8" stop-opacity="0.75"/>
+      <stop offset="100%" stop-color="#666b72" stop-opacity="0.55"/>
+    </linearGradient>
+    <linearGradient id="redGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#ff4b44"/>
+      <stop offset="100%" stop-color="#be0f15"/>
+    </linearGradient>
+    <linearGradient id="redGrad2" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#f33924"/>
+      <stop offset="100%" stop-color="#b9110d"/>
+    </linearGradient>
+    <linearGradient id="yellowGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ffd922"/>
+      <stop offset="100%" stop-color="#f2bd00"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="10" flood-color="#000000" flood-opacity="0.18"/>
+    </filter>
   </defs>
-
-  <!-- Background enclosure -->
-  <rect x="-38" y="-30" width="76" height="60" rx="5" fill="url(#discbg)"/>
-  <rect x="-34" y="-29" width="68" height="3" rx="1.5" fill="#2a1e38" opacity="0.5"/>
-
-  <!-- Central switch housing -->
-  <rect x="-16" y="-28" width="32" height="56" rx="4" fill="url(#dischousing)"/>
-  <rect x="-14" y="-26" width="28" height="4" rx="2" fill="#2e2442" opacity="0.7"/>
-
-  <!-- PV+ conductor path (amber) at y=-10 -->
-  <line x1="-40" y1="-10" x2="-18" y2="-10"
-        stroke="#b8780e" stroke-width="2.5" stroke-linecap="round"/>
-  <line x1="18"  y1="-10" x2="40"  y2="-10"
-        stroke="#b8780e" stroke-width="2.5" stroke-linecap="round"/>
-
-  <!-- PV- conductor path (dimmer amber) at y=10 -->
-  <line x1="-40" y1="10" x2="-18" y2="10"
-        stroke="#7a5010" stroke-width="2.5" stroke-linecap="round"/>
-  <line x1="18"  y1="10" x2="40"  y2="10"
-        stroke="#7a5010" stroke-width="2.5" stroke-linecap="round"/>
-
-  <!-- Switch contacts (left side) -->
-  <rect x="-17" y="-13" width="5" height="6" rx="1.5" fill="#2a2040" stroke="#3a3050" stroke-width="0.5"/>
-  <rect x="-17" y="7"   width="5" height="6" rx="1.5" fill="#2a2040" stroke="#3a3050" stroke-width="0.5"/>
-
-  <!-- Switch contacts (right side) -->
-  <rect x="12" y="-13" width="5" height="6" rx="1.5" fill="#2a2040" stroke="#3a3050" stroke-width="0.5"/>
-  <rect x="12" y="7"   width="5" height="6" rx="1.5" fill="#2a2040" stroke="#3a3050" stroke-width="0.5"/>
-
-  <!-- Closed switch blades -->
-  <line x1="-12" y1="-10" x2="12" y2="-10"
-        stroke="#c98518" stroke-width="2" stroke-linecap="round" opacity="0.85"/>
-  <line x1="-12" y1="10"  x2="12" y2="10"
-        stroke="#7a5010" stroke-width="2" stroke-linecap="round" opacity="0.85"/>
-
-  <!-- Rotary actuator — red safety color -->
-  <circle cx="0" cy="0" r="10" fill="#1c1530" stroke="#c02020" stroke-width="2"/>
-  <circle cx="0" cy="0" r="8"  fill="#1a1228" stroke="#2e2040" stroke-width="0.5"/>
-  <!-- Position indicator bar -->
-  <rect x="-1.5" y="-6.5" width="3" height="7" rx="1" fill="url(#knob)"/>
-  <!-- ON status dot (green) -->
-  <circle cx="0" cy="-8.5" r="1.8" fill="#20c050" opacity="0.85"/>
-  <!-- Outer ring glow -->
-  <circle cx="0" cy="0" r="10" fill="none" stroke="#d03020" stroke-width="0.5" opacity="0.4"/>
-
-  <!-- Terminal port circles -->
-  <circle cx="-40" cy="-10" r="3.5" fill="#111116" stroke="#3a3a50" stroke-width="0.8"/>
-  <circle cx="-40" cy="-10" r="1.4" fill="#0a0a10"/>
-  <circle cx="-40" cy="10"  r="3.5" fill="#111116" stroke="#3a3a50" stroke-width="0.8"/>
-  <circle cx="-40" cy="10"  r="1.4" fill="#0a0a10"/>
-  <circle cx="40"  cy="-10" r="3.5" fill="#111116" stroke="#3a3a50" stroke-width="0.8"/>
-  <circle cx="40"  cy="-10" r="1.4" fill="#0a0a10"/>
-  <circle cx="40"  cy="10"  r="3.5" fill="#111116" stroke="#3a3a50" stroke-width="0.8"/>
-  <circle cx="40"  cy="10"  r="1.4" fill="#0a0a10"/>
-
-  <!-- Grey bar placeholder (replaces "PV DISC" label) -->
-  <rect x="-14" y="21" width="28" height="5" rx="1.5" fill="#3a4050"/>
+  <g filter="url(#shadow)">
+    <rect x="242" y="164" width="540" height="576" rx="42" fill="#d8d8d8" stroke="#8f8f8f" stroke-width="6"/>
+    <rect x="266" y="188" width="492" height="528" rx="36" fill="none" stroke="#ffffff" stroke-opacity="0.4" stroke-width="4"/>
+    <rect x="324" y="250" width="376" height="376" rx="20" fill="none" stroke="#b3b3b3" stroke-width="6"/>
+    <circle cx="308" cy="236" r="26" fill="#4f545a" stroke="#b8b8b8" stroke-width="5"/>
+    <circle cx="716" cy="236" r="26" fill="#4f545a" stroke="#b8b8b8" stroke-width="5"/>
+    <circle cx="308" cy="676" r="26" fill="#4f545a" stroke="#b8b8b8" stroke-width="5"/>
+    <circle cx="716" cy="676" r="26" fill="#4f545a" stroke="#b8b8b8" stroke-width="5"/>
+    <rect x="420" y="320" width="184" height="184" rx="14" fill="url(#yellowGrad)" stroke="#d3a400" stroke-width="4"/>
+    <circle cx="512" cy="412" r="122" fill="url(#yellowGrad)" opacity="0.8"/>
+    <circle cx="512" cy="412" r="112" fill="url(#redGrad2)" stroke="#9d1512" stroke-width="5"/>
+    <circle cx="512" cy="412" r="88" fill="#d31714" stroke="#aa130f" stroke-width="5"/>
+    <rect x="420" y="382" width="246" height="60" rx="10" fill="#f2331f" stroke="#c31d12" stroke-width="4"/>
+    <path d="M494,382 h80 l30,30 l-30,30 h-80 l-22,-30z" fill="#f34a2e" stroke="#c61d11" stroke-width="4"/>
+    <rect x="500" y="396" width="56" height="24" rx="12" fill="#ffd426"/>
+    <g fill="#1b1f24">
+      <rect x="432" y="740" width="78" height="94" rx="14"/>
+      <rect x="514" y="740" width="78" height="94" rx="14"/>
+      <rect x="440" y="718" width="62" height="34" rx="8"/>
+      <rect x="522" y="718" width="62" height="34" rx="8"/>
+    </g>
+    </g>
 </svg>

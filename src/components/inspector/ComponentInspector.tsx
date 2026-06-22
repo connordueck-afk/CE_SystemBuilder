@@ -1,4 +1,5 @@
 import type { FuseSlotState, SystemComponent, Product, NominalVoltage } from '../../types/system';
+import { CABLE_TABLE } from '../../data/cableAmpacity';
 import { fmt } from '../../utils/priceCalculations';
 import type { SolarArrayAggregation } from '../../utils/solarCalculations';
 import {
@@ -8,6 +9,13 @@ import {
 } from '../../utils/solarCalculations';
 import { isDcBusProduct } from '../../utils/dcBusVoltage';
 import { getFuseHolderForProduct } from '../../utils/fuseHolders';
+import {
+  COMPONENT_SCALE_MAX,
+  COMPONENT_SCALE_MIN,
+  COMPONENT_SCALE_STEP,
+  clampComponentScale,
+  componentScale,
+} from '../../utils/componentScale';
 
 type SourceLoadKind = 'dc_source' | 'ac_source' | 'dc_load' | 'ac_load';
 
@@ -36,6 +44,8 @@ interface Props {
   onUpdateInstanceVoltage: (id: string, voltageV: number | undefined) => void;
   onUpdateDcBusNominalVoltage: (id: string, voltageV: number | undefined) => void;
   onUpdateInstanceMaxCurrent: (id: string, currentA: number | undefined) => void;
+  onUpdateComponentMaxCableAwg: (id: string, awg: string | undefined) => void;
+  onUpdateComponentImageScale: (id: string, scale: number) => void;
   onUpdateBusPolarity: (id: string, busPolarity: SystemComponent['busPolarity']) => void;
   onUpdateFuseSlot: (id: string, slotId: string, patch: FuseSlotState) => void;
   onUpdateSolarConfiguration: (id: string, seriesCount: number, parallelCount: number) => void;
@@ -66,6 +76,8 @@ export function ComponentInspector({
   onUpdateInstanceVoltage,
   onUpdateDcBusNominalVoltage,
   onUpdateInstanceMaxCurrent,
+  onUpdateComponentMaxCableAwg,
+  onUpdateComponentImageScale,
   onUpdateBusPolarity,
   onUpdateFuseSlot,
   onUpdateSolarConfiguration,
@@ -86,6 +98,7 @@ export function ComponentInspector({
   const fuseSlots = product.distributionTopology?.fuseSlots ?? [];
   const isDcBus = isDcBusProduct(product);
   const fuseHolder = getFuseHolderForProduct(product);
+  const imageScale = componentScale(component);
 
   return (
     <div className="inspector-content">
@@ -102,6 +115,47 @@ export function ComponentInspector({
         <div className="inspector-label">Product</div>
         <div style={{ color: '#182235', fontSize: 14, fontWeight: 700 }}>{product.name}</div>
         <div style={{ color: '#6d7b90', fontSize: 12, fontWeight: 700 }}>{product.manufacturer}</div>
+      </div>
+
+      <div className="inspector-section">
+        <div className="inspector-label">Canvas Scale</div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 8, alignItems: 'center' }}>
+          <input
+            type="range"
+            min={COMPONENT_SCALE_MIN}
+            max={COMPONENT_SCALE_MAX}
+            step={COMPONENT_SCALE_STEP}
+            value={imageScale}
+            onChange={(e) => onUpdateComponentImageScale(component.id, Number(e.target.value))}
+          />
+          <div style={{ color: '#182235', fontSize: 12, fontWeight: 800, minWidth: 42, textAlign: 'right' }}>
+            {Math.round(imageScale * 100)}%
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
+          <button
+            type="button"
+            className="btn-secondary-inline"
+            onClick={() => onUpdateComponentImageScale(component.id, imageScale - COMPONENT_SCALE_STEP)}
+          >
+            -
+          </button>
+          <button
+            type="button"
+            className="btn-secondary-inline"
+            onClick={() => onUpdateComponentImageScale(component.id, 1)}
+            disabled={clampComponentScale(imageScale) === 1}
+          >
+            Reset
+          </button>
+          <button
+            type="button"
+            className="btn-secondary-inline"
+            onClick={() => onUpdateComponentImageScale(component.id, imageScale + COMPONENT_SCALE_STEP)}
+          >
+            +
+          </button>
+        </div>
       </div>
 
       {(product.productType === 'fuse' || product.productType === 'breaker') &&
@@ -242,6 +296,21 @@ export function ComponentInspector({
         {product.productType === 'solar_array' && product.maxPvCurrentA && (
           <SpecRow label="Max PV Current" value={`${product.maxPvCurrentA} A`} />
         )}
+        <div className="spec-row spec-row-editable">
+          <span className="spec-row-label">Max Cable Size</span>
+          <select
+            className="spec-row-input"
+            value={component.maxCableAwg ?? ''}
+            onChange={(e) => onUpdateComponentMaxCableAwg(component.id, e.target.value || undefined)}
+          >
+            <option value="">Auto</option>
+            {CABLE_TABLE.map((cable) => (
+              <option key={cable.awg} value={cable.awg}>
+                {cable.label}
+              </option>
+            ))}
+          </select>
+        </div>
         {solarStats && (
           <>
             <SpecRow label="Solar String" value={`${solarStats.seriesCount}S (${solarStats.panelCount} panels)`} />

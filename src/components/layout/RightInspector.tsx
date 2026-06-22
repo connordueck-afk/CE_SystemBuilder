@@ -39,6 +39,8 @@ interface Props {
   onUpdateInstanceVoltage: (id: string, voltageV: number | undefined) => void;
   onUpdateDcBusNominalVoltage: (id: string, voltageV: number | undefined) => void;
   onUpdateInstanceMaxCurrent: (id: string, currentA: number | undefined) => void;
+  onUpdateComponentMaxCableAwg: (id: string, awg: string | undefined) => void;
+  onUpdateComponentImageScale: (id: string, scale: number) => void;
   onUpdateBusPolarity: (id: string, busPolarity: SystemComponent['busPolarity']) => void;
   onUpdateFuseSlot: (id: string, slotId: string, patch: FuseSlotState) => void;
   onChangeComponentProduct: (id: string, productId: string) => void;
@@ -78,6 +80,8 @@ export function RightInspector({
   onUpdateInstanceVoltage,
   onUpdateDcBusNominalVoltage,
   onUpdateInstanceMaxCurrent,
+  onUpdateComponentMaxCableAwg,
+  onUpdateComponentImageScale,
   onUpdateBusPolarity,
   onUpdateFuseSlot,
   onChangeComponentProduct,
@@ -267,6 +271,8 @@ export function RightInspector({
             onUpdateInstanceVoltage={onUpdateInstanceVoltage}
             onUpdateDcBusNominalVoltage={onUpdateDcBusNominalVoltage}
             onUpdateInstanceMaxCurrent={onUpdateInstanceMaxCurrent}
+            onUpdateComponentMaxCableAwg={onUpdateComponentMaxCableAwg}
+            onUpdateComponentImageScale={onUpdateComponentImageScale}
             onUpdateBusPolarity={onUpdateBusPolarity}
             onUpdateFuseSlot={onUpdateFuseSlot}
             onUpdateSolarConfiguration={onUpdateSolarConfiguration}

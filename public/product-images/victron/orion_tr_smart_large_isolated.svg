@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="400" height="368" viewBox="56 72 400 368" role="img" aria-label="orion_tr_smart_large_isolated">
+  <defs>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="5" stdDeviation="5" flood-color="#000" flood-opacity="0.2"/>
+    </filter>
+  </defs>
+  <g id="product" filter="url(#shadow)">
+    <rect x="106" y="86" width="300" height="340" rx="24" fill="#0096D6"/>
+    <path d="M106 110 Q106 86 130 86 H184 V426 H130 Q106 426 106 402 Z" fill="#007DB7" opacity="0.55"/>
+    <rect x="70" y="122" width="36" height="28" rx="4" fill="#1D2428"/>
+    <rect x="406" y="150" width="36" height="28" rx="4" fill="#1D2428"/>
+    <circle cx="148" cy="150" r="14" fill="#CDEFFF"/>
+    <circle cx="148" cy="186" r="12" fill="none" stroke="#F0F4F5" stroke-width="4"/>
+    <line x1="148" y1="174" x2="148" y2="198" stroke="#F0F4F5" stroke-width="4"/>
+    <rect x="201" y="152" width="145" height="12" rx="6.0" fill="#F0F4F5" opacity="0.82"/>
+<rect x="201" y="184" width="190" height="12" rx="6.0" fill="#F0F4F5" opacity="0.82"/>
+<rect x="201" y="216" width="165" height="12" rx="6.0" fill="#F0F4F5" opacity="0.82"/>
+    <rect x="201" y="262" width="175" height="18" fill="#F28C28"/>
+    <rect x="208" y="306" width="135" height="6" rx="3.0" fill="#F0F4F5" opacity="0.82"/>
+<rect x="208" y="324" width="150" height="6" rx="3.0" fill="#F0F4F5" opacity="0.82"/>
+<rect x="208" y="342" width="120" height="6" rx="3.0" fill="#F0F4F5" opacity="0.82"/>
+    <rect x="150" y="340" width="212" height="55" rx="13" fill="#007DB7"/>
+    <rect x="174" y="352" width="164" height="32" rx="9" fill="#1D2428"/>
+    <circle cx="196" cy="368" r="10" fill="#222" stroke="#050607" stroke-width="2"/><line x1="190" y1="368" x2="202" y2="368" stroke="#4B4B4B" stroke-width="3"/>
+<circle cx="236" cy="368" r="10" fill="#222" stroke="#050607" stroke-width="2"/><line x1="230" y1="368" x2="242" y2="368" stroke="#4B4B4B" stroke-width="3"/>
+<circle cx="276" cy="368" r="10" fill="#222" stroke="#050607" stroke-width="2"/><line x1="270" y1="368" x2="282" y2="368" stroke="#4B4B4B" stroke-width="3"/>
+<circle cx="316" cy="368" r="10" fill="#222" stroke="#050607" stroke-width="2"/><line x1="310" y1="368" x2="322" y2="368" stroke="#4B4B4B" stroke-width="3"/>
+    <rect x="166" y="398" width="48" height="18" rx="4" fill="#60B96E"/><rect x="241" y="398" width="80" height="18" rx="4" fill="#ECE6D5"/>
+  </g>
+</svg>

@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="278" height="158" viewBox="117 177 278 158" role="img" aria-label="cerbo_gx">
+  <defs>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="5" stdDeviation="5" flood-color="#000" flood-opacity="0.2"/>
+    </filter>
+  </defs>
+  <g id="product" filter="url(#shadow)">
+    <rect x="131" y="191" width="250" height="130" rx="14" fill="#0096D6"/>
+    <rect x="155" y="217" width="180" height="12" rx="6" fill="#F0F4F5" opacity="0.82"/>
+    <rect x="155" y="247" width="135" height="10" rx="5" fill="#F0F4F5" opacity="0.72"/>
+    <rect x="151" y="279" width="210" height="24" rx="6" fill="#1D2428"/>
+    <rect x="165" y="283" width="38" height="26" rx="3" fill="#0B0E10" stroke="#3B4348" stroke-width="2"/><rect x="172" y="288" width="24" height="15" rx="1" fill="#283138"/><line x1="176" y1="303" x2="176" y2="307" stroke="#6A7478"/><line x1="184" y1="303" x2="184" y2="307" stroke="#6A7478"/><line x1="192" y1="303" x2="192" y2="307" stroke="#6A7478"/><rect x="213" y="283" width="38" height="26" rx="3" fill="#0B0E10" stroke="#3B4348" stroke-width="2"/><rect x="220" y="288" width="24" height="15" rx="1" fill="#283138"/><line x1="224" y1="303" x2="224" y2="307" stroke="#6A7478"/><line x1="232" y1="303" x2="232" y2="307" stroke="#6A7478"/><line x1="240" y1="303" x2="240" y2="307" stroke="#6A7478"/><rect x="261" y="283" width="38" height="26" rx="3" fill="#0B0E10" stroke="#3B4348" stroke-width="2"/><rect x="268" y="288" width="24" height="15" rx="1" fill="#283138"/><line x1="272" y1="303" x2="272" y2="307" stroke="#6A7478"/><line x1="280" y1="303" x2="280" y2="307" stroke="#6A7478"/><line x1="288" y1="303" x2="288" y2="307" stroke="#6A7478"/>
+  </g>
+</svg>

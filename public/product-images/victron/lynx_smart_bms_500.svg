@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="268" height="208" viewBox="122 152 268 208" role="img" aria-label="lynx_smart_bms_500">
+  <defs>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="5" stdDeviation="5" flood-color="#000" flood-opacity="0.2"/>
+    </filter>
+  </defs>
+  <g id="product" filter="url(#shadow)">
+    <rect x="136" y="166" width="240" height="180" rx="14" fill="#0096D6"/>
+    <rect x="152" y="188" width="208" height="38" rx="8" fill="#1D2428"/>
+    <rect x="172" y="200" width="120" height="9" rx="4" fill="#F0F4F5" opacity="0.8"/>
+    <rect x="172" y="228" width="168" height="12" fill="#F28C28"/>
+    <rect x="176" y="258" width="150" height="8" rx="4.0" fill="#F0F4F5" opacity="0.82"/>
+<rect x="176" y="280" width="120" height="8" rx="4.0" fill="#F0F4F5" opacity="0.82"/>
+<rect x="176" y="302" width="135" height="8" rx="4.0" fill="#F0F4F5" opacity="0.82"/>
+    <circle cx="174" cy="316" r="13" fill="#B89A4A"/><circle cx="338" cy="316" r="13" fill="#B89A4A"/>
+    <rect x="292" y="258" width="38" height="26" rx="3" fill="#0B0E10" stroke="#3B4348" stroke-width="2"/><rect x="299" y="263" width="24" height="15" rx="1" fill="#283138"/><line x1="303" y1="278" x2="303" y2="282" stroke="#6A7478"/><line x1="311" y1="278" x2="311" y2="282" stroke="#6A7478"/><line x1="319" y1="278" x2="319" y2="282" stroke="#6A7478"/>
+  </g>
+</svg>

@@ -10,6 +10,7 @@ import type { ProtectionRecommendation } from '../../utils/protectionRecommendat
 import type { BusColorMap } from '../../utils/busColors';
 import type { PathMarker } from '../../utils/connectionGeometry';
 import { isVerticalOrientation, transformOrientationOffset } from '../../utils/componentOrientation';
+import { componentScale, scaledProductSize, scaledTerminalOffset } from '../../utils/componentScale';
 
 interface DragState {
   componentId: string;
@@ -30,6 +31,12 @@ interface FusePrompt {
   connectionId: string;
   recommendation: ProtectionRecommendation;
   marker: PathMarker;
+}
+
+interface ScaleDragState {
+  componentId: string;
+  startDist: number;
+  startScale: number;
 }
 
 interface PanState {
@@ -73,6 +80,8 @@ interface Props {
   busColors: BusColorMap;
   focusedComponentId: string | null;
   focusRequestId: number;
+  focusedConnectionId: string | null;
+  focusConnectionRequestId: number;
   onViewportCenterChange: (center: { x: number; y: number }) => void;
   onSelectComponent: (id: string | null) => void;
   onSelectConnection: (id: string | null) => void;
@@ -92,6 +101,7 @@ interface Props {
   onMoveConnectionRoute: (id: string, routePoints: Array<{ x: number; y: number }>) => void;
   onInsertProtection: (recommendation: ProtectionRecommendation, marker: PathMarker) => void;
   onEnterFullView: () => void;
+  onScaleComponent: (id: string, scale: number) => void;
   onAddConnection: (
     fromComp: string,
     fromTerm: string,
@@ -148,23 +158,25 @@ function clampCenter(center: { x: number; y: number }, zoom: number, size: Canva
   };
 }
 
-function componentFootprint(product: Product, rotationDeg = 0): { halfWidth: number; halfHeight: number } {
+function componentFootprint(product: Product, rotationDeg = 0, scale = 1): { halfWidth: number; halfHeight: number } {
+  const { width, height } = scaledProductSize(product, scale);
   const rotated = isVerticalOrientation(rotationDeg);
-  const symbolWidth = rotated ? product.height : product.width;
-  const symbolHeight = rotated ? product.width : product.height;
+  const symbolWidth = rotated ? height : width;
+  const symbolHeight = rotated ? width : height;
 
   return {
     halfWidth: symbolWidth / 2,
-    halfHeight: Math.max(symbolHeight / 2, product.height / 2 + 22),
+    halfHeight: Math.max(symbolHeight / 2, height / 2 + 22),
   };
 }
 
 function clampComponentToWorld(
   point: { x: number; y: number },
   product: Product,
-  rotationDeg = 0
+  rotationDeg = 0,
+  scale = 1
 ): { x: number; y: number } {
-  const { halfWidth, halfHeight } = componentFootprint(product, rotationDeg);
+  const { halfWidth, halfHeight } = componentFootprint(product, rotationDeg, scale);
   return {
     x: Math.min(WORLD_X + WORLD_W - halfWidth, Math.max(WORLD_X + halfWidth, point.x)),
     y: Math.min(WORLD_Y + WORLD_H - halfHeight, Math.max(WORLD_Y + halfHeight, point.y)),
@@ -180,7 +192,7 @@ function diagramBounds(system: SystemDesign, products: Map<string, Product>) {
   for (const component of system.components) {
     const product = getEffectiveProductForComponent(component, products.get(component.productId));
     if (!product) continue;
-    const footprint = componentFootprint(product, component.rotationDeg);
+    const footprint = componentFootprint(product, component.rotationDeg, componentScale(component));
     minX = Math.min(minX, component.x - footprint.halfWidth);
     minY = Math.min(minY, component.y - footprint.halfHeight);
     maxX = Math.max(maxX, component.x + footprint.halfWidth);
@@ -212,7 +224,8 @@ function svgCoords(e: { clientX: number; clientY: number }, svgEl: SVGSVGElement
 }
 
 function terminalOffset(comp: SystemComponent, terminal: { offsetX: number; offsetY: number }): { x: number; y: number } {
-  return transformOrientationOffset(comp.rotationDeg, terminal.offsetX, terminal.offsetY);
+  const scaledOffset = scaledTerminalOffset(comp, terminal);
+  return transformOrientationOffset(comp.rotationDeg, scaledOffset.offsetX, scaledOffset.offsetY);
 }
 
 function MenuIcon({
@@ -300,6 +313,8 @@ export function SchematicCanvas({
   busColors,
   focusedComponentId,
   focusRequestId,
+  focusedConnectionId,
+  focusConnectionRequestId,
   onViewportCenterChange,
   onSelectComponent,
   onSelectConnection,
@@ -319,11 +334,13 @@ export function SchematicCanvas({
   onMoveConnectionRoute,
   onInsertProtection,
   onEnterFullView,
+  onScaleComponent,
   onAddConnection,
 }: Props) {
   const canvasRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
   const [dragging, setDragging] = useState<DragState | null>(null);
+  const [scaleDragging, setScaleDragging] = useState<ScaleDragState | null>(null);
   const [pendingConn, setPendingConn] = useState<PendingConn | null>(null);
   const [panning, setPanning] = useState<PanState | null>(null);
   const [scrollDragging, setScrollDragging] = useState<ScrollDragState | null>(null);
@@ -336,6 +353,7 @@ export function SchematicCanvas({
   const [canvasSize, setCanvasSize] = useState<CanvasSize>({ width: VIEW_W, height: VIEW_H });
   const didPanRef = useRef(false);
   const handledFocusRequestIdRef = useRef(0);
+  const handledFocusConnectionRequestIdRef = useRef(0);
   const mouseClientRef = useRef<{ x: number; y: number } | null>(null);
   const autoScrollRafRef = useRef<number | null>(null);
   const zoomRef = useRef(zoom);
@@ -381,7 +399,22 @@ export function SchematicCanvas({
   }, [canvasSize, focusRequestId, focusedComponentId, system.components, zoom]);
 
   useEffect(() => {
-    if (!dragging && !panning && !scrollDragging) return;
+    if (!focusedConnectionId) return;
+    if (focusConnectionRequestId === handledFocusConnectionRequestIdRef.current) return;
+    const connection = system.connections.find((c) => c.id === focusedConnectionId);
+    if (!connection) return;
+    const fromComp = system.components.find((c) => c.id === connection.fromComponentId);
+    const toComp = system.components.find((c) => c.id === connection.toComponentId);
+    if (!fromComp || !toComp) return;
+    handledFocusConnectionRequestIdRef.current = focusConnectionRequestId;
+    setViewportCenter(clampCenter({
+      x: (fromComp.x + toComp.x) / 2,
+      y: (fromComp.y + toComp.y) / 2,
+    }, zoom, canvasSize));
+  }, [canvasSize, focusConnectionRequestId, focusedConnectionId, system.connections, system.components, zoom]);
+
+  useEffect(() => {
+    if (!dragging && !panning && !scrollDragging && !scaleDragging) return;
     const previousUserSelect = document.body.style.userSelect;
     document.body.style.userSelect = 'none';
     window.getSelection()?.removeAllRanges();
@@ -390,7 +423,7 @@ export function SchematicCanvas({
       document.body.style.userSelect = previousUserSelect;
       window.getSelection()?.removeAllRanges();
     };
-  }, [dragging, panning, scrollDragging]);
+  }, [dragging, panning, scaleDragging, scrollDragging]);
 
   useEffect(() => {
     if (fusePrompt && selectedConnectionId !== fusePrompt.connectionId) {
@@ -668,6 +701,21 @@ export function SchematicCanvas({
     });
   }, [onSelectComponent, system.components, pendingConn]);
 
+  const handleScaleDragStart = useCallback((componentId: string, e: React.MouseEvent) => {
+    if (!svgRef.current) return;
+    const pos = svgCoords(e, svgRef.current);
+    const comp = system.components.find((c) => c.id === componentId);
+    if (!comp) return;
+    const dx = pos.x - comp.x;
+    const dy = pos.y - comp.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    setScaleDragging({
+      componentId,
+      startDist: Math.max(dist, 1),
+      startScale: componentScale(comp),
+    });
+  }, [system.components]);
+
   const handleComponentContextMenu = useCallback((componentId: string, e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -733,12 +781,23 @@ export function SchematicCanvas({
       const nextPos = clampComponentToWorld({
         x: snapToGrid(dragging.startCompX + dx),
         y: snapToGrid(dragging.startCompY + dy),
-      }, product, comp.rotationDeg);
+      }, product, comp.rotationDeg, componentScale(comp));
       onMoveComponent(
         dragging.componentId,
         nextPos.x,
         nextPos.y
       );
+    }
+
+    if (scaleDragging) {
+      const comp = system.components.find((c) => c.id === scaleDragging.componentId);
+      if (comp) {
+        const dx = pos.x - comp.x;
+        const dy = pos.y - comp.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const newScale = scaleDragging.startScale * dist / scaleDragging.startDist;
+        onScaleComponent(scaleDragging.componentId, newScale);
+      }
     }
 
     if (panning) {
@@ -751,10 +810,11 @@ export function SchematicCanvas({
         y: panning.startCenterY - dy,
       }, zoom, canvasSize));
     }
-  }, [canvasSize, dragging, onMoveComponent, panning, products, system.components, zoom]);
+  }, [canvasSize, dragging, onMoveComponent, onScaleComponent, panning, products, scaleDragging, system.components, zoom]);
 
   const handleMouseUp = useCallback(() => {
     setDragging(null);
+    setScaleDragging(null);
     setPanning(null);
     setScrollDragging(null);
   }, []);
@@ -874,7 +934,7 @@ export function SchematicCanvas({
         width="100%"
         height="100%"
         preserveAspectRatio="none"
-        style={{ display: 'block', cursor: pendingConn ? 'crosshair' : dragging || panning ? 'grabbing' : 'grab' }}
+        style={{ display: 'block', cursor: pendingConn ? 'crosshair' : scaleDragging ? 'nwse-resize' : dragging || panning ? 'grabbing' : 'grab' }}
         onMouseDown={handleCanvasMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
@@ -891,7 +951,7 @@ export function SchematicCanvas({
         <rect data-canvas-bg="true" x={WORLD_X} y={WORLD_Y} width={WORLD_W} height={WORLD_H} fill="#f4f7fb" />
         <rect data-canvas-bg="true" x={WORLD_X} y={WORLD_Y} width={WORLD_W} height={WORLD_H} fill="url(#grid)" />
 
-        {/* Connections behind components */}
+        {/* Connection hit areas below components */}
         <ConnectionLayer
           connections={system.connections}
           components={system.components}
@@ -910,6 +970,7 @@ export function SchematicCanvas({
           onClearProtectionPrompt={() => setFusePrompt(null)}
           onMoveConnectionRoute={onMoveConnectionRoute}
           pendingLine={pendingLine}
+          layer="interactive"
         />
 
         {/* Components */}
@@ -931,9 +992,32 @@ export function SchematicCanvas({
               onDragStart={handleDragStart}
               onContextMenu={handleComponentContextMenu}
               onTerminalMouseDown={handleTerminalMouseDown}
+              onScaleHandleMouseDown={handleScaleDragStart}
             />
           );
         })}
+
+        {/* Visible connections above product images */}
+        <ConnectionLayer
+          connections={system.connections}
+          components={system.components}
+          products={products}
+          selectedConnectionId={selectedConnectionId}
+          protectionRecommendations={protectionRecommendations}
+          busColors={busColors}
+          onSelectConnection={(id) => {
+            setFusePrompt(null);
+            onSelectConnection(id);
+            onSelectComponent(null);
+          }}
+          onShowProtectionPrompt={(connectionId, recommendation, marker) => {
+            setFusePrompt({ connectionId, recommendation, marker });
+          }}
+          onClearProtectionPrompt={() => setFusePrompt(null)}
+          onMoveConnectionRoute={onMoveConnectionRoute}
+          pendingLine={pendingLine}
+          layer="visual"
+        />
 
         {(system.annotations ?? []).map((annotation) => {
           const commonProps = {
