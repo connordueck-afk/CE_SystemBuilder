@@ -20,6 +20,7 @@ const SIMPLE_12V: SystemDesign = {
   nominalVoltage: 12,
   assumptions: { ...DEFAULT_ASSUMPTIONS },
   createdAt: new Date().toISOString(),
+  updatedAt: new Date().toISOString(),
   components: [
     {
       id: 'p1-bat',
@@ -28,6 +29,14 @@ const SIMPLE_12V: SystemDesign = {
       quantity: 1,
       x: -100,
       y: 300,
+    },
+    {
+      id: 'p1-fuse-bat',
+      productId: 'fuse-anl-200a',
+      label: 'Battery Fuse',
+      quantity: 1,
+      x: 10,
+      y: 270,
     },
     {
       id: 'p1-bus-pos',
@@ -66,6 +75,14 @@ const SIMPLE_12V: SystemDesign = {
       y: -60,
     },
     {
+      id: 'p1-fuse-mppt',
+      productId: 'fuse-midi-60a',
+      label: 'MPPT Fuse',
+      quantity: 1,
+      x: 230,
+      y: 90,
+    },
+    {
       id: 'p1-dc-load',
       productId: 'acc-dc-load-generic',
       label: 'DC Loads',
@@ -75,13 +92,22 @@ const SIMPLE_12V: SystemDesign = {
     },
   ],
   connections: [
+    // Battery → ANL 200A fuse → positive busbar
     {
-      id: 'p1-bat-pos',
+      id: 'p1-bat-to-fuse',
       fromComponentId: 'p1-bat',
       fromTerminalId: 'dc_pos',
+      toComponentId: 'p1-fuse-bat',
+      toTerminalId: 'in',
+      cableLengthFt: 1,
+    },
+    {
+      id: 'p1-fuse-to-bus',
+      fromComponentId: 'p1-fuse-bat',
+      fromTerminalId: 'out',
       toComponentId: 'p1-bus-pos',
       toTerminalId: 'terminal_1',
-      cableLengthFt: 2,
+      cableLengthFt: 1,
     },
     {
       id: 'p1-bat-neg',
@@ -107,13 +133,22 @@ const SIMPLE_12V: SystemDesign = {
       toTerminalId: 'pv_neg',
       cableLengthFt: 10,
     },
+    // MPPT → MIDI 60A fuse → positive busbar
     {
-      id: 'p1-mppt-bat-pos',
+      id: 'p1-mppt-to-fuse',
       fromComponentId: 'p1-mppt',
       fromTerminalId: 'bat_pos',
+      toComponentId: 'p1-fuse-mppt',
+      toTerminalId: 'in',
+      cableLengthFt: 2,
+    },
+    {
+      id: 'p1-fuse-mppt-to-bus',
+      fromComponentId: 'p1-fuse-mppt',
+      fromTerminalId: 'out',
       toComponentId: 'p1-bus-pos',
       toTerminalId: 'terminal_2',
-      cableLengthFt: 4,
+      cableLengthFt: 2,
     },
     {
       id: 'p1-mppt-bat-neg',
@@ -153,6 +188,7 @@ const FULL_12V: SystemDesign = {
   nominalVoltage: 12,
   assumptions: { ...DEFAULT_ASSUMPTIONS },
   createdAt: new Date().toISOString(),
+  updatedAt: new Date().toISOString(),
   components: [
     {
       id: 'p2-bat-1',
@@ -169,6 +205,14 @@ const FULL_12V: SystemDesign = {
       quantity: 1,
       x: -120,
       y: 500,
+    },
+    {
+      id: 'p2-fuse-bat',
+      productId: 'fuse-anl-400a',
+      label: 'Battery Bank Fuse',
+      quantity: 1,
+      x: 0,
+      y: 360,
     },
     {
       id: 'p2-bus-pos',
@@ -217,6 +261,14 @@ const FULL_12V: SystemDesign = {
       y: -20,
     },
     {
+      id: 'p2-fuse-mppt',
+      productId: 'fuse-midi-60a',
+      label: 'MPPT Fuse',
+      quantity: 1,
+      x: 220,
+      y: 160,
+    },
+    {
       id: 'p2-alternator',
       productId: 'generic-alternator-source',
       label: 'Alternator',
@@ -231,6 +283,22 @@ const FULL_12V: SystemDesign = {
       quantity: 1,
       x: 120,
       y: 120,
+    },
+    {
+      id: 'p2-fuse-dcdc',
+      productId: 'fuse-midi-60a',
+      label: 'DC-DC Fuse',
+      quantity: 1,
+      x: 230,
+      y: 240,
+    },
+    {
+      id: 'p2-fuse-inv',
+      productId: 'fuse-anl-325a',
+      label: 'Inverter Fuse',
+      quantity: 1,
+      x: 300,
+      y: 360,
     },
     {
       id: 'p2-inverter',
@@ -258,21 +326,35 @@ const FULL_12V: SystemDesign = {
     },
   ],
   connections: [
-    { id: 'p2-b1-pos', fromComponentId: 'p2-bat-1', fromTerminalId: 'dc_pos', toComponentId: 'p2-bus-pos', toTerminalId: 'terminal_1', cableLengthFt: 2 },
+    // Daisy-chain parallel bank: Battery 2+ → Battery 1+ (short inter-pack lead)
+    // then Battery 1+ → single ANL 400A bank fuse → positive busbar.
+    // The engine exempts the inter-battery wire from per-cell fuse requirements and
+    // correctly sizes the single bank fuse against the full combined bank current.
+    { id: 'p2-bat2-to-bat1-pos', fromComponentId: 'p2-bat-2', fromTerminalId: 'dc_pos', toComponentId: 'p2-bat-1', toTerminalId: 'dc_pos', cableLengthFt: 1 },
+    { id: 'p2-b1-to-fuse', fromComponentId: 'p2-bat-1', fromTerminalId: 'dc_pos', toComponentId: 'p2-fuse-bat', toTerminalId: 'in', cableLengthFt: 1 },
+    { id: 'p2-fuse-to-bus', fromComponentId: 'p2-fuse-bat', fromTerminalId: 'out', toComponentId: 'p2-bus-pos', toTerminalId: 'terminal_1', cableLengthFt: 1 },
     { id: 'p2-b1-neg', fromComponentId: 'p2-bat-1', fromTerminalId: 'dc_neg', toComponentId: 'p2-bus-neg', toTerminalId: 'terminal_1', cableLengthFt: 2 },
-    { id: 'p2-b2-pos', fromComponentId: 'p2-bat-2', fromTerminalId: 'dc_pos', toComponentId: 'p2-bus-pos', toTerminalId: 'terminal_2', cableLengthFt: 2 },
     { id: 'p2-b2-neg', fromComponentId: 'p2-bat-2', fromTerminalId: 'dc_neg', toComponentId: 'p2-bus-neg', toTerminalId: 'terminal_2', cableLengthFt: 2 },
+    // Solar panels in series
     { id: 'p2-solar-series', fromComponentId: 'p2-solar-1', fromTerminalId: 'pv_pos', toComponentId: 'p2-solar-2', toTerminalId: 'pv_neg', cableLengthFt: 2 },
     { id: 'p2-solar-pv-pos', fromComponentId: 'p2-solar-2', fromTerminalId: 'pv_pos', toComponentId: 'p2-mppt', toTerminalId: 'pv_pos', cableLengthFt: 12 },
     { id: 'p2-solar-pv-neg', fromComponentId: 'p2-solar-1', fromTerminalId: 'pv_neg', toComponentId: 'p2-mppt', toTerminalId: 'pv_neg', cableLengthFt: 12 },
-    { id: 'p2-mppt-pos', fromComponentId: 'p2-mppt', fromTerminalId: 'bat_pos', toComponentId: 'p2-bus-pos', toTerminalId: 'terminal_3', cableLengthFt: 4 },
+    // MPPT → MIDI 60A fuse → positive busbar
+    { id: 'p2-mppt-to-fuse', fromComponentId: 'p2-mppt', fromTerminalId: 'bat_pos', toComponentId: 'p2-fuse-mppt', toTerminalId: 'in', cableLengthFt: 2 },
+    { id: 'p2-mppt-fuse-to-bus', fromComponentId: 'p2-fuse-mppt', fromTerminalId: 'out', toComponentId: 'p2-bus-pos', toTerminalId: 'terminal_3', cableLengthFt: 2 },
     { id: 'p2-mppt-neg', fromComponentId: 'p2-mppt', fromTerminalId: 'bat_neg', toComponentId: 'p2-bus-neg', toTerminalId: 'terminal_3', cableLengthFt: 4 },
+    // Alternator → DC-DC charger
     { id: 'p2-alt-pos', fromComponentId: 'p2-alternator', fromTerminalId: 'dc_pos', toComponentId: 'p2-dcdc', toTerminalId: 'in_pos', cableLengthFt: 6 },
     { id: 'p2-alt-neg', fromComponentId: 'p2-alternator', fromTerminalId: 'dc_neg', toComponentId: 'p2-dcdc', toTerminalId: 'in_neg', cableLengthFt: 6 },
-    { id: 'p2-dcdc-pos', fromComponentId: 'p2-dcdc', fromTerminalId: 'out_pos', toComponentId: 'p2-bus-pos', toTerminalId: 'terminal_4', cableLengthFt: 4 },
+    // DC-DC charger → MIDI 60A fuse → positive busbar
+    { id: 'p2-dcdc-to-fuse', fromComponentId: 'p2-dcdc', fromTerminalId: 'out_pos', toComponentId: 'p2-fuse-dcdc', toTerminalId: 'in', cableLengthFt: 2 },
+    { id: 'p2-dcdc-fuse-to-bus', fromComponentId: 'p2-fuse-dcdc', fromTerminalId: 'out', toComponentId: 'p2-bus-pos', toTerminalId: 'terminal_4', cableLengthFt: 2 },
     { id: 'p2-dcdc-neg', fromComponentId: 'p2-dcdc', fromTerminalId: 'out_neg', toComponentId: 'p2-bus-neg', toTerminalId: 'terminal_4', cableLengthFt: 4 },
-    { id: 'p2-inv-pos', fromComponentId: 'p2-bus-pos', fromTerminalId: 'terminal_5', toComponentId: 'p2-inverter', toTerminalId: 'dc_pos', cableLengthFt: 5 },
+    // Positive busbar → ANL 325A fuse → inverter
+    { id: 'p2-bus-to-fuse-inv', fromComponentId: 'p2-bus-pos', fromTerminalId: 'terminal_5', toComponentId: 'p2-fuse-inv', toTerminalId: 'in', cableLengthFt: 2 },
+    { id: 'p2-fuse-inv-to-inv', fromComponentId: 'p2-fuse-inv', fromTerminalId: 'out', toComponentId: 'p2-inverter', toTerminalId: 'dc_pos', cableLengthFt: 3 },
     { id: 'p2-inv-neg', fromComponentId: 'p2-bus-neg', fromTerminalId: 'terminal_5', toComponentId: 'p2-inverter', toTerminalId: 'dc_neg', cableLengthFt: 5 },
+    // Shore power and AC loads
     { id: 'p2-shore-l', fromComponentId: 'p2-shore', fromTerminalId: 'ac_l', toComponentId: 'p2-inverter', toTerminalId: 'ac_in_l', cableLengthFt: 8 },
     { id: 'p2-shore-n', fromComponentId: 'p2-shore', fromTerminalId: 'ac_n', toComponentId: 'p2-inverter', toTerminalId: 'ac_in_n', cableLengthFt: 8 },
     { id: 'p2-ac-load-l', fromComponentId: 'p2-inverter', fromTerminalId: 'ac_out_l', toComponentId: 'p2-ac-load', toTerminalId: 'ac_l', cableLengthFt: 12 },
@@ -291,6 +373,7 @@ const OFFGRID_48V: SystemDesign = {
   nominalVoltage: 48,
   assumptions: { ...DEFAULT_ASSUMPTIONS },
   createdAt: new Date().toISOString(),
+  updatedAt: new Date().toISOString(),
   components: [
     {
       id: 'p3-bat-1',
@@ -306,6 +389,22 @@ const OFFGRID_48V: SystemDesign = {
       label: 'Battery 2',
       quantity: 1,
       x: -200,
+      y: 440,
+    },
+    {
+      id: 'p3-fuse-bat1',
+      productId: 'fuse-anl-125a',
+      label: 'Battery 1 Fuse',
+      quantity: 1,
+      x: -60,
+      y: 270,
+    },
+    {
+      id: 'p3-fuse-bat2',
+      productId: 'fuse-anl-125a',
+      label: 'Battery 2 Fuse',
+      quantity: 1,
+      x: -60,
       y: 440,
     },
     {
@@ -345,6 +444,22 @@ const OFFGRID_48V: SystemDesign = {
       y: -20,
     },
     {
+      id: 'p3-fuse-mppt',
+      productId: 'fuse-midi-125a',
+      label: 'MPPT Fuse',
+      quantity: 1,
+      x: 190,
+      y: 130,
+    },
+    {
+      id: 'p3-fuse-inv',
+      productId: 'fuse-anl-150a',
+      label: 'Inverter Fuse',
+      quantity: 1,
+      x: 300,
+      y: 320,
+    },
+    {
       id: 'p3-inverter',
       productId: 'inv-vic-mp2-48-5000',
       label: 'MultiPlus-II 48/5000',
@@ -370,16 +485,26 @@ const OFFGRID_48V: SystemDesign = {
     },
   ],
   connections: [
-    { id: 'p3-b1-pos', fromComponentId: 'p3-bat-1', fromTerminalId: 'dc_pos', toComponentId: 'p3-bus-pos', toTerminalId: 'terminal_1', cableLengthFt: 3 },
+    // Battery 1 → ANL 125A fuse → positive busbar
+    { id: 'p3-b1-to-fuse', fromComponentId: 'p3-bat-1', fromTerminalId: 'dc_pos', toComponentId: 'p3-fuse-bat1', toTerminalId: 'in', cableLengthFt: 1.5 },
+    { id: 'p3-b1-fuse-to-bus', fromComponentId: 'p3-fuse-bat1', fromTerminalId: 'out', toComponentId: 'p3-bus-pos', toTerminalId: 'terminal_1', cableLengthFt: 1.5 },
     { id: 'p3-b1-neg', fromComponentId: 'p3-bat-1', fromTerminalId: 'dc_neg', toComponentId: 'p3-bus-neg', toTerminalId: 'terminal_1', cableLengthFt: 3 },
-    { id: 'p3-b2-pos', fromComponentId: 'p3-bat-2', fromTerminalId: 'dc_pos', toComponentId: 'p3-bus-pos', toTerminalId: 'terminal_2', cableLengthFt: 3 },
+    // Battery 2 → ANL 125A fuse → positive busbar
+    { id: 'p3-b2-to-fuse', fromComponentId: 'p3-bat-2', fromTerminalId: 'dc_pos', toComponentId: 'p3-fuse-bat2', toTerminalId: 'in', cableLengthFt: 1.5 },
+    { id: 'p3-b2-fuse-to-bus', fromComponentId: 'p3-fuse-bat2', fromTerminalId: 'out', toComponentId: 'p3-bus-pos', toTerminalId: 'terminal_2', cableLengthFt: 1.5 },
     { id: 'p3-b2-neg', fromComponentId: 'p3-bat-2', fromTerminalId: 'dc_neg', toComponentId: 'p3-bus-neg', toTerminalId: 'terminal_2', cableLengthFt: 3 },
+    // Solar array
     { id: 'p3-solar-pv-pos', fromComponentId: 'p3-solar', fromTerminalId: 'pv_pos', toComponentId: 'p3-mppt', toTerminalId: 'pv_pos', cableLengthFt: 15 },
     { id: 'p3-solar-pv-neg', fromComponentId: 'p3-solar', fromTerminalId: 'pv_neg', toComponentId: 'p3-mppt', toTerminalId: 'pv_neg', cableLengthFt: 15 },
-    { id: 'p3-mppt-pos', fromComponentId: 'p3-mppt', fromTerminalId: 'bat_pos', toComponentId: 'p3-bus-pos', toTerminalId: 'terminal_3', cableLengthFt: 5 },
+    // MPPT → MIDI 125A fuse → positive busbar
+    { id: 'p3-mppt-to-fuse', fromComponentId: 'p3-mppt', fromTerminalId: 'bat_pos', toComponentId: 'p3-fuse-mppt', toTerminalId: 'in', cableLengthFt: 2 },
+    { id: 'p3-mppt-fuse-to-bus', fromComponentId: 'p3-fuse-mppt', fromTerminalId: 'out', toComponentId: 'p3-bus-pos', toTerminalId: 'terminal_3', cableLengthFt: 3 },
     { id: 'p3-mppt-neg', fromComponentId: 'p3-mppt', fromTerminalId: 'bat_neg', toComponentId: 'p3-bus-neg', toTerminalId: 'terminal_3', cableLengthFt: 5 },
-    { id: 'p3-inv-pos', fromComponentId: 'p3-bus-pos', fromTerminalId: 'terminal_4', toComponentId: 'p3-inverter', toTerminalId: 'dc_pos', cableLengthFt: 6 },
+    // Positive busbar → ANL 150A fuse → inverter
+    { id: 'p3-bus-to-fuse-inv', fromComponentId: 'p3-bus-pos', fromTerminalId: 'terminal_4', toComponentId: 'p3-fuse-inv', toTerminalId: 'in', cableLengthFt: 3 },
+    { id: 'p3-fuse-inv-to-inv', fromComponentId: 'p3-fuse-inv', fromTerminalId: 'out', toComponentId: 'p3-inverter', toTerminalId: 'dc_pos', cableLengthFt: 3 },
     { id: 'p3-inv-neg', fromComponentId: 'p3-bus-neg', fromTerminalId: 'terminal_4', toComponentId: 'p3-inverter', toTerminalId: 'dc_neg', cableLengthFt: 6 },
+    // Generator and AC loads
     { id: 'p3-gen-l', fromComponentId: 'p3-generator', fromTerminalId: 'ac_l', toComponentId: 'p3-inverter', toTerminalId: 'ac_in_l', cableLengthFt: 10 },
     { id: 'p3-gen-n', fromComponentId: 'p3-generator', fromTerminalId: 'ac_n', toComponentId: 'p3-inverter', toTerminalId: 'ac_in_n', cableLengthFt: 10 },
     { id: 'p3-ac-l', fromComponentId: 'p3-inverter', fromTerminalId: 'ac_out_l', toComponentId: 'p3-ac-load', toTerminalId: 'ac_l', cableLengthFt: 15 },

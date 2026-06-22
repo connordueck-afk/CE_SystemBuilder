@@ -85,6 +85,15 @@ const PASS_THROUGH_TYPES = new Set([
   'transferSwitch',
 ]);
 
+function instanceCurrentOverrideA(product: Product, component: SystemComponent): number | undefined {
+  const currentA = component.instanceMaxCurrentA;
+  if (currentA == null || !Number.isFinite(currentA) || currentA <= 0) return undefined;
+  if (product.productType === 'dc_load' || product.productType === 'ac_load') return currentA;
+  if (product.productType === 'shorePowerInlet' || product.productType === 'battery') return currentA;
+  if (product.productType === 'accessory' && product.dataQuality === 'placeholder') return currentA;
+  return undefined;
+}
+
 function terminalKey(componentId: string, terminalId: string): string {
   return `${componentId}:${terminalId}`;
 }
@@ -126,6 +135,14 @@ export function isReturnOrGroundBus(busType: BusType): boolean {
 }
 
 function estimateProductCurrentA(product: Product, component: SystemComponent, system: SystemDesign, terminal?: TerminalDefinition): number {
+  // Batteries advertise source capability on their terminals, but that is not
+  // operating current. Actual battery branch current is load-driven and is
+  // handled by the circuit analyzer.
+  if (product.productType === 'battery') return 0;
+
+  const instanceOverrideA = instanceCurrentOverrideA(product, component);
+  if (instanceOverrideA != null) return instanceOverrideA;
+
   // Terminal-first: if the terminal declares current/power, use that directly.
   if (terminal) {
     const declaredA = resolveTerminalCurrentA(terminal, system.nominalVoltage);
@@ -133,8 +150,6 @@ function estimateProductCurrentA(product: Product, component: SystemComponent, s
   }
 
   const voltage = component.instanceVoltageV ?? system.nominalVoltage;
-  if (component.instanceMaxCurrentA != null) return component.instanceMaxCurrentA;
-  if (product.productType === 'battery') return 0;
   if (product.productType === 'solar_array') {
     return product.maxPvCurrentA ?? product.solarPanelRatings?.iscA ?? product.solarPanelRatings?.impA ?? 0;
   }

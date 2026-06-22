@@ -8,13 +8,14 @@ import type {
 } from '../types/system';
 import { CABLE_TABLE, cableByAwg, cableForCurrent, voltageDropV } from '../data/cableAmpacity';
 import { STANDARD_FUSE_RATINGS, nextStandardFuse } from '../data/fuseRatings';
-import { continuousFactorForBus } from '../data/electricalRules';
+import { continuousFactorForBus, DEFAULT_ASSUMPTIONS } from '../data/electricalRules';
 import { getEffectiveProductForComponent } from './solarCalculations';
 import { getEffectiveTerminals, isDynamicSingleConductorProduct } from './effectiveTerminals';
 import { canProvidePower, canReceivePower, inferTerminalDirection } from './terminalDirection';
 import { busTypeFromTerminal, busTypeRequiresFuse, type BusType } from './electricalNetlist';
 import { buildInternalDistributionEdges, hasDistributionTopology } from './distributionTopology';
 import { resolveTerminalCurrentA } from './terminalElectrics';
+import { formatFeetAndInches } from './cableSummary';
 
 const PROTECTION_TYPES = new Set(['fuse', 'breaker']);
 const CONDUCTIVE_PASS_THROUGH_TYPES = new Set([
@@ -63,10 +64,30 @@ interface GraphEdge {
   toKey: string;
   busType: BusType;
   connectionId?: string;
+  lengthFt?: number;
   componentId?: string;
   protectionRatingA?: number;
   protectionLabel?: string;
   protectedTerminalKey?: string;
+}
+
+export interface BranchProtectionDevice {
+  componentId: string;
+  label: string;
+  ratingA?: number;
+}
+
+export interface SourceProtectionStatus {
+  side: 'from' | 'to';
+  sourcePresent: boolean;
+  required: boolean;
+  protected: boolean;
+  protection?: BranchProtectionDevice;
+}
+
+export interface BranchValidationIssue {
+  code: string;
+  message: string;
 }
 
 interface SideSummary {
@@ -89,12 +110,17 @@ export interface ConnectionCircuitAnalysis {
   designCurrentA: number;
   voltageV: number;
   protectionRequired: boolean;
-  protectedBy: Array<{ componentId: string; label: string; ratingA?: number }>;
+  protectedBy: BranchProtectionDevice[];
+  sourceProtection: SourceProtectionStatus[];
   minimumFuseA?: number;
   recommendedFuseA?: number;
+  selectedFuseA?: number;
+  effectiveBranchLimitA?: number;
   recommendedCableAwg?: string;
+  selectedCableAwg?: string;
   voltageDropV?: number;
   voltageDropPercent?: number;
+  errors: BranchValidationIssue[];
   warnings: string[];
 }
 
@@ -114,6 +140,14 @@ function isProtectionProduct(product: Product | undefined): boolean {
   return Boolean(product && PROTECTION_TYPES.has(product.productType));
 }
 
+function isBatteryProduct(product: Product | undefined): boolean {
+  return product?.productType === 'battery';
+}
+
+function isCollectorProduct(product: Product | undefined): boolean {
+  return Boolean(product && ['busbar', 'dc_distribution'].includes(product.productType));
+}
+
 function isConductivePassThroughProduct(product: Product): boolean {
   if (hasDistributionTopology(product)) return false;
   return CONDUCTIVE_PASS_THROUGH_TYPES.has(product.productType) || isDynamicSingleConductorProduct(product);
@@ -121,6 +155,15 @@ function isConductivePassThroughProduct(product: Product): boolean {
 
 function positiveNumber(value: number | undefined): number | undefined {
   return value != null && Number.isFinite(value) && value > 0 ? value : undefined;
+}
+
+function instanceCurrentOverrideA(product: Product, component: SystemComponent): number | undefined {
+  const currentA = positiveNumber(component.instanceMaxCurrentA);
+  if (currentA == null) return undefined;
+  if (product.productType === 'dc_load' || product.productType === 'ac_load') return currentA;
+  if (product.productType === 'shorePowerInlet' || product.productType === 'battery') return currentA;
+  if (product.productType === 'accessory' && product.dataQuality === 'placeholder') return currentA;
+  return undefined;
 }
 
 function maxDefined(...values: Array<number | undefined>): number | undefined {
@@ -207,6 +250,38 @@ function terminalCurrents(
 
   if (!isPowerBus(busType)) {
     return { normalLoadCurrentA: 0, normalSourceCurrentA: 0, hasNormalSource: false, hasLoadFollowingSource: false, canReceiveCurrent: false };
+  }
+
+  const instanceOverrideA = instanceCurrentOverrideA(product, component);
+  if (instanceOverrideA != null) {
+    if (direction === 'output' || terminal.role === 'source') {
+      return {
+        normalLoadCurrentA: 0,
+        normalSourceCurrentA: instanceOverrideA,
+        hasNormalSource: true,
+        hasLoadFollowingSource: false,
+        canReceiveCurrent: false,
+        sourceCapabilityA: instanceOverrideA,
+      };
+    }
+    if (direction === 'input' || terminal.role === 'sink') {
+      return {
+        normalLoadCurrentA: instanceOverrideA,
+        normalSourceCurrentA: 0,
+        hasNormalSource: false,
+        hasLoadFollowingSource: false,
+        canReceiveCurrent: true,
+        sourceCapabilityA: undefined,
+      };
+    }
+    return {
+      normalLoadCurrentA: 0,
+      normalSourceCurrentA: 0,
+      hasNormalSource: true,
+      hasLoadFollowingSource: true,
+      canReceiveCurrent: true,
+      sourceCapabilityA: instanceOverrideA,
+    };
   }
 
   // Terminal-first: if this terminal declares maxCurrentA or maxPowerW, resolve current
@@ -458,6 +533,7 @@ function buildGraphEdges(system: SystemDesign, nodes: Map<string, TerminalNode>)
       toKey,
       busType,
       connectionId: connection.id,
+      lengthFt: connection.cableLengthFt,
     });
   }
 
@@ -608,8 +684,8 @@ function summarizeSide(keys: Set<string>, nodes: Map<string, TerminalNode>): Sid
 }
 
 function edgeCurrentFromSides(from: SideSummary, to: SideSummary): number {
-  const canAcceptNormalSourceCurrent = (side: SideSummary): boolean => {
-    return side.canReceiveCurrent || side.normalLoadCurrentA > 0;
+  const canAbsorbNormalSourceCurrent = (side: SideSummary): boolean => {
+    return side.hasLoadFollowingSource || (side.canReceiveCurrent && side.normalLoadCurrentA > 0);
   };
 
   const currentAvailableToLoad = (sourceSide: SideSummary, loadDemandA: number): number => {
@@ -627,8 +703,8 @@ function edgeCurrentFromSides(from: SideSummary, to: SideSummary): number {
     currentAvailableToLoad(from, to.normalLoadCurrentA)
   );
   const sourceDriven = Math.max(
-    canAcceptNormalSourceCurrent(to) ? from.normalSourceCurrentA : 0,
-    canAcceptNormalSourceCurrent(from) ? to.normalSourceCurrentA : 0
+    canAbsorbNormalSourceCurrent(to) ? from.normalSourceCurrentA : 0,
+    canAbsorbNormalSourceCurrent(from) ? to.normalSourceCurrentA : 0
   );
 
   return Math.max(loadDriven, sourceDriven);
@@ -649,6 +725,189 @@ function voltageForConnection(
   if (terminalVoltages.length > 0) return Math.max(...terminalVoltages);
   if (busType === 'ac_line' || busType === 'ac_neutral' || busType === 'ac_ground') return 120;
   return system.nominalVoltage;
+}
+
+function nodesForConnection(
+  connection: SystemConnection,
+  nodes: Map<string, TerminalNode>
+): [TerminalNode | undefined, TerminalNode | undefined] {
+  return [
+    nodes.get(terminalKey(connection.fromComponentId, connection.fromTerminalId)),
+    nodes.get(terminalKey(connection.toComponentId, connection.toTerminalId)),
+  ];
+}
+
+function otherComponentId(connection: SystemConnection, componentId: string): string | undefined {
+  if (connection.fromComponentId === componentId) return connection.toComponentId;
+  if (connection.toComponentId === componentId) return connection.fromComponentId;
+  return undefined;
+}
+
+function batteryCollectorLead(
+  connection: SystemConnection,
+  nodes: Map<string, TerminalNode>,
+  shortLeadMaxFt: number
+): { collectorId: string; batteryId: string; busType: BusType; connectionId: string } | undefined {
+  if (connection.cableLengthFt > shortLeadMaxFt) return undefined;
+
+  const [fromNode, toNode] = nodesForConnection(connection, nodes);
+  if (!fromNode || !toNode || fromNode.busType !== toNode.busType) return undefined;
+  if (fromNode.busType !== 'dc_pos' && fromNode.busType !== 'dc_neg') return undefined;
+
+  if (isBatteryProduct(fromNode.product) && isCollectorProduct(toNode.product)) {
+    return {
+      collectorId: toNode.component.id,
+      batteryId: fromNode.component.id,
+      busType: fromNode.busType,
+      connectionId: connection.id,
+    };
+  }
+
+  if (isBatteryProduct(toNode.product) && isCollectorProduct(fromNode.product)) {
+    return {
+      collectorId: fromNode.component.id,
+      batteryId: toNode.component.id,
+      busType: toNode.busType,
+      connectionId: connection.id,
+    };
+  }
+
+  return undefined;
+}
+
+function batterySetKey(batteryIds: Iterable<string>): string {
+  return [...batteryIds].sort().join('|');
+}
+
+function selectedProtectionRatingFromCollector(
+  collectorId: string,
+  system: SystemDesign,
+  nodes: Map<string, TerminalNode>,
+  productsByComponent: Map<string, Product | undefined>,
+  shortLeadMaxFt: number
+): number | undefined {
+  const ratings: number[] = [];
+
+  for (const connection of system.connections) {
+    if (connection.fromComponentId !== collectorId && connection.toComponentId !== collectorId) continue;
+    if (connection.cableLengthFt > shortLeadMaxFt) continue;
+
+    const [fromNode, toNode] = nodesForConnection(connection, nodes);
+    if (!fromNode || !toNode) continue;
+
+    const collectorNode = fromNode.component.id === collectorId ? fromNode : toNode;
+    if (collectorNode.busType !== 'dc_pos') continue;
+
+    const otherId = otherComponentId(connection, collectorId);
+    const otherProduct = otherId ? productsByComponent.get(otherId) : undefined;
+    const ratingA = isProtectionProduct(otherProduct) ? protectionRating(otherProduct) : undefined;
+    if (ratingA != null) ratings.push(ratingA);
+  }
+
+  return ratings.length > 0 ? Math.max(...ratings) : undefined;
+}
+
+function buildParallelBankReturnCurrentOverrides(
+  system: SystemDesign,
+  nodes: Map<string, TerminalNode>,
+  productsByComponent: Map<string, Product | undefined>,
+  shortLeadMaxFt: number
+): Map<string, number> {
+  const leadsByCollectorAndBus = new Map<string, Set<string>>();
+  for (const connection of system.connections) {
+    const lead = batteryCollectorLead(connection, nodes, shortLeadMaxFt);
+    if (!lead) continue;
+    const key = `${lead.collectorId}:${lead.busType}`;
+    leadsByCollectorAndBus.set(key, new Set([...(leadsByCollectorAndBus.get(key) ?? []), lead.batteryId]));
+  }
+
+  const positiveCollectors = new Map<string, { collectorId: string; fuseA: number }>();
+  for (const [key, batteryIds] of leadsByCollectorAndBus) {
+    const [collectorId, busType] = key.split(':') as [string, BusType];
+    if (busType !== 'dc_pos' || batteryIds.size < 2) continue;
+
+    const fuseA = selectedProtectionRatingFromCollector(collectorId, system, nodes, productsByComponent, shortLeadMaxFt);
+    if (fuseA == null) continue;
+    positiveCollectors.set(batterySetKey(batteryIds), { collectorId, fuseA });
+  }
+
+  const overrides = new Map<string, number>();
+  for (const [key, batteryIds] of leadsByCollectorAndBus) {
+    const [collectorId, busType] = key.split(':') as [string, BusType];
+    if (busType !== 'dc_neg' || batteryIds.size < 2) continue;
+
+    const positiveCollector = positiveCollectors.get(batterySetKey(batteryIds));
+    if (!positiveCollector) continue;
+
+    for (const connection of system.connections) {
+      if (connection.fromComponentId !== collectorId && connection.toComponentId !== collectorId) continue;
+
+      const [fromNode, toNode] = nodesForConnection(connection, nodes);
+      if (!fromNode || !toNode || fromNode.busType !== 'dc_neg' || toNode.busType !== 'dc_neg') continue;
+
+      const otherId = otherComponentId(connection, collectorId);
+      const otherProduct = otherId ? productsByComponent.get(otherId) : undefined;
+      if (isBatteryProduct(otherProduct)) continue;
+
+      overrides.set(connection.id, Math.max(overrides.get(connection.id) ?? 0, positiveCollector.fuseA));
+    }
+  }
+
+  // Daisy-chain parallel packs: Battery2+ → Battery1+, Battery1+ → Fuse → bus.
+  // The fuse is on Battery1's outgoing positive lead, not on the busbar's output,
+  // so the busbar-based detection above never fires. Find the pack fuse directly
+  // from the short battery-to-fuse connection and apply it to the dc_neg return
+  // from either battery to non-battery loads.
+  const packFuseByBatteryId = new Map<string, number>();
+  for (const connection of system.connections) {
+    if (connection.cableLengthFt > shortLeadMaxFt) continue;
+    const [fromNode, toNode] = nodesForConnection(connection, nodes);
+    if (!fromNode || !toNode) continue;
+    if (fromNode.busType !== 'dc_pos' || toNode.busType !== 'dc_pos') continue;
+
+    const batteryNode = isBatteryProduct(fromNode.product) ? fromNode
+      : isBatteryProduct(toNode.product) ? toNode
+      : null;
+    const otherNode = batteryNode === fromNode ? toNode : fromNode;
+    if (!batteryNode || !isProtectionProduct(otherNode.product)) continue;
+
+    const rating = protectionRating(otherNode.product);
+    if (rating == null) continue;
+    packFuseByBatteryId.set(
+      batteryNode.component.id,
+      Math.max(packFuseByBatteryId.get(batteryNode.component.id) ?? 0, rating)
+    );
+  }
+
+  for (const connection of system.connections) {
+    if (connection.cableLengthFt > shortLeadMaxFt) continue;
+    const [fromNode, toNode] = nodesForConnection(connection, nodes);
+    if (!fromNode || !toNode) continue;
+    if (fromNode.busType !== 'dc_pos' || toNode.busType !== 'dc_pos') continue;
+    if (!isBatteryProduct(fromNode.product) || !isBatteryProduct(toNode.product)) continue;
+
+    // Find the pack fuse from either side of this inter-battery positive connection
+    const fuseA = maxDefined(
+      packFuseByBatteryId.get(fromNode.component.id),
+      packFuseByBatteryId.get(toNode.component.id)
+    );
+    if (fuseA == null) continue;
+
+    // Apply the pack fuse rating to dc_neg connections from either battery to non-batteries
+    for (const batteryId of [fromNode.component.id, toNode.component.id]) {
+      for (const negConn of system.connections) {
+        if (negConn.fromComponentId !== batteryId && negConn.toComponentId !== batteryId) continue;
+        const [negFrom, negTo] = nodesForConnection(negConn, nodes);
+        if (!negFrom || !negTo || negFrom.busType !== 'dc_neg' || negTo.busType !== 'dc_neg') continue;
+        const otherId = otherComponentId(negConn, batteryId);
+        const otherProduct = otherId ? productsByComponent.get(otherId) : undefined;
+        if (isBatteryProduct(otherProduct)) continue;
+        overrides.set(negConn.id, Math.max(overrides.get(negConn.id) ?? 0, fuseA));
+      }
+    }
+  }
+
+  return overrides;
 }
 
 function cableForAmpacityAndDrop(
@@ -687,12 +946,200 @@ function chooseFuse(minimumA: number, maximumA: number | undefined, preferredA: 
   return STANDARD_FUSE_RATINGS.find((rating) => rating >= minimumA && (maximumA == null || rating <= maximumA));
 }
 
+function protectionRating(product: Product | undefined): number | undefined {
+  return product?.protectionRatings?.currentRatingA ?? product?.maxCurrentA;
+}
+
+function protectionDeviceFromNode(node: TerminalNode): BranchProtectionDevice | undefined {
+  if (!isProtectionProduct(node.product)) return undefined;
+  return {
+    componentId: node.component.id,
+    label: node.component.label ?? node.product.name,
+    ratingA: protectionRating(node.product),
+  };
+}
+
+function isProtectionSourceTerminal(node: TerminalNode | undefined): boolean {
+  if (!node || !isProtectionProduct(node.product)) return false;
+  return node.terminal.id === 'in' || node.terminal.direction === 'input';
+}
+
+function dedupeProtectionDevices(devices: BranchProtectionDevice[]): BranchProtectionDevice[] {
+  return devices.filter((device, index, all) => {
+    const key = `${device.componentId}:${device.label}:${device.ratingA ?? ''}`;
+    return all.findIndex((item) => `${item.componentId}:${item.label}:${item.ratingA ?? ''}` === key) === index;
+  });
+}
+
+function slotProtectionAtTerminal(
+  key: string,
+  adjacency: Map<string, GraphEdge[]>
+): BranchProtectionDevice | undefined {
+  const edge = (adjacency.get(key) ?? []).find((item) => item.protectedTerminalKey === key && item.protectionLabel);
+  if (!edge) return undefined;
+  return {
+    componentId: edge.componentId ?? '',
+    label: edge.protectionLabel!,
+    ratingA: edge.protectionRatingA,
+  };
+}
+
+function selectedProtectionDevicesForConnection(
+  connection: SystemConnection,
+  nodes: Map<string, TerminalNode>,
+  adjacency: Map<string, GraphEdge[]>
+): BranchProtectionDevice[] {
+  const endpointKeys = [
+    terminalKey(connection.fromComponentId, connection.fromTerminalId),
+    terminalKey(connection.toComponentId, connection.toTerminalId),
+  ];
+  const devices = endpointKeys.flatMap((key) => {
+    const node = nodes.get(key);
+    const productDevice = node ? protectionDeviceFromNode(node) : undefined;
+    const slotDevice = slotProtectionAtTerminal(key, adjacency);
+    return [productDevice, slotDevice].filter((item): item is BranchProtectionDevice => Boolean(item));
+  });
+
+  return dedupeProtectionDevices(devices);
+}
+
+function protectionForSourceSide(
+  sideKey: string,
+  oppositeKey: string,
+  connectionLengthFt: number,
+  shortSourceLeadMaxFt: number,
+  nodes: Map<string, TerminalNode>,
+  adjacency: Map<string, GraphEdge[]>
+): BranchProtectionDevice | undefined {
+  const sideNode = nodes.get(sideKey);
+  const oppositeNode = nodes.get(oppositeKey);
+
+  // A cable endpoint on a fuse or breaker is protected from sources behind that
+  // device. Fuse current interruption is bidirectional; "in/out" labels only
+  // help identify source leads that terminate at the fuse.
+  if (sideNode && isProtectionProduct(sideNode.product)) {
+    const device = protectionDeviceFromNode(sideNode);
+    if (device) return device;
+  }
+
+  // A source lead ending at a fuse or breaker is allowed when the lead is short
+  // enough to treat the protection device as mounted at that source endpoint.
+  // The schematic does not model physical mounting, so cable length is the
+  // configured proxy for "close enough".
+  if (
+    oppositeNode &&
+    isProtectionProduct(oppositeNode.product) &&
+    connectionLengthFt <= shortSourceLeadMaxFt
+  ) {
+    const device = protectionDeviceFromNode(oppositeNode);
+    if (device) return device;
+  }
+
+  // Parallel battery banks often use short leads from each battery to a local
+  // collector bus, with one main fuse leaving the bank. Treat those short
+  // battery-to-collector segments as pack interconnects instead of requiring a
+  // separate source-side fuse on every segment.
+  if (
+    sideNode &&
+    oppositeNode &&
+    connectionLengthFt <= shortSourceLeadMaxFt &&
+    sideNode.busType === 'dc_pos' &&
+    oppositeNode.busType === 'dc_pos' &&
+    (
+      (isBatteryProduct(sideNode.product) && isCollectorProduct(oppositeNode.product)) ||
+      (isCollectorProduct(sideNode.product) && isBatteryProduct(oppositeNode.product))
+    )
+  ) {
+    const collectorNode = isCollectorProduct(sideNode.product) ? sideNode : oppositeNode;
+    return {
+      componentId: collectorNode.component.id,
+      label: 'Short parallel battery bank interconnect',
+    };
+  }
+
+  // Daisy-chain parallel packs wire Battery2+ directly to Battery1+, with the
+  // outgoing fuse on Battery1's lead. The inter-battery positive connection is
+  // pack wiring — no individual source-side fuse is required between the two
+  // battery terminals when the cable is within the interconnect length limit.
+  if (
+    sideNode &&
+    oppositeNode &&
+    connectionLengthFt <= shortSourceLeadMaxFt &&
+    sideNode.busType === 'dc_pos' &&
+    oppositeNode.busType === 'dc_pos' &&
+    isBatteryProduct(sideNode.product) &&
+    isBatteryProduct(oppositeNode.product)
+  ) {
+    return {
+      componentId: sideNode.component.id,
+      label: 'Short parallel battery pack interconnect',
+    };
+  }
+
+  // A cable endpoint on the source/upstream terminal of a fuse or breaker keeps
+  // the legacy V1 behavior when a project has not configured a short-lead limit.
+  if (oppositeNode && isProtectionSourceTerminal(oppositeNode) && shortSourceLeadMaxFt <= 0) {
+    const device = protectionDeviceFromNode(oppositeNode);
+    if (device) return device;
+  }
+
+  // Distribution products model protected outputs as internal fused edges.
+  return slotProtectionAtTerminal(sideKey, adjacency);
+}
+
+function sourceSideRequiresProtection(
+  side: SideSummary | undefined,
+  busType: BusType,
+  cableAmpacityA: number | undefined
+): boolean {
+  if (!side || !isPowerBus(busType)) return false;
+  const sourcePresent = side.canSourceFaultCurrent || side.hasNormalSource;
+  if (!sourcePresent) return false;
+  if (!busTypeRequiresFuse(busType) && !side.requiresOvercurrentProtection) return false;
+  if (side.requiresOvercurrentProtection) return true;
+
+  // Current-limited electronic sources do not require another source-side fuse
+  // when their available current is already below the conductor ampacity.
+  if (!side.hasLoadFollowingSource && side.sourceCapacityA != null && cableAmpacityA != null) {
+    return side.sourceCapacityA > cableAmpacityA;
+  }
+
+  return true;
+}
+
+function sourceProtectionStatus(
+  side: 'from' | 'to',
+  sideSummary: SideSummary | undefined,
+  sideKey: string,
+  oppositeKey: string,
+  connectionLengthFt: number,
+  shortSourceLeadMaxFt: number,
+  busType: BusType,
+  cableAmpacityA: number | undefined,
+  nodes: Map<string, TerminalNode>,
+  adjacency: Map<string, GraphEdge[]>
+): SourceProtectionStatus {
+  const sourcePresent = Boolean(sideSummary?.canSourceFaultCurrent || sideSummary?.hasNormalSource);
+  const required = sourceSideRequiresProtection(sideSummary, busType, cableAmpacityA);
+  const protection = required
+    ? protectionForSourceSide(sideKey, oppositeKey, connectionLengthFt, shortSourceLeadMaxFt, nodes, adjacency)
+    : undefined;
+
+  return {
+    side,
+    sourcePresent,
+    required,
+    protected: required ? Boolean(protection) : true,
+    protection,
+  };
+}
+
 function protectionDevicesForConnection(
   connection: SystemConnection,
   productsByComponent: Map<string, Product | undefined>,
   componentsById: Map<string, SystemComponent>,
   adjacency: Map<string, GraphEdge[]>
-): Array<{ componentId: string; label: string; ratingA?: number }> {
+): BranchProtectionDevice[] {
   const productBoundaries = [connection.fromComponentId, connection.toComponentId].flatMap((componentId) => {
     const product = productsByComponent.get(componentId);
     const component = componentsById.get(componentId);
@@ -700,7 +1147,7 @@ function protectionDevicesForConnection(
     return [{
       componentId,
       label: component.label ?? product!.name,
-      ratingA: product!.protectionRatings?.currentRatingA ?? product!.maxCurrentA,
+      ratingA: protectionRating(product),
     }];
   });
 
@@ -718,10 +1165,7 @@ function protectionDevicesForConnection(
       }));
   });
 
-  return [...productBoundaries, ...slotBoundaries].filter((boundary, index, all) => {
-    const key = `${boundary.componentId}:${boundary.label}:${boundary.ratingA ?? ''}`;
-    return all.findIndex((item) => `${item.componentId}:${item.label}:${item.ratingA ?? ''}` === key) === index;
-  });
+  return dedupeProtectionDevices([...productBoundaries, ...slotBoundaries]);
 }
 
 function analyzeConnection(
@@ -731,7 +1175,8 @@ function analyzeConnection(
   adjacency: Map<string, GraphEdge[]>,
   system: SystemDesign,
   productsByComponent: Map<string, Product | undefined>,
-  componentsById: Map<string, SystemComponent>
+  componentsById: Map<string, SystemComponent>,
+  inferredDesignCurrentA?: number
 ): ConnectionCircuitAnalysis {
   const fromKey = terminalKey(connection.fromComponentId, connection.fromTerminalId);
   const toKey = terminalKey(connection.toComponentId, connection.toTerminalId);
@@ -740,16 +1185,23 @@ function analyzeConnection(
   const busType = edge?.busType ?? connectionBusType(fromNode, toNode);
   const voltageV = voltageForConnection(connection, busType, nodes, system);
   const protectedBy = protectionDevicesForConnection(connection, productsByComponent, componentsById, adjacency);
+  const selectedProtectionDevices = selectedProtectionDevicesForConnection(connection, nodes, adjacency);
+  const selectedFuseA = minDefined(...selectedProtectionDevices.map((device) => device.ratingA));
+  const maxSelectedFuseA = maxDefined(...selectedProtectionDevices.map((device) => device.ratingA));
+  const errors: BranchValidationIssue[] = [];
   const warnings: string[] = [];
+  const addError = (code: string, message: string) => {
+    errors.push({ code, message });
+  };
 
-  let designCurrentA = positiveNumber(connection.designCurrentOverrideA) ?? 0;
+  let designCurrentA = positiveNumber(connection.designCurrentOverrideA) ?? positiveNumber(inferredDesignCurrentA) ?? 0;
   let fromSide: SideSummary | undefined;
   let toSide: SideSummary | undefined;
 
-  if (!designCurrentA && edge && isPowerBus(busType) && fromNode && toNode) {
+  if (edge && isPowerBus(busType) && fromNode && toNode) {
     fromSide = summarizeSide(collectSide(fromKey, edge.id, busType, adjacency, nodes), nodes);
     toSide = summarizeSide(collectSide(toKey, edge.id, busType, adjacency, nodes), nodes);
-    designCurrentA = edgeCurrentFromSides(fromSide, toSide);
+    if (!designCurrentA) designCurrentA = edgeCurrentFromSides(fromSide, toSide);
   }
 
   if (!designCurrentA) {
@@ -796,7 +1248,11 @@ function analyzeConnection(
   const continuousFactor = continuousFactorForBus(busType);
   const minimumFuseA = protectionRequired ? nextStandardFuse(designCurrentA * continuousFactor) : undefined;
   const targetFuseA = minimumFuseA != null ? Math.max(minimumFuseA, preferredFuseA ?? 0) : undefined;
-  const cableSizingCurrentA = targetFuseA ?? designCurrentA * continuousFactor;
+  const cableSizingCurrentA = Math.max(
+    designCurrentA * continuousFactor,
+    targetFuseA ?? 0,
+    maxSelectedFuseA ?? 0
+  );
   const autoCable = cableForAmpacityAndDrop(
     cableSizingCurrentA,
     designCurrentA,
@@ -816,17 +1272,62 @@ function analyzeConnection(
   const recommendedFuseA = minimumFuseA != null
     ? chooseFuse(minimumFuseA, maximumFuseA, preferredFuseA) ?? minimumFuseA
     : undefined;
+  const effectiveBranchLimitA = selectedFuseA ?? recommendedFuseA;
+  const shortSourceLeadMaxFt = system.assumptions.batteryInterconnectMaxLengthFt ?? DEFAULT_ASSUMPTIONS.batteryInterconnectMaxLengthFt;
+  const sourceProtection = [
+    sourceProtectionStatus('from', fromSide, fromKey, toKey, connection.cableLengthFt, shortSourceLeadMaxFt, busType, maxFuseByCableA, nodes, adjacency),
+    sourceProtectionStatus('to', toSide, toKey, fromKey, connection.cableLengthFt, shortSourceLeadMaxFt, busType, maxFuseByCableA, nodes, adjacency),
+  ];
+  const finalProtectionRequired = sourceProtection.some((status) => status.required && !status.protected);
 
   if (dropPercent > system.assumptions.maxVoltageDropPercent) {
     warnings.push(`Voltage drop ${dropPercent.toFixed(1)}% exceeds ${system.assumptions.maxVoltageDropPercent}% limit - consider larger cable or shorter run`);
   }
 
-  if (protectionRequired && recommendedFuseA != null && maxFuseByCableA != null && recommendedFuseA > maxFuseByCableA) {
-    warnings.push(`${selectedAwg} AWG cable ampacity is ${maxFuseByCableA}A, below the ${recommendedFuseA}A fuse needed for ${designCurrentA.toFixed(0)}A design current`);
+  if (selectedCable && designCurrentA > selectedCable.ampacity) {
+    addError(
+      'CABLE_UNDERSIZED_FOR_BRANCH_CURRENT',
+      `${selectedAwg} AWG cable ampacity is ${selectedCable.ampacity}A, below the ${designCurrentA.toFixed(0)}A branch design current`
+    );
+  }
+
+  const fuseProtectingCableA = maxSelectedFuseA ?? recommendedFuseA;
+  if ((finalProtectionRequired || selectedFuseA != null) && fuseProtectingCableA != null && maxFuseByCableA != null && fuseProtectingCableA > maxFuseByCableA) {
+    addError(
+      'FUSE_OVER_CABLE_AMPACITY',
+      `${fuseProtectingCableA}A fuse exceeds ${selectedAwg} AWG cable ampacity of ${maxFuseByCableA}A`
+    );
+  }
+
+  if (selectedFuseA != null && selectedFuseA < designCurrentA) {
+    addError(
+      'SELECTED_FUSE_UNDER_BRANCH_CURRENT',
+      `${selectedFuseA}A selected fuse is below the ${designCurrentA.toFixed(0)}A branch design current`
+    );
+  } else if (selectedFuseA != null && minimumFuseA != null && selectedFuseA < minimumFuseA) {
+    warnings.push(`${selectedFuseA}A selected fuse is below the ${minimumFuseA}A continuous-load recommendation for ${designCurrentA.toFixed(0)}A design current`);
   }
 
   if (minimumFuseA != null && terminalMaxFuseA != null && minimumFuseA > terminalMaxFuseA) {
-    warnings.push(`Required fuse ${minimumFuseA}A exceeds terminal maximum fuse rating of ${terminalMaxFuseA}A`);
+    addError(
+      'REQUIRED_FUSE_EXCEEDS_DEVICE_MAX',
+      `Required fuse ${minimumFuseA}A exceeds terminal maximum fuse rating of ${terminalMaxFuseA}A`
+    );
+  }
+
+  if (selectedFuseA != null && terminalMaxFuseA != null && selectedFuseA > terminalMaxFuseA) {
+    addError(
+      'SELECTED_FUSE_EXCEEDS_DEVICE_MAX',
+      `${selectedFuseA}A selected fuse exceeds terminal maximum fuse rating of ${terminalMaxFuseA}A`
+    );
+  }
+
+  for (const status of sourceProtection) {
+    if (!status.required || status.protected) continue;
+    addError(
+      'SOURCE_SIDE_PROTECTION_MISSING',
+      `${status.side === 'from' ? 'From' : 'To'} side source can energize this ${busType.replace('_', ' ')} branch without source-side fuse or breaker protection`
+    );
   }
 
   const selectedCableIndex = cableTableIndex(selectedAwg);
@@ -849,7 +1350,7 @@ function analyzeConnection(
   }
 
   if (!autoCable.satisfiesDrop && !connection.manualCableAwg) {
-    warnings.push(`Voltage drop target cannot be met with available cable sizes at ${connection.cableLengthFt.toFixed(1)} ft`);
+    warnings.push(`Voltage drop target cannot be met with available cable sizes at ${formatFeetAndInches(connection.cableLengthFt)}`);
   }
 
   return {
@@ -857,13 +1358,18 @@ function analyzeConnection(
     busType,
     designCurrentA,
     voltageV,
-    protectionRequired,
+    protectionRequired: finalProtectionRequired,
     protectedBy,
+    sourceProtection,
     minimumFuseA,
     recommendedFuseA,
+    selectedFuseA,
+    effectiveBranchLimitA,
     recommendedCableAwg: selectedAwg,
+    selectedCableAwg: selectedAwg,
     voltageDropV: parseFloat(dropV.toFixed(3)),
     voltageDropPercent: parseFloat(dropPercent.toFixed(2)),
+    errors,
     warnings,
   };
 }
@@ -884,6 +1390,13 @@ export function analyzeSystemCircuits(system: SystemDesign, products: Map<string
       .filter((edge) => edge.kind === 'connection' && edge.connectionId)
       .map((edge) => [edge.connectionId!, edge])
   );
+  const shortSourceLeadMaxFt = system.assumptions.batteryInterconnectMaxLengthFt ?? DEFAULT_ASSUMPTIONS.batteryInterconnectMaxLengthFt;
+  const inferredDesignCurrents = buildParallelBankReturnCurrentOverrides(
+    system,
+    nodes,
+    productsByComponent,
+    shortSourceLeadMaxFt
+  );
 
   const connections = new Map<string, ConnectionCircuitAnalysis>();
   for (const connection of system.connections) {
@@ -896,7 +1409,8 @@ export function analyzeSystemCircuits(system: SystemDesign, products: Map<string
         adjacency,
         system,
         productsByComponent,
-        componentsById
+        componentsById,
+        inferredDesignCurrents.get(connection.id)
       )
     );
   }

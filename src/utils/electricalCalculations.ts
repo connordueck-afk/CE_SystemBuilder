@@ -13,12 +13,130 @@ import {
   busTypeRequiresFuse,
   isReturnOrGroundBus,
   type BusType,
+  type TerminalNodeRef,
 } from './electricalNetlist';
 import { resolveTerminalCurrentA } from './terminalElectrics';
 import { getEffectiveTerminal } from './effectiveTerminals';
 import { getDcBusNominalVoltage, isDcBusTerminal } from './dcBusVoltage';
+import { formatFeetAndInches } from './cableSummary';
 
 const PASS_THROUGH_TYPES = new Set<string>(['fuse', 'breaker']);
+const PASSIVE_ELECTRICAL_TYPES = new Set<string>([
+  'busbar',
+  'dc_distribution',
+  'solar_combiner',
+  'fuse',
+  'breaker',
+  'dcDisconnect',
+  'acDisconnect',
+  'relay',
+  'contactor',
+  'transferSwitch',
+]);
+const SOURCE_COMPATIBILITY_TYPES = new Set<string>([
+  'battery',
+  'mppt',
+  'dc_dc_charger',
+  'shore_charger',
+  'inverter_charger',
+  'solar_array',
+  'shorePowerInlet',
+]);
+
+function isPassiveElectricalProduct(product: Product): boolean {
+  return PASSIVE_ELECTRICAL_TYPES.has(product.productType);
+}
+
+function productLabel(component: SystemComponent, product: Product): string {
+  return component.label ?? product.name;
+}
+
+function connectionTouchesComponent(connection: SystemConnection, componentId: string): boolean {
+  return connection.fromComponentId === componentId || connection.toComponentId === componentId;
+}
+
+function connectionTerminalForComponent(connection: SystemConnection, componentId: string): string | undefined {
+  if (connection.fromComponentId === componentId) return connection.fromTerminalId;
+  if (connection.toComponentId === componentId) return connection.toTerminalId;
+  return undefined;
+}
+
+function connectionBetweenComponents(connection: SystemConnection, a: string, b: string): boolean {
+  return (
+    (connection.fromComponentId === a && connection.toComponentId === b) ||
+    (connection.fromComponentId === b && connection.toComponentId === a)
+  );
+}
+
+function normalizeVoltage(voltage: number): number {
+  return Math.round(voltage * 10) / 10;
+}
+
+function arrayValueIncludes(values: number[], target: number): boolean {
+  return values.some((value) => Math.abs(value - target) < 0.01);
+}
+
+function sourceVoltageForTerminal(ref: TerminalNodeRef, system: SystemDesign): number | undefined {
+  const { component, product, terminal } = ref;
+  if (terminal.voltageNominalV != null) return terminal.voltageNominalV;
+  if (component.dcNominalVoltage != null) return component.dcNominalVoltage;
+  if (component.instanceVoltageV != null) return component.instanceVoltageV;
+  if (product.batteryRatings?.nominalVoltageV != null) return product.batteryRatings.nominalVoltageV;
+  if (product.inverterChargerRatings?.dcVoltageV != null) return product.inverterChargerRatings.dcVoltageV;
+
+  if (product.dcDcChargerRatings) {
+    if (terminal.id.includes('out') && product.dcDcChargerRatings.outputVoltageV != null) {
+      return product.dcDcChargerRatings.outputVoltageV;
+    }
+    if (terminal.id.includes('in')) {
+      const min = product.dcDcChargerRatings.inputVoltageMinV;
+      const max = product.dcDcChargerRatings.inputVoltageMaxV;
+      if (min != null && max != null && system.nominalVoltage >= min && system.nominalVoltage <= max) {
+        return system.nominalVoltage;
+      }
+    }
+  }
+
+  if (product.mpptRatings?.batteryVoltagesV) {
+    const voltages = product.mpptRatings.batteryVoltagesV;
+    if (arrayValueIncludes(voltages, system.nominalVoltage)) return system.nominalVoltage;
+    if (voltages.length === 1) return voltages[0];
+  }
+
+  if (typeof product.nominalVoltage === 'number') return product.nominalVoltage;
+  if (Array.isArray(product.nominalVoltage)) {
+    if (arrayValueIncludes(product.nominalVoltage, system.nominalVoltage)) return system.nominalVoltage;
+    if (product.nominalVoltage.length === 1) return product.nominalVoltage[0];
+  }
+
+  return undefined;
+}
+
+function isSourceCompatibilityTerminal(ref: TerminalNodeRef): boolean {
+  if (isPassiveElectricalProduct(ref.product)) return false;
+  if (ref.product.productType === 'monitor' || ref.product.productType === 'batteryMonitor') return false;
+  if (ref.product.productType === 'dc_load' || ref.product.productType === 'ac_load') return false;
+  if (!canProvidePower(ref.terminal) && ref.product.productType !== 'battery') return false;
+  return SOURCE_COMPATIBILITY_TYPES.has(ref.product.productType) || ref.terminal.role === 'source';
+}
+
+function currentRatingForBusProduct(product: Product): number | undefined {
+  return product.busbarRatings?.currentRatingA ?? product.maxCurrentA;
+}
+
+function isShuntProduct(product: Product): boolean {
+  const text = `${product.id} ${product.name} ${product.description ?? ''} ${product.notes ?? ''}`.toLowerCase();
+  return text.includes('shunt') || text.includes('bmv');
+}
+
+function shuntCurrentRatingA(product: Product): number | undefined {
+  if (product.maxCurrentA != null) return product.maxCurrentA;
+  if (product.busbarRatings?.currentRatingA != null) return product.busbarRatings.currentRatingA;
+
+  const text = `${product.name} ${product.description ?? ''} ${product.notes ?? ''}`;
+  const match = text.match(/(\d{2,5})\s*A(?:\b|\/)/i);
+  return match ? Number(match[1]) : undefined;
+}
 
 export function estimateDcCurrent(powerW: number, voltageV: number): number {
   if (voltageV <= 0) return 0;
@@ -250,6 +368,47 @@ export function generateWarnings(
   const netlist = buildElectricalNetlist(system, products);
   const circuitAnalysis = analyzeSystemCircuits(system, products);
   const batteryInterconnects = buildBatteryInterconnectMap(system, products);
+  const componentById = new Map(system.components.map((component) => [component.id, component]));
+  const productByComponent = new Map(
+    system.components
+      .map((component) => [component.id, products.get(component.productId)] as const)
+      .filter((entry): entry is readonly [string, Product] => Boolean(entry[1]))
+  );
+  const netById = new Map(netlist.nets.map((net) => [net.id, net]));
+
+  const connectionBusType = (connection: SystemConnection): BusType => (
+    circuitAnalysis.connections.get(connection.id)?.busType ??
+    netlist.connectionContexts.get(connection.id)?.busType ??
+    connection.busType ??
+    'unknown'
+  );
+  const connectionDesignCurrentA = (connection: SystemConnection): number => (
+    circuitAnalysis.connections.get(connection.id)?.designCurrentA ??
+    connection.designCurrentOverrideA ??
+    connection.calculatedCurrentA ??
+    0
+  );
+  const connectionCableAmpacityA = (connection: SystemConnection): number | undefined => {
+    const context = circuitAnalysis.connections.get(connection.id);
+    const awg = connection.manualCableAwg ?? context?.selectedCableAwg ?? context?.recommendedCableAwg ?? connection.recommendedCableAwg;
+    return awg ? cableByAwg(awg)?.ampacity : undefined;
+  };
+  const attachedCurrentA = (componentId: string, terminalIds: string[]): number => {
+    const terminalSet = new Set(terminalIds);
+    const seenConnectionIds = new Set<string>();
+    let totalA = 0;
+
+    for (const connection of system.connections) {
+      if (seenConnectionIds.has(connection.id)) continue;
+      const terminalId = connectionTerminalForComponent(connection, componentId);
+      if (!terminalId || !terminalSet.has(terminalId)) continue;
+      seenConnectionIds.add(connection.id);
+      totalA += connectionDesignCurrentA(connection);
+    }
+
+    return totalA;
+  };
+
   for (const conflict of netlist.conflicts) {
     warn('error', conflict, 'BUS_TYPE_CONFLICT');
   }
@@ -269,11 +428,290 @@ export function generateWarnings(
     if (!interconnect.isShortPackInterconnect) {
       warn(
         'warning',
-        `Battery pack interconnect is ${interconnect.cableLengthFt.toFixed(1)} ft; V1 assumes unfused battery interconnects are ${interconnect.maxLengthFt} ft or shorter`,
+        `Battery pack interconnect is ${formatFeetAndInches(interconnect.cableLengthFt)}; V1 assumes unfused battery interconnects are ${formatFeetAndInches(interconnect.maxLengthFt)} or shorter`,
         'BATTERY_INTERCONNECT_LONG',
         undefined,
         interconnect.connectionId
       );
+    }
+  }
+
+  for (const net of netlist.nets) {
+    if (net.busType !== 'dc_pos') continue;
+
+    const sourceRefsByVoltage = new Map<number, TerminalNodeRef[]>();
+    for (const terminalKey of net.terminalKeys) {
+      const ref = netlist.terminals.get(terminalKey);
+      if (!ref || !isSourceCompatibilityTerminal(ref)) continue;
+
+      const voltage = sourceVoltageForTerminal(ref, system);
+      if (voltage == null) continue;
+
+      const normalizedVoltage = normalizeVoltage(voltage);
+      sourceRefsByVoltage.set(normalizedVoltage, [
+        ...(sourceRefsByVoltage.get(normalizedVoltage) ?? []),
+        ref,
+      ]);
+    }
+
+    if (sourceRefsByVoltage.size > 1) {
+      const summary = [...sourceRefsByVoltage.entries()]
+        .map(([voltage, refs]) => {
+          const labels = [...new Set(refs.map((ref) => productLabel(ref.component, ref.product)))].slice(0, 3);
+          return `${voltage}V (${labels.join(', ')})`;
+        })
+        .join(', ');
+      warn(
+        'error',
+        `Incompatible DC source voltages share ${net.id}: ${summary}`,
+        'INCOMPATIBLE_SOURCE_VOLTAGES'
+      );
+    }
+  }
+
+  for (const comp of system.components) {
+    const product = products.get(comp.productId);
+    if (!product) continue;
+
+    const productBusRatingA = currentRatingForBusProduct(product);
+    if (
+      productBusRatingA != null &&
+      (product.productType === 'busbar' || product.productType === 'dc_distribution' || product.busbarRatings)
+    ) {
+      for (const net of netlist.nets) {
+        if (net.busType === 'unknown' || net.busType === 'signal') continue;
+        if (!net.terminalKeys.some((terminalKey) => terminalKey.startsWith(`${comp.id}:`))) continue;
+        if (net.operatingCurrentA <= productBusRatingA) continue;
+
+        warn(
+          'error',
+          `"${productLabel(comp, product)}" is rated for ${productBusRatingA}A but ${net.id} is carrying ${net.operatingCurrentA.toFixed(0)}A`,
+          'BUSBAR_OVERLOADED',
+          comp.id
+        );
+      }
+    }
+
+    if (!product.distributionTopology) continue;
+
+    for (const bus of product.distributionTopology.buses) {
+      const downstreamTerminalIds = (product.distributionTopology.fuseSlots ?? [])
+        .filter((slot) => slot.upstreamBusId === bus.id)
+        .map((slot) => slot.downstreamTerminalId);
+      const busCurrentA = Math.max(
+        attachedCurrentA(comp.id, bus.terminalIds),
+        attachedCurrentA(comp.id, downstreamTerminalIds)
+      );
+      const busRatingA = bus.maxCurrentA ?? productBusRatingA;
+      if (busRatingA != null && busCurrentA > busRatingA) {
+        warn(
+          'error',
+          `"${productLabel(comp, product)}" ${bus.label} is rated for ${busRatingA}A but connected branches total ${busCurrentA.toFixed(0)}A`,
+          'DISTRIBUTION_BUS_OVERLOADED',
+          comp.id
+        );
+      }
+    }
+
+    for (const slot of product.distributionTopology.fuseSlots ?? []) {
+      const slotCurrentA = attachedCurrentA(comp.id, [slot.downstreamTerminalId]);
+      if (slot.maxFuseA != null && slotCurrentA > slot.maxFuseA) {
+        warn(
+          'error',
+          `"${productLabel(comp, product)}" ${slot.label} is rated for a maximum ${slot.maxFuseA}A fuse but branch load is ${slotCurrentA.toFixed(0)}A`,
+          'DISTRIBUTION_SLOT_OVERLOADED',
+          comp.id
+        );
+      }
+    }
+  }
+
+  const negativeConnections = system.connections.filter((connection) => connectionBusType(connection) === 'dc_neg');
+  const returnConnectionsForComponent = (componentId: string): SystemConnection[] => (
+    negativeConnections.filter((connection) => connectionTouchesComponent(connection, componentId))
+  );
+  const returnConnectionsBetween = (leftComponentId: string, rightComponentId: string): SystemConnection[] => (
+    negativeConnections.filter((connection) => connectionBetweenComponents(connection, leftComponentId, rightComponentId))
+  );
+
+  // Build a pack-membership map so the return-path check can traverse through
+  // intra-pack negative interconnects (Battery1− ↔ Battery2−) and find the
+  // Pack−'s actual load-side return conductor instead of stopping at the
+  // inter-battery wire and falsely concluding the circuit is complete.
+  const batteryPackByBatteryId = new Map<string, Set<string>>();
+  const getBatteryPack = (batteryId: string): Set<string> => {
+    if (!batteryPackByBatteryId.has(batteryId)) batteryPackByBatteryId.set(batteryId, new Set([batteryId]));
+    return batteryPackByBatteryId.get(batteryId)!;
+  };
+  for (const interconnect of batteryInterconnects.values()) {
+    const [id1, id2] = interconnect.batteryComponentIds;
+    const pack1 = getBatteryPack(id1);
+    const pack2 = getBatteryPack(id2);
+    if (pack1 === pack2) continue;
+    for (const id of pack2) { pack1.add(id); batteryPackByBatteryId.set(id, pack1); }
+  }
+  // DC-neg connections from any pack member to a non-member — the actual circuit
+  // return conductors. Intra-pack connections are excluded; they are pack wiring.
+  const returnConnectionsForBatteryPack = (batteryId: string): SystemConnection[] => {
+    const packIds = getBatteryPack(batteryId);
+    return negativeConnections.filter((conn) => (
+      (packIds.has(conn.fromComponentId) || packIds.has(conn.toComponentId)) &&
+      !(packIds.has(conn.fromComponentId) && packIds.has(conn.toComponentId))
+    ));
+  };
+  const maxReturnAmpacityA = (connections: SystemConnection[]): number | undefined => {
+    const ampacities = connections
+      .map(connectionCableAmpacityA)
+      .filter((value): value is number => value != null && Number.isFinite(value));
+    return ampacities.length > 0 ? Math.max(...ampacities) : undefined;
+  };
+  const checkReturnPath = (
+    positiveConnection: SystemConnection,
+    requiredA: number,
+    returnConnections: SystemConnection[],
+    label: string,
+    componentId?: string
+  ) => {
+    if (returnConnections.length === 0) {
+      warn(
+        'error',
+        `DC positive connection requires a matching DC negative return for ${label}`,
+        'DC_NEG_RETURN_MISSING',
+        componentId,
+        positiveConnection.id
+      );
+      return;
+    }
+
+    const returnAmpacityA = maxReturnAmpacityA(returnConnections);
+    if (returnAmpacityA != null && returnAmpacityA < requiredA) {
+      warn(
+        'error',
+        `DC negative return for ${label} is rated ${returnAmpacityA}A but the positive branch can carry ${requiredA.toFixed(0)}A`,
+        'DC_NEG_RETURN_UNDERSIZED',
+        componentId,
+        positiveConnection.id
+      );
+    }
+  };
+
+  for (const connection of system.connections) {
+    if (connectionBusType(connection) !== 'dc_pos') continue;
+
+    const designCurrentA = connectionDesignCurrentA(connection);
+    if (designCurrentA <= 0) continue;
+
+    const fromComp = componentById.get(connection.fromComponentId);
+    const toComp = componentById.get(connection.toComponentId);
+    const fromProduct = productByComponent.get(connection.fromComponentId);
+    const toProduct = productByComponent.get(connection.toComponentId);
+    if (!fromComp || !toComp || !fromProduct || !toProduct) continue;
+
+    const endpoints = [
+      { component: fromComp, product: fromProduct },
+      { component: toComp, product: toProduct },
+    ].filter(({ product }) => !isPassiveElectricalProduct(product) && product.productType !== 'monitor' && product.productType !== 'batteryMonitor');
+    if (endpoints.length === 0) continue;
+
+    // The return conductor carries branch current, not the overcurrent device's
+    // nameplate rating. Fuse-vs-cable protection is validated on the protected
+    // positive conductor separately.
+    const requiredA = designCurrentA;
+    if (endpoints.length >= 2) {
+      const [left, right] = endpoints;
+      checkReturnPath(
+        connection,
+        requiredA,
+        returnConnectionsBetween(left.component.id, right.component.id),
+        `${productLabel(left.component, left.product)} and ${productLabel(right.component, right.product)}`
+      );
+      continue;
+    }
+
+    const endpoint = endpoints[0];
+    const returnConns = endpoint.product.productType === 'battery'
+      ? returnConnectionsForBatteryPack(endpoint.component.id)
+      : returnConnectionsForComponent(endpoint.component.id);
+    checkReturnPath(
+      connection,
+      requiredA,
+      returnConns,
+      productLabel(endpoint.component, endpoint.product),
+      endpoint.component.id
+    );
+  }
+
+  const shuntComponentIds = new Set(
+    system.components
+      .filter((component) => {
+        const product = products.get(component.productId);
+        return product ? isShuntProduct(product) : false;
+      })
+      .map((component) => component.id)
+  );
+
+  for (const comp of system.components) {
+    const product = products.get(comp.productId);
+    if (!product || !isShuntProduct(product)) continue;
+
+    const ratingA = shuntCurrentRatingA(product);
+    if (ratingA == null) continue;
+
+    const attachedConnections = system.connections.filter((connection) => connectionTouchesComponent(connection, comp.id));
+    const maxObservedA = attachedConnections.length > 0
+      ? Math.max(...attachedConnections.map(connectionDesignCurrentA))
+      : 0;
+    if (maxObservedA > ratingA) {
+      warn(
+        'error',
+        `"${productLabel(comp, product)}" is rated for ${ratingA}A but connected return current is ${maxObservedA.toFixed(0)}A`,
+        'SHUNT_RATING_EXCEEDED',
+        comp.id
+      );
+    }
+  }
+
+  if (shuntComponentIds.size > 0) {
+    const warnedBatteryNegativeNets = new Set<string>();
+    for (const ref of netlist.terminals.values()) {
+      if (ref.product.productType !== 'battery' || ref.busType !== 'dc_neg') continue;
+
+      const netId = netlist.terminalNetIds.get(ref.key);
+      if (!netId || warnedBatteryNegativeNets.has(netId)) continue;
+      warnedBatteryNegativeNets.add(netId);
+
+      const net = netById.get(netId);
+      if (!net) continue;
+
+      const refs = net.terminalKeys
+        .map((terminalKey) => netlist.terminals.get(terminalKey))
+        .filter((terminalRef): terminalRef is TerminalNodeRef => Boolean(terminalRef));
+      const hasShuntTerminal = refs.some((terminalRef) => shuntComponentIds.has(terminalRef.componentId));
+      if (!hasShuntTerminal) {
+        warn(
+          'warning',
+          'A shunt is present, but a battery negative net does not pass through the shunt before the rest of the system',
+          'SHUNT_NOT_IN_BATTERY_NEGATIVE_PATH',
+          ref.componentId
+        );
+      }
+
+      const bypassRefs = refs.filter((terminalRef) => (
+        !shuntComponentIds.has(terminalRef.componentId) &&
+        terminalRef.product.productType !== 'battery' &&
+        !isPassiveElectricalProduct(terminalRef.product) &&
+        terminalRef.product.productType !== 'monitor' &&
+        terminalRef.product.productType !== 'batteryMonitor'
+      ));
+      if (bypassRefs.length > 0) {
+        const bypassLabels = [...new Set(bypassRefs.map((terminalRef) => productLabel(terminalRef.component, terminalRef.product)))].slice(0, 3);
+        warn(
+          'warning',
+          `A shunt is present, but battery negative shares a return net with ${bypassLabels.join(', ')} before the shunt`,
+          'SHUNT_BYPASS_POSSIBLE',
+          ref.componentId
+        );
+      }
     }
   }
 
@@ -295,7 +733,21 @@ export function generateWarnings(
 
   for (const connection of system.connections) {
     const context = circuitAnalysis.connections.get(connection.id);
-    if (!context || !context.protectionRequired || context.designCurrentA <= 0 || context.protectedBy.length > 0) continue;
+    if (!context) continue;
+
+    for (const issue of context.errors) {
+      warn('error', issue.message, issue.code, undefined, connection.id);
+    }
+
+    if (
+      !context.protectionRequired ||
+      context.designCurrentA <= 0 ||
+      context.protectedBy.length > 0 ||
+      context.errors.some((issue) => issue.code === 'SOURCE_SIDE_PROTECTION_MISSING')
+    ) {
+      continue;
+    }
+
     warn(
       'warning',
       `Connection carries ${context.designCurrentA.toFixed(0)}A on ${context.busType.replace('_', ' ')} without local fuse or breaker protection`,

@@ -1,15 +1,40 @@
-import type { CableLengthSummaryItem, CableLengthUnit, SystemConnection } from '../types/system';
+import type { CableLengthSummaryItem, SystemConnection } from '../types/system';
 
-export function convertCableLengthToFeet(length: number, unit: CableLengthUnit | undefined): number {
-  if (!Number.isFinite(length) || length <= 0) return 0;
-  return unit === 'm' ? length * 3.28084 : length;
+const INCHES_PER_FOOT = 12;
+
+export interface FeetInchesLength {
+  feet: number;
+  inches: number;
+}
+
+export function feetAndInchesToFeet(feet: number, inches: number): number {
+  const safeFeet = Number.isFinite(feet) ? Math.max(0, Math.trunc(feet)) : 0;
+  const safeInches = Number.isFinite(inches) ? Math.max(0, Math.trunc(inches)) : 0;
+  return Math.max(1 / INCHES_PER_FOOT, safeFeet + safeInches / INCHES_PER_FOOT);
+}
+
+export function feetToFeetAndInches(lengthFt: number): FeetInchesLength {
+  if (!Number.isFinite(lengthFt) || lengthFt <= 0) return { feet: 0, inches: 0 };
+
+  const totalInches = Math.max(1, Math.round(lengthFt * INCHES_PER_FOOT));
+  return {
+    feet: Math.floor(totalInches / INCHES_PER_FOOT),
+    inches: totalInches % INCHES_PER_FOOT,
+  };
+}
+
+export function formatFeetAndInches(lengthFt: number): string {
+  const { feet, inches } = feetToFeetAndInches(lengthFt);
+  if (feet === 0) return `${inches} in`;
+  if (inches === 0) return `${feet} ft`;
+  return `${feet} ft ${inches} in`;
 }
 
 export function buildCableLengthSummary(connections: SystemConnection[]): CableLengthSummaryItem[] {
   const byKey = new Map<string, CableLengthSummaryItem>();
 
   for (const connection of connections) {
-    const totalLengthFt = convertCableLengthToFeet(connection.cableLengthFt, connection.cableLengthUnit);
+    const totalLengthFt = connection.cableLengthFt;
     if (totalLengthFt <= 0) continue;
 
     const gauge = connection.manualCableAwg ?? connection.recommendedCableAwg ?? 'Unspecified';

@@ -10,6 +10,7 @@ import assert from 'node:assert/strict';
 
 import { PRODUCT_MAP, ALL_PRODUCTS } from '../src/data/products';
 import { analyzeSystemCircuits } from '../src/utils/circuitAnalysis';
+import { generateWarnings } from '../src/utils/electricalCalculations';
 import { selectBestFuseProduct, getFuseRating } from '../src/utils/fuseSelection';
 import { continuousFactorForBus, DEFAULT_ASSUMPTIONS } from '../src/data/electricalRules';
 import { voltageDropV, cableByAwg } from '../src/data/cableAmpacity';
@@ -148,6 +149,380 @@ function mpptOnBusyPositiveBus(lengthFt: number, maxCableAwg?: string): SystemDe
   } as SystemDesign;
 }
 
+function batteryFuseLoad(loadA: number, fuseProductId = 'fuse-midi-100a', manualCableAwg?: string): SystemDesign {
+  return {
+    id: 'battery-fuse-load',
+    name: 'battery-fuse-load',
+    nominalVoltage: 12,
+    assumptions: { ...DEFAULT_ASSUMPTIONS },
+    createdAt: '',
+    updatedAt: '',
+    components: [
+      { id: 'bat', productId: 'bat-vic-smart-12-200', label: 'Battery', quantity: 1, x: 0, y: 0 },
+      { id: 'fuse', productId: fuseProductId, label: 'Branch Fuse', quantity: 1, x: 120, y: 0 },
+      { id: 'load', productId: 'acc-dc-load-generic', label: 'Load', quantity: 1, x: 240, y: 0, instanceMaxCurrentA: loadA },
+    ],
+    connections: [
+      { id: 'bat-fuse', fromComponentId: 'bat', fromTerminalId: 'dc_pos', toComponentId: 'fuse', toTerminalId: 'in', cableLengthFt: 2 },
+      {
+        id: 'fuse-load',
+        fromComponentId: 'fuse',
+        fromTerminalId: 'out',
+        toComponentId: 'load',
+        toTerminalId: 'dc_pos',
+        cableLengthFt: 4,
+        ...(manualCableAwg ? { manualCableAwg } : {}),
+      },
+    ],
+  } as SystemDesign;
+}
+
+function batteryBusLoadNoFuse(loadA: number): SystemDesign {
+  return {
+    id: 'battery-bus-load',
+    name: 'battery-bus-load',
+    nominalVoltage: 12,
+    assumptions: { ...DEFAULT_ASSUMPTIONS },
+    createdAt: '',
+    updatedAt: '',
+    components: [
+      { id: 'bat', productId: 'bat-vic-smart-12-200', label: 'Battery', quantity: 1, x: 0, y: 0 },
+      {
+        id: 'bus',
+        productId: 'dist-generic-busbar-5pt',
+        label: 'Positive Bus',
+        quantity: 1,
+        x: 120,
+        y: 0,
+        inferredConnectionKind: 'dc_power',
+        inferredPolarity: 'positive',
+        inferredElectricalType: 'dc_pos',
+        inferredVoltageClass: 'dc_low_voltage',
+      },
+      { id: 'load', productId: 'acc-dc-load-generic', label: 'Load', quantity: 1, x: 240, y: 0, instanceMaxCurrentA: loadA },
+    ],
+    connections: [
+      { id: 'bat-bus', fromComponentId: 'bat', fromTerminalId: 'dc_pos', toComponentId: 'bus', toTerminalId: 'terminal_1', cableLengthFt: 2 },
+      { id: 'bus-load', fromComponentId: 'bus', fromTerminalId: 'terminal_2', toComponentId: 'load', toTerminalId: 'dc_pos', cableLengthFt: 4 },
+    ],
+  } as SystemDesign;
+}
+
+function batteryBatteryOneFuse(): SystemDesign {
+  return {
+    id: 'battery-battery-one-fuse',
+    name: 'battery-battery-one-fuse',
+    nominalVoltage: 12,
+    assumptions: { ...DEFAULT_ASSUMPTIONS },
+    createdAt: '',
+    updatedAt: '',
+    components: [
+      { id: 'bat-a', productId: 'bat-vic-smart-12-200', label: 'Battery A', quantity: 1, x: 0, y: 0 },
+      { id: 'fuse', productId: 'fuse-midi-100a', label: 'A-side Fuse', quantity: 1, x: 120, y: 0 },
+      { id: 'bat-b', productId: 'bat-vic-smart-12-200', label: 'Battery B', quantity: 1, x: 240, y: 0 },
+    ],
+    connections: [
+      { id: 'a-fuse', fromComponentId: 'bat-a', fromTerminalId: 'dc_pos', toComponentId: 'fuse', toTerminalId: 'in', cableLengthFt: 1, designCurrentOverrideA: 80 },
+      { id: 'fuse-b', fromComponentId: 'fuse', fromTerminalId: 'out', toComponentId: 'bat-b', toTerminalId: 'dc_pos', cableLengthFt: 6, designCurrentOverrideA: 80 },
+    ],
+  } as SystemDesign;
+}
+
+function overloadedPositiveBusbar(): SystemDesign {
+  return {
+    id: 'overloaded-busbar',
+    name: 'overloaded-busbar',
+    nominalVoltage: 12,
+    assumptions: { ...DEFAULT_ASSUMPTIONS },
+    createdAt: '',
+    updatedAt: '',
+    components: [
+      { id: 'bat', productId: 'bat-vic-smart-12-200', label: 'Battery', quantity: 1, x: 0, y: 0 },
+      {
+        id: 'bus',
+        productId: 'dist-generic-busbar',
+        label: 'Positive Bus',
+        quantity: 1,
+        x: 120,
+        y: 0,
+        inferredConnectionKind: 'dc_power',
+        inferredPolarity: 'positive',
+        inferredElectricalType: 'dc_pos',
+        inferredVoltageClass: 'dc_low_voltage',
+      },
+      { id: 'load-a', productId: 'acc-dc-load-generic', label: 'Load A', quantity: 1, x: 240, y: -40, instanceMaxCurrentA: 250 },
+      { id: 'load-b', productId: 'acc-dc-load-generic', label: 'Load B', quantity: 1, x: 240, y: 40, instanceMaxCurrentA: 250 },
+    ],
+    connections: [
+      { id: 'bat-bus', fromComponentId: 'bat', fromTerminalId: 'dc_pos', toComponentId: 'bus', toTerminalId: 'terminal_1', cableLengthFt: 2 },
+      { id: 'bus-load-a', fromComponentId: 'bus', fromTerminalId: 'terminal_2', toComponentId: 'load-a', toTerminalId: 'dc_pos', cableLengthFt: 4 },
+      { id: 'bus-load-b', fromComponentId: 'bus', fromTerminalId: 'terminal_3', toComponentId: 'load-b', toTerminalId: 'dc_pos', cableLengthFt: 4 },
+    ],
+  } as SystemDesign;
+}
+
+function incompatibleBatterySources(): SystemDesign {
+  return {
+    id: 'incompatible-sources',
+    name: 'incompatible-sources',
+    nominalVoltage: 12,
+    assumptions: { ...DEFAULT_ASSUMPTIONS },
+    createdAt: '',
+    updatedAt: '',
+    components: [
+      { id: 'bat-12', productId: 'bat-vic-smart-12-200', label: '12V Battery', quantity: 1, x: 0, y: 0 },
+      { id: 'bat-24', productId: 'bat-vic-smart-24-100', label: '24V Battery', quantity: 1, x: 0, y: 100 },
+      {
+        id: 'bus',
+        productId: 'dist-generic-busbar',
+        label: 'Positive Bus',
+        quantity: 1,
+        x: 160,
+        y: 50,
+        inferredConnectionKind: 'dc_power',
+        inferredPolarity: 'positive',
+        inferredElectricalType: 'dc_pos',
+        inferredVoltageClass: 'dc_low_voltage',
+      },
+    ],
+    connections: [
+      { id: 'bat-12-bus', fromComponentId: 'bat-12', fromTerminalId: 'dc_pos', toComponentId: 'bus', toTerminalId: 'terminal_1', cableLengthFt: 2 },
+      { id: 'bat-24-bus', fromComponentId: 'bat-24', fromTerminalId: 'dc_pos', toComponentId: 'bus', toTerminalId: 'terminal_2', cableLengthFt: 2 },
+    ],
+  } as SystemDesign;
+}
+
+function overloadedDistributionBus(): SystemDesign {
+  return {
+    id: 'overloaded-distribution',
+    name: 'overloaded-distribution',
+    nominalVoltage: 12,
+    assumptions: { ...DEFAULT_ASSUMPTIONS },
+    createdAt: '',
+    updatedAt: '',
+    components: [
+      { id: 'lynx', productId: 'dist-vic-lynx-distributor', label: 'Lynx Distributor', quantity: 1, x: 0, y: 0 },
+      { id: 'load-a', productId: 'acc-dc-load-generic', label: 'Load A', quantity: 1, x: 240, y: -90, instanceMaxCurrentA: 300 },
+      { id: 'load-b', productId: 'acc-dc-load-generic', label: 'Load B', quantity: 1, x: 240, y: -30, instanceMaxCurrentA: 300 },
+      { id: 'load-c', productId: 'acc-dc-load-generic', label: 'Load C', quantity: 1, x: 240, y: 30, instanceMaxCurrentA: 300 },
+      { id: 'load-d', productId: 'acc-dc-load-generic', label: 'Load D', quantity: 1, x: 240, y: 90, instanceMaxCurrentA: 300 },
+    ],
+    connections: [
+      { id: 'lynx-load-a', fromComponentId: 'lynx', fromTerminalId: 'out_pos_1', toComponentId: 'load-a', toTerminalId: 'dc_pos', cableLengthFt: 4 },
+      { id: 'lynx-load-b', fromComponentId: 'lynx', fromTerminalId: 'out_pos_2', toComponentId: 'load-b', toTerminalId: 'dc_pos', cableLengthFt: 4 },
+      { id: 'lynx-load-c', fromComponentId: 'lynx', fromTerminalId: 'out_pos_3', toComponentId: 'load-c', toTerminalId: 'dc_pos', cableLengthFt: 4 },
+      { id: 'lynx-load-d', fromComponentId: 'lynx', fromTerminalId: 'out_pos_4', toComponentId: 'load-d', toTerminalId: 'dc_pos', cableLengthFt: 4 },
+    ],
+  } as SystemDesign;
+}
+
+function mpptWithOversizePositiveFuseAndSixAwgReturn(): SystemDesign {
+  return {
+    id: 'mppt-return-sizing',
+    name: 'mppt-return-sizing',
+    nominalVoltage: 12,
+    assumptions: { ...DEFAULT_ASSUMPTIONS },
+    createdAt: '',
+    updatedAt: '',
+    components: [
+      { id: 'mppt', productId: 'mppt-100-50', label: 'MPPT Charge Controller', quantity: 1, x: 0, y: 0 },
+      { id: 'fuse', productId: 'fuse-midi-80a', label: '80A Fuse', quantity: 1, x: 120, y: -40 },
+      {
+        id: 'pos-bus',
+        productId: 'dist-generic-busbar',
+        label: 'Positive Bus',
+        quantity: 1,
+        x: 260,
+        y: -40,
+        inferredConnectionKind: 'dc_power',
+        inferredPolarity: 'positive',
+        inferredElectricalType: 'dc_pos',
+        inferredVoltageClass: 'dc_low_voltage',
+      },
+      {
+        id: 'neg-bus',
+        productId: 'dist-generic-busbar',
+        label: 'Negative Bus',
+        quantity: 1,
+        x: 260,
+        y: 40,
+        inferredConnectionKind: 'dc_power',
+        inferredPolarity: 'negative',
+        inferredElectricalType: 'dc_neg',
+        inferredVoltageClass: 'dc_low_voltage',
+      },
+    ],
+    connections: [
+      { id: 'mppt-fuse', fromComponentId: 'mppt', fromTerminalId: 'bat_pos', toComponentId: 'fuse', toTerminalId: 'in', cableLengthFt: 2, manualCableAwg: '4' },
+      { id: 'fuse-bus', fromComponentId: 'fuse', fromTerminalId: 'out', toComponentId: 'pos-bus', toTerminalId: 'terminal_1', cableLengthFt: 2, manualCableAwg: '4' },
+      { id: 'mppt-return', fromComponentId: 'mppt', fromTerminalId: 'bat_neg', toComponentId: 'neg-bus', toTerminalId: 'terminal_1', cableLengthFt: 4, manualCableAwg: '6' },
+    ],
+  } as SystemDesign;
+}
+
+function mpptFusedToBatteryBackedBus(): SystemDesign {
+  const base = mpptWithOversizePositiveFuseAndSixAwgReturn();
+  return {
+    ...base,
+    id: 'mppt-fused-battery-backed-bus',
+    name: 'mppt-fused-battery-backed-bus',
+    components: [
+      ...base.components,
+      { id: 'bat', productId: 'bat-vic-smart-12-200', label: 'Battery', quantity: 1, x: 420, y: -40 },
+    ],
+    connections: [
+      ...base.connections,
+      { id: 'bat-bus', fromComponentId: 'bat', fromTerminalId: 'dc_pos', toComponentId: 'pos-bus', toTerminalId: 'terminal_2', cableLengthFt: 1 },
+    ],
+  } as SystemDesign;
+}
+
+function parallelBatteryBankWithSingleMainFuse(): SystemDesign {
+  const busDefaults = {
+    productId: 'dist-generic-busbar-5pt',
+    quantity: 1,
+    inferredConnectionKind: 'dc_power',
+    inferredVoltageClass: 'dc_low_voltage',
+  } as const;
+
+  return {
+    id: 'parallel-bank-single-main-fuse',
+    name: 'parallel-bank-single-main-fuse',
+    nominalVoltage: 12,
+    assumptions: { ...DEFAULT_ASSUMPTIONS },
+    createdAt: '',
+    updatedAt: '',
+    components: [
+      { id: 'bat-a', productId: 'bat-vic-smart-12-200', label: 'Battery A', quantity: 1, x: 0, y: -80 },
+      { id: 'bat-b', productId: 'bat-vic-smart-12-200', label: 'Battery B', quantity: 1, x: 0, y: 80 },
+      {
+        ...busDefaults,
+        id: 'pos-bank',
+        label: 'Positive Battery Collector',
+        x: 170,
+        y: -60,
+        busPolarity: 'positive',
+        inferredPolarity: 'positive',
+        inferredElectricalType: 'dc_pos',
+      },
+      {
+        ...busDefaults,
+        id: 'neg-bank',
+        label: 'Negative Battery Collector',
+        x: 170,
+        y: 60,
+        busPolarity: 'negative',
+        inferredPolarity: 'negative',
+        inferredElectricalType: 'dc_neg',
+      },
+      { id: 'fuse', productId: 'fuse-mega-300a', label: '300A Main Fuse', quantity: 1, x: 330, y: -60 },
+      {
+        ...busDefaults,
+        id: 'pos-main',
+        label: 'Positive Busbar',
+        x: 500,
+        y: -60,
+        busPolarity: 'positive',
+        inferredPolarity: 'positive',
+        inferredElectricalType: 'dc_pos',
+      },
+      {
+        ...busDefaults,
+        id: 'neg-main',
+        label: 'Negative Busbar',
+        x: 500,
+        y: 60,
+        busPolarity: 'negative',
+        inferredPolarity: 'negative',
+        inferredElectricalType: 'dc_neg',
+      },
+      { id: 'mppt', productId: 'mppt-100-50', label: 'MPPT Charge Controller', quantity: 1, x: 650, y: 0 },
+    ],
+    connections: [
+      { id: 'bat-a-pos', fromComponentId: 'bat-a', fromTerminalId: 'dc_pos', toComponentId: 'pos-bank', toTerminalId: 'terminal_1', cableLengthFt: 2 },
+      { id: 'bat-b-pos', fromComponentId: 'bat-b', fromTerminalId: 'dc_pos', toComponentId: 'pos-bank', toTerminalId: 'terminal_2', cableLengthFt: 2 },
+      { id: 'bat-a-neg', fromComponentId: 'bat-a', fromTerminalId: 'dc_neg', toComponentId: 'neg-bank', toTerminalId: 'terminal_1', cableLengthFt: 2 },
+      { id: 'bat-b-neg', fromComponentId: 'bat-b', fromTerminalId: 'dc_neg', toComponentId: 'neg-bank', toTerminalId: 'terminal_2', cableLengthFt: 2 },
+      { id: 'bank-fuse', fromComponentId: 'pos-bank', fromTerminalId: 'terminal_3', toComponentId: 'fuse', toTerminalId: 'in', cableLengthFt: 1 },
+      { id: 'fuse-main', fromComponentId: 'fuse', fromTerminalId: 'out', toComponentId: 'pos-main', toTerminalId: 'terminal_1', cableLengthFt: 2 },
+      { id: 'neg-bank-main', fromComponentId: 'neg-bank', fromTerminalId: 'terminal_3', toComponentId: 'neg-main', toTerminalId: 'terminal_1', cableLengthFt: 2 },
+      { id: 'mppt-pos', fromComponentId: 'mppt', fromTerminalId: 'bat_pos', toComponentId: 'pos-main', toTerminalId: 'terminal_2', cableLengthFt: 4 },
+      { id: 'mppt-neg', fromComponentId: 'mppt', fromTerminalId: 'bat_neg', toComponentId: 'neg-main', toTerminalId: 'terminal_2', cableLengthFt: 4 },
+    ],
+  } as SystemDesign;
+}
+
+function dcSourceFeedingSmallDcLoad(): SystemDesign {
+  return {
+    id: 'dc-source-small-load',
+    name: 'dc-source-small-load',
+    nominalVoltage: 12,
+    assumptions: { ...DEFAULT_ASSUMPTIONS },
+    createdAt: '',
+    updatedAt: '',
+    components: [
+      { id: 'source', productId: 'generic-alternator-source', label: 'DC Source', quantity: 1, x: 0, y: 0, instanceMaxCurrentA: 50 },
+      { id: 'load', productId: 'acc-dc-load-generic', label: 'DC Load', quantity: 1, x: 180, y: 0, instanceMaxCurrentA: 15 },
+    ],
+    connections: [
+      { id: 'source-load-pos', fromComponentId: 'source', fromTerminalId: 'dc_pos', toComponentId: 'load', toTerminalId: 'dc_pos', cableLengthFt: 4 },
+    ],
+  } as SystemDesign;
+}
+
+function batteryFuseLoadWithUndersizedReturn(loadA: number): SystemDesign {
+  const base = batteryFuseLoad(loadA);
+  return {
+    ...base,
+    connections: [
+      ...base.connections,
+      {
+        id: 'load-return',
+        fromComponentId: 'load',
+        fromTerminalId: 'dc_neg',
+        toComponentId: 'bat',
+        toTerminalId: 'dc_neg',
+        cableLengthFt: 4,
+        manualCableAwg: '18',
+      },
+    ],
+  } as SystemDesign;
+}
+
+function shuntOverRating(): SystemDesign {
+  return {
+    id: 'shunt-over-rating',
+    name: 'shunt-over-rating',
+    nominalVoltage: 12,
+    assumptions: { ...DEFAULT_ASSUMPTIONS },
+    createdAt: '',
+    updatedAt: '',
+    components: [
+      { id: 'bat', productId: 'bat-vic-smart-12-200', label: 'Battery', quantity: 1, x: 0, y: 0 },
+      { id: 'shunt', productId: 'smartshunt-500', label: 'SmartShunt', quantity: 1, x: 160, y: 0 },
+    ],
+    connections: [
+      {
+        id: 'bat-shunt',
+        fromComponentId: 'bat',
+        fromTerminalId: 'dc_neg',
+        toComponentId: 'shunt',
+        toTerminalId: 'shunt_neg',
+        cableLengthFt: 2,
+        designCurrentOverrideA: 600,
+      },
+    ],
+  } as SystemDesign;
+}
+
+function errorCodes(system: SystemDesign, connectionId: string): string[] {
+  return analyzeSystemCircuits(system, PRODUCT_MAP).connections.get(connectionId)!.errors.map((issue) => issue.code);
+}
+
+function warningCodes(system: SystemDesign): string[] {
+  return generateWarnings(system, PRODUCT_MAP).map((warning) => warning.code);
+}
+
 test('50A MPPT on a busbar: design 50A, fuse 70A, no busbar-rating leak', () => {
   const analysis = analyzeSystemCircuits(mpptOnBusbar(12, 4, 'dist-generic-busbar-5pt'), PRODUCT_MAP);
   const c = analysis.connections.get('mppt-p')!;
@@ -191,6 +566,96 @@ test('recommended fuse never exceeds the recommended cable ampacity', () => {
       `len ${len}ft: ${c.recommendedFuseA}A fuse exceeds ${c.recommendedCableAwg} ampacity ${amp}A`
     );
   }
+});
+
+test('battery source capability larger than selected fuse is valid when load and cable fit', () => {
+  const c = analyzeSystemCircuits(batteryFuseLoad(80), PRODUCT_MAP).connections.get('fuse-load')!;
+  assert.equal(c.designCurrentA, 80);
+  assert.equal(c.selectedFuseA, 100);
+  assert.equal(c.effectiveBranchLimitA, 100);
+  assert.deepEqual(c.errors, []);
+});
+
+test('selected fuse below load current is a hard branch error', () => {
+  const codes = errorCodes(batteryFuseLoad(120), 'fuse-load');
+  assert.ok(codes.includes('SELECTED_FUSE_UNDER_BRANCH_CURRENT'));
+});
+
+test('selected fuse over manual cable ampacity is a hard branch error', () => {
+  const codes = errorCodes(batteryFuseLoad(80, 'fuse-mega-200a', '6'), 'fuse-load');
+  assert.ok(codes.includes('FUSE_OVER_CABLE_AMPACITY'));
+});
+
+test('battery-backed bus branch without fuse has source-side protection error', () => {
+  const codes = errorCodes(batteryBusLoadNoFuse(80), 'bus-load');
+  assert.ok(codes.includes('SOURCE_SIDE_PROTECTION_MISSING'));
+});
+
+test('source-to-source branch with one fuse is unprotected from the far battery side', () => {
+  const codes = errorCodes(batteryBatteryOneFuse(), 'fuse-b');
+  assert.ok(codes.includes('SOURCE_SIDE_PROTECTION_MISSING'));
+});
+
+test('busbar rating is checked against total connected branch current', () => {
+  const codes = warningCodes(overloadedPositiveBusbar());
+  assert.ok(codes.includes('BUSBAR_OVERLOADED'));
+});
+
+test('parallel DC sources with different nominal voltages are rejected', () => {
+  const codes = warningCodes(incompatibleBatterySources());
+  assert.ok(codes.includes('INCOMPATIBLE_SOURCE_VOLTAGES'));
+});
+
+test('distribution bus rating sums downstream protected outputs', () => {
+  const codes = warningCodes(overloadedDistributionBus());
+  assert.ok(codes.includes('DISTRIBUTION_BUS_OVERLOADED'));
+});
+
+test('50A MPPT return sizing uses branch current, not oversized fuse rating', () => {
+  const codes = warningCodes(mpptWithOversizePositiveFuseAndSixAwgReturn());
+  assert.ok(!codes.includes('DC_NEG_RETURN_UNDERSIZED'));
+});
+
+test('short busbar-to-fuse lead is valid source-side protection for MPPT branch', () => {
+  const codes = errorCodes(mpptFusedToBatteryBackedBus(), 'fuse-bus');
+  assert.ok(!codes.includes('SOURCE_SIDE_PROTECTION_MISSING'));
+});
+
+test('short parallel battery collector leads do not require individual source-side fuses', () => {
+  const system = parallelBatteryBankWithSingleMainFuse();
+  assert.ok(!errorCodes(system, 'bat-a-pos').includes('SOURCE_SIDE_PROTECTION_MISSING'));
+  assert.ok(!errorCodes(system, 'bat-b-pos').includes('SOURCE_SIDE_PROTECTION_MISSING'));
+});
+
+test('parallel bank negative output sizes from the shared positive main fuse', () => {
+  const c = analyzeSystemCircuits(parallelBatteryBankWithSingleMainFuse(), PRODUCT_MAP).connections.get('neg-bank-main')!;
+  assert.equal(c.designCurrentA, 300);
+  assert.equal(c.recommendedCableAwg, '4/0');
+});
+
+test('battery source capability is not counted as busbar operating current', () => {
+  const codes = warningCodes(parallelBatteryBankWithSingleMainFuse());
+  assert.ok(!codes.includes('BUSBAR_OVERLOADED'));
+});
+
+test('DC load instance current limits source-to-load branch current', () => {
+  const c = analyzeSystemCircuits(dcSourceFeedingSmallDcLoad(), PRODUCT_MAP).connections.get('source-load-pos')!;
+  assert.equal(c.designCurrentA, 15);
+});
+
+test('DC positive branch without a negative return is a hard system error', () => {
+  const codes = warningCodes(batteryFuseLoad(80));
+  assert.ok(codes.includes('DC_NEG_RETURN_MISSING'));
+});
+
+test('DC negative return cable must support the protected branch current', () => {
+  const codes = warningCodes(batteryFuseLoadWithUndersizedReturn(80));
+  assert.ok(codes.includes('DC_NEG_RETURN_UNDERSIZED'));
+});
+
+test('shunt current rating is enforced', () => {
+  const codes = warningCodes(shuntOverRating());
+  assert.ok(codes.includes('SHUNT_RATING_EXCEEDED'));
 });
 
 // ---- summary ----------------------------------------------------------------

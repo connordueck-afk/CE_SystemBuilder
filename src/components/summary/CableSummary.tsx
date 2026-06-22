@@ -1,5 +1,6 @@
 import type { CableLengthSummaryItem } from '../../types/system';
 import { cableColorSwatch } from '../inspector/ConnectionInspector';
+import { formatFeetAndInches } from '../../utils/cableSummary';
 
 interface Props {
   summary: CableLengthSummaryItem[];
@@ -51,7 +52,7 @@ export function CableSummaryPanel({ summary }: Props) {
                   ) : <span style={{ color: '#9aa5b4' }}>—</span>}
                 </td>
                 <td>{item.type || <span style={{ color: '#9aa5b4' }}>—</span>}</td>
-                <td>{item.totalLengthFt.toFixed(1)} ft</td>
+                <td>{formatFeetAndInches(item.totalLengthFt)}</td>
                 <td>{item.cableCount}</td>
               </tr>
             );

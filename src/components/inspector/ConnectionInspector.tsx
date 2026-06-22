@@ -1,7 +1,8 @@
 import type { InternalBusType, SystemConnection, SystemComponent, Product } from '../../types/system';
 import { CABLE_TABLE } from '../../data/cableAmpacity';
+import { feetAndInchesToFeet, feetToFeetAndInches } from '../../utils/cableSummary';
 import { getEffectiveTerminal } from '../../utils/effectiveTerminals';
-import { terminalDirectionLabel } from '../../utils/terminalDirection';
+import { canProvidePower, terminalDirectionLabel } from '../../utils/terminalDirection';
 import type { ProtectionRecommendation } from '../../utils/protectionRecommendations';
 
 const CABLE_COLORS = ['Red', 'Black', 'Yellow', 'Orange', 'Blue', 'Green', 'White', 'Brown', 'Gray', 'Purple'];
@@ -66,6 +67,55 @@ function Row({ label, value, warn }: { label: string; value: string | number | n
   );
 }
 
+function positiveNumber(value: number | undefined): number | undefined {
+  return value != null && Number.isFinite(value) && value > 0 ? value : undefined;
+}
+
+function endpointSourceCapabilityA(
+  component: SystemComponent | undefined,
+  product: Product | undefined,
+  terminalId: string,
+  systemVoltage: number
+): number | undefined {
+  if (!component || !product) return undefined;
+
+  const terminal = getEffectiveTerminal(product, terminalId, component);
+  if (!terminal) return undefined;
+  const terminalCanSource = canProvidePower(terminal) || product.productType === 'battery';
+  if (!terminalCanSource) return undefined;
+
+  if (component.instanceMaxCurrentA != null) {
+    return positiveNumber(component.instanceMaxCurrentA);
+  }
+
+  if (terminal.maxCurrentA != null) {
+    return positiveNumber(terminal.maxCurrentA);
+  }
+
+  if (terminal.maxPowerW != null && systemVoltage > 0) {
+    return positiveNumber(terminal.maxPowerW / systemVoltage);
+  }
+
+  if (product.productType === 'battery') {
+    return positiveNumber(product.batteryRatings?.maxDischargeCurrentA) ??
+      positiveNumber(product.maxCurrentA);
+  }
+
+  if (product.productType === 'mppt' && terminal.kind === 'dc_power') {
+    return positiveNumber(product.mpptRatings?.maxOutputCurrentA) ?? positiveNumber(product.maxCurrentA);
+  }
+
+  if (product.productType === 'dc_dc_charger' && terminal.id.toLowerCase().startsWith('out')) {
+    return positiveNumber(product.dcDcChargerRatings?.outputCurrentA) ?? positiveNumber(product.maxCurrentA);
+  }
+
+  if (product.productType === 'inverter_charger' && terminal.kind === 'dc_power') {
+    return positiveNumber(product.inverterChargerRatings?.maxDcCurrentA) ?? positiveNumber(product.maxCurrentA);
+  }
+
+  return undefined;
+}
+
 export function ConnectionInspector({
   connection,
   fromComponent,
@@ -95,6 +145,23 @@ export function ConnectionInspector({
   const toTerminal = toComponent && toProduct
     ? getEffectiveTerminal(toProduct, connection.toTerminalId, toComponent)
     : undefined;
+  const cableLength = feetToFeetAndInches(connection.cableLengthFt);
+  const maxSourceCapabilityA = Math.max(
+    endpointSourceCapabilityA(fromComponent, fromProduct, connection.fromTerminalId, systemVoltage) ?? 0,
+    endpointSourceCapabilityA(toComponent, toProduct, connection.toTerminalId, systemVoltage) ?? 0
+  ) || undefined;
+  const showSourceCapability = maxSourceCapabilityA != null &&
+    (connection.calculatedCurrentA == null || maxSourceCapabilityA > connection.calculatedCurrentA);
+
+  const updateCableLength = (next: Partial<typeof cableLength>) => {
+    onUpdateLength(
+      connection.id,
+      feetAndInchesToFeet(
+        next.feet ?? cableLength.feet,
+        next.inches ?? cableLength.inches
+      )
+    );
+  };
 
   return (
     <div className="inspector-content">
@@ -130,7 +197,10 @@ export function ConnectionInspector({
           />
           <span style={{ color: '#6d7b90', fontSize: 12, fontWeight: 600 }}>A</span>
         </div>
-        <Row label="Calculated Current" value={connection.calculatedCurrentA != null ? `${connection.calculatedCurrentA.toFixed(0)} A` : null} />
+        <Row label="Branch Current" value={connection.calculatedCurrentA != null ? `${connection.calculatedCurrentA.toFixed(0)} A` : null} />
+        {showSourceCapability && (
+          <Row label="Max Source Capability" value={`${maxSourceCapabilityA.toFixed(0)} A`} />
+        )}
         <Row
           label="Flow Points"
           value={fromTerminal && toTerminal
@@ -189,18 +259,34 @@ export function ConnectionInspector({
           </button>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+          <span className="connection-row-label" style={{ flex: 1 }}>Length</span>
           <input
             type="number"
             className="inspector-input"
-            style={{ width: 70 }}
-            value={connection.cableLengthFt}
-            min={1}
+            style={{ width: 58 }}
+            value={cableLength.feet}
+            min={0}
+            step={1}
             onChange={(e) => {
-              const v = parseFloat(e.target.value);
-              if (!isNaN(v) && v > 0) onUpdateLength(connection.id, v);
+              const v = parseInt(e.target.value, 10);
+              if (!isNaN(v)) updateCableLength({ feet: v });
             }}
           />
           <span style={{ color: '#6d7b90', fontSize: 12, fontWeight: 600 }}>ft</span>
+          <input
+            type="number"
+            className="inspector-input"
+            style={{ width: 58 }}
+            value={cableLength.inches}
+            min={0}
+            max={11}
+            step={1}
+            onChange={(e) => {
+              const v = parseInt(e.target.value, 10);
+              if (!isNaN(v)) updateCableLength({ inches: v });
+            }}
+          />
+          <span style={{ color: '#6d7b90', fontSize: 12, fontWeight: 600 }}>in</span>
         </div>
         <div style={{ marginBottom: 6 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>

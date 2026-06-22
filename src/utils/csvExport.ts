@@ -1,4 +1,5 @@
 import type { BomRow, CableLengthSummaryItem } from '../types/system';
+import { formatFeetAndInches } from './cableSummary';
 
 function esc(value: string | number | null | boolean): string {
   if (value == null) return '';
@@ -56,13 +57,13 @@ export function exportBomCsv(
   if (cableSummary.length > 0) {
     csvRows.push('');
     csvRows.push(['Cable Summary'].map(esc).join(','));
-    csvRows.push(['Cable Gauge', 'Color', 'Type', 'Total Length (ft)', 'Cable Count'].map(esc).join(','));
+    csvRows.push(['Cable Gauge', 'Color', 'Type', 'Total Length', 'Cable Count'].map(esc).join(','));
     csvRows.push(...cableSummary.map((item) =>
       [
         item.gauge,
         item.color || '',
         item.type || '',
-        item.totalLengthFt.toFixed(1),
+        formatFeetAndInches(item.totalLengthFt),
         item.cableCount,
       ]
         .map(esc)
