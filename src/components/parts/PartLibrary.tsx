@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import type { NominalVoltage, Product, ProductType, SystemComponent } from '../../types/system';
+import type { NominalVoltage, Product, ProductType, ShapeAnnotationType, SystemComponent } from '../../types/system';
 import { ALL_PRODUCTS } from '../../data/products';
 import { fmt } from '../../utils/priceCalculations';
 import { getProductImageUrl, resolveProductImageUrl } from '../../utils/productImages';
@@ -13,6 +13,7 @@ interface Props {
   systemVoltage: NominalVoltage;
   onAdd: (productId: string, options?: SourceLoadOptions) => void;
   onAddTextAnnotation: () => void;
+  onAddShapeAnnotation: (shapeType: ShapeAnnotationType) => void;
   components: SystemComponent[];
   products: Map<string, Product>;
   selectedComponentId: string | null;
@@ -28,7 +29,7 @@ interface SelectorType {
   label: string;
   description: string;
   productTypes?: ProductType[];
-  shapeKind?: 'text';
+  shapeKind?: 'text' | ShapeAnnotationType;
   match?: (product: Product) => boolean;
 }
 
@@ -50,6 +51,30 @@ const SELECTOR_CATEGORIES: SelectorCategory[] = [
         label: 'Text Box',
         description: 'Resizable diagram annotation text.',
         shapeKind: 'text',
+      },
+      {
+        id: 'shape-rectangle',
+        label: 'Rectangle',
+        description: 'Resizable box for grouping or generic schematic blocks.',
+        shapeKind: 'rectangle',
+      },
+      {
+        id: 'shape-circle',
+        label: 'Circle',
+        description: 'Resizable circular marker or callout.',
+        shapeKind: 'circle',
+      },
+      {
+        id: 'shape-triangle',
+        label: 'Triangle',
+        description: 'Directional marker, warning marker, or simple symbol.',
+        shapeKind: 'triangle',
+      },
+      {
+        id: 'shape-arrow',
+        label: 'Arrow',
+        description: 'Direction or flow annotation.',
+        shapeKind: 'arrow',
       },
     ],
   },
@@ -145,7 +170,7 @@ const SELECTOR_CATEGORIES: SelectorCategory[] = [
         label: 'Inverters',
         description: 'Inverter models for DC to AC power.',
         productTypes: ['inverter_charger'],
-        match: (product) => /phoenix inverter/i.test(product.name),
+        match: (product) => product.capabilities?.includes('inverter') || /phoenix inverter/i.test(product.name),
       },
       {
         id: 'ac-chargers',
@@ -158,7 +183,9 @@ const SELECTOR_CATEGORIES: SelectorCategory[] = [
         label: 'Inverter/Chargers',
         description: 'Combined inverter and charger units.',
         productTypes: ['inverter_charger'],
-        match: (product) => !/phoenix inverter/i.test(product.name),
+        match: (product) =>
+          product.capabilities?.includes('inverter-charger') ||
+          (!product.capabilities?.includes('inverter') && !/phoenix inverter/i.test(product.name)),
       },
       {
         id: 'ac-source',
@@ -305,6 +332,7 @@ function productSpecLine(product: Product): string {
   if (product.maxCurrentA) specs.push(`${product.maxCurrentA}A`);
   if (product.maxPvVoltageV) specs.push(`PV ${product.maxPvVoltageV}V`);
   if (product.maxPvCurrentA) specs.push(`${product.maxPvCurrentA}A PV`);
+  if (product.capabilities?.includes('pv-input')) specs.push('PV input');
   return specs.join(' / ');
 }
 
@@ -355,10 +383,26 @@ function typeMatchesSearch(selector: SelectorType, query: string): boolean {
   );
 }
 
+function productMatchesSearch(product: Product, query: string): boolean {
+  if (!query) return true;
+  const normalized = query.toLowerCase();
+  return [
+    product.manufacturer,
+    product.name,
+    product.partNumber,
+    product.category,
+    product.productType,
+    ...(product.capabilities ?? []),
+  ]
+    .filter(Boolean)
+    .some((value) => String(value).toLowerCase().includes(normalized));
+}
+
 export function PartLibrary({
   systemVoltage,
   onAdd,
   onAddTextAnnotation,
+  onAddShapeAnnotation,
   components,
   products,
   selectedComponentId,
@@ -441,6 +485,10 @@ export function PartLibrary({
       onAddTextAnnotation();
       return;
     }
+    if (selector.shapeKind) {
+      onAddShapeAnnotation(selector.shapeKind);
+      return;
+    }
 
     const matches = ALL_PRODUCTS.filter((product) => productMatchesPrimarySelector(product, selector, systemVoltage));
     const firstProduct = matches[0];
@@ -496,14 +544,20 @@ export function PartLibrary({
   const visibleCategories = SELECTOR_CATEGORIES
     .map((category) => {
       const categoryNameMatches = normalizedSearch && category.label.toLowerCase().includes(normalizedSearch);
+      const selectorMatchesProducts = (selector: SelectorType) =>
+        ALL_PRODUCTS.some((product) =>
+          productMatchesSelector(product, selector, systemVoltage) && productMatchesSearch(product, normalizedSearch)
+        );
       return {
         ...category,
         types: categoryNameMatches
           ? category.types
-          : category.types.filter((selector) => typeMatchesSearch(selector, normalizedSearch)),
+          : category.types.filter((selector) =>
+              typeMatchesSearch(selector, normalizedSearch) || selectorMatchesProducts(selector)
+            ),
       };
     })
-    .filter((category) => categoryMatchesSearch(category, normalizedSearch) && (normalizedSearch ? category.types.length > 0 : true));
+    .filter((category) => normalizedSearch ? category.types.length > 0 : categoryMatchesSearch(category, normalizedSearch));
 
   return (
     <div className="part-library">

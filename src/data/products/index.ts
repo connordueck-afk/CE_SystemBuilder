@@ -20,6 +20,7 @@ export { distribution } from './distribution';
 export { protection } from './protection';
 export { monitoring } from './monitoring';
 export { accessories } from './accessories';
+export { kisaeProducts } from './kisae';
 
 // --- Schema definitions ---
 export * from './categories';
@@ -41,6 +42,7 @@ import { distribution } from './distribution';
 import { protection } from './protection';
 import { monitoring } from './monitoring';
 import { accessories } from './accessories';
+import { kisaeProducts } from './kisae';
 import type { Product } from '../../types/system';
 
 /**
@@ -58,6 +60,7 @@ export const ALL_PRODUCTS: Product[] = [
   ...protection,
   ...monitoring,
   ...accessories,
+  ...kisaeProducts,
 ];
 
 /**

@@ -341,7 +341,7 @@ export function ConnectionLayer({
                 textAnchor="middle"
                 fill={isSelected ? '#1769d2' : hasProtectionRecommendation ? '#c2410c' : '#6d7b90'}
                 fontSize={8}
-                fontWeight={800}
+                fontWeight={600}
                 style={{ pointerEvents: 'none' }}
               >
                 {conn.recommendedCableAwg} AWG
@@ -366,7 +366,7 @@ export function ConnectionLayer({
                   textAnchor="middle"
                   fill="#c2410c"
                   fontSize={13}
-                  fontWeight={900}
+                  fontWeight={700}
                   style={{ pointerEvents: 'none' }}
                 >
                   !
@@ -393,3 +393,4 @@ export function ConnectionLayer({
     </g>
   );
 }
+

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { NominalVoltage, SystemWarning } from '../../types/system';
 import type { BusType } from '../../utils/electricalNetlist';
 import type { BusColorMap } from '../../utils/busColors';
@@ -37,24 +37,47 @@ export function HeaderBar({
   onOpenBom,
 }: Props) {
   const [busColorsOpen, setBusColorsOpen] = useState(false);
+  const busColorsMenuRef = useRef<HTMLDivElement>(null);
   const errorCount = warnings.filter((w) => w.severity === 'error').length;
   const warnCount = warnings.filter((w) => w.severity === 'warning').length;
+
+  useEffect(() => {
+    if (!busColorsOpen) return;
+
+    function handlePointerDown(event: PointerEvent) {
+      const target = event.target as Node | null;
+      if (target && busColorsMenuRef.current?.contains(target)) return;
+      setBusColorsOpen(false);
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') setBusColorsOpen(false);
+    }
+
+    window.addEventListener('pointerdown', handlePointerDown);
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('pointerdown', handlePointerDown);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [busColorsOpen]);
 
   return (
     <header className="header-bar">
       {/* Logo */}
-      <div className="header-logo">
-        <span className="header-logo-text">Canadian Energy</span>
-        <span className="header-logo-sub">System Builder</span>
-      </div>
-
-      {/* System name */}
-      <input
-        className="header-name-input"
-        value={systemName}
-        onChange={(e) => onNameChange(e.target.value)}
-        title="System name"
-      />
+      <a
+        className="header-logo"
+        href="https://www.cdnrg.com/"
+        target="_blank"
+        rel="noreferrer"
+        title="Open Canadian Energy website"
+      >
+        <img className="header-logo-mark" src="/brand/canadian-energy-logo.png" alt="" aria-hidden="true" />
+        <span className="header-logo-copy">
+          <span className="header-logo-text">Canadian Energy</span>
+          <span className="header-logo-sub">System Builder</span>
+        </span>
+      </a>
 
       {/* Voltage selector */}
       <div className="header-voltage-group">
@@ -85,7 +108,14 @@ export function HeaderBar({
       )}
 
       {/* Actions */}
-      <div className="header-actions">
+      <div className="header-actions" ref={busColorsMenuRef}>
+        <input
+          className="header-name-input"
+          value={systemName}
+          onChange={(e) => onNameChange(e.target.value)}
+          title="System name"
+          aria-label="System name"
+        />
         <button
           className={`btn-header btn-header-icon ${busColorsOpen ? 'btn-header-active' : ''}`}
           onClick={() => setBusColorsOpen((open) => !open)}

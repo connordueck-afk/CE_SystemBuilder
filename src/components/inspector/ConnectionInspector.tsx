@@ -58,12 +58,12 @@ export function ConnectionInspector({
     <div className="inspector-content">
       <div className="inspector-section">
         <div className="inspector-label">Connection</div>
-        <div style={{ color: '#46546a', fontSize: 10, fontWeight: 700 }}>
-          <span style={{ color: '#182235', fontWeight: 900 }}>{fromLabel}</span>
+        <div style={{ color: '#46546a', fontSize: 12, fontWeight: 700 }}>
+          <span style={{ color: '#182235', fontWeight: 700 }}>{fromLabel}</span>
           {' -> '}
-          <span style={{ color: '#182235', fontWeight: 900 }}>{toLabel}</span>
+          <span style={{ color: '#182235', fontWeight: 700 }}>{toLabel}</span>
         </div>
-        <div style={{ color: '#6d7b90', fontSize: 9, fontWeight: 700, marginTop: 2 }}>
+        <div style={{ color: '#6d7b90', fontSize: 11, fontWeight: 700, marginTop: 2 }}>
           {connection.fromTerminalId}
           {' -> '}
           {connection.toTerminalId}
@@ -86,7 +86,7 @@ export function ConnectionInspector({
               onUpdateDesignCurrent(connection.id, isNaN(v) ? undefined : v);
             }}
           />
-          <span style={{ color: '#6d7b90', fontSize: 10, fontWeight: 800 }}>A</span>
+          <span style={{ color: '#6d7b90', fontSize: 12, fontWeight: 600 }}>A</span>
         </div>
         <Row label="Calculated Current" value={connection.calculatedCurrentA != null ? `${connection.calculatedCurrentA.toFixed(0)} A` : null} />
         <Row
@@ -110,7 +110,7 @@ export function ConnectionInspector({
                 {recommendation.message}
                 {recommendation.recommendedFuseA != null && ` - recommended ${recommendation.recommendedFuseA} A`}
                 {recommendation.recommendedCableAwg && ` with ${recommendation.recommendedCableAwg} AWG`}
-                <span style={{ display: 'block', color: '#6d4a12', fontSize: 9, fontWeight: 700, marginTop: 4 }}>
+                <span style={{ display: 'block', color: '#6d4a12', fontSize: 11, fontWeight: 700, marginTop: 4 }}>
                   {recommendation.reason}
                 </span>
               </span>
@@ -158,7 +158,7 @@ export function ConnectionInspector({
               if (!isNaN(v) && v > 0) onUpdateLength(connection.id, v);
             }}
           />
-          <span style={{ color: '#6d7b90', fontSize: 10, fontWeight: 800 }}>ft</span>
+          <span style={{ color: '#6d7b90', fontSize: 12, fontWeight: 600 }}>ft</span>
         </div>
         <Row
           label="Voltage Drop"
@@ -171,7 +171,7 @@ export function ConnectionInspector({
           warn={dropWarn}
         />
         {dropWarn && (
-          <div style={{ color: '#935f0d', fontSize: 9, fontWeight: 800, marginTop: 6 }}>
+          <div style={{ color: '#935f0d', fontSize: 11, fontWeight: 600, marginTop: 6 }}>
             Warning: voltage drop exceeds 3% - consider larger cable or shorter run
           </div>
         )}
@@ -197,7 +197,7 @@ export function ConnectionInspector({
       {(connection.warnings?.length ?? 0) > 0 && (
         <div className="inspector-section">
           {connection.warnings!.map((w, i) => (
-            <div key={i} style={{ color: '#935f0d', fontSize: 10, fontWeight: 800, padding: '3px 0' }}>Warning: {w}</div>
+            <div key={i} style={{ color: '#935f0d', fontSize: 12, fontWeight: 600, padding: '3px 0' }}>Warning: {w}</div>
           ))}
         </div>
       )}
@@ -211,3 +211,4 @@ export function ConnectionInspector({
     </div>
   );
 }
+

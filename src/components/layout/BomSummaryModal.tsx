@@ -1,15 +1,17 @@
 import { useState } from 'react';
-import type { BomRow, PriceSummary } from '../../types/system';
+import type { BomRow, CableLengthSummaryItem, PriceSummary } from '../../types/system';
 import type { ElectricalSummary } from '../../utils/systemSummary';
 import { fmt } from '../../utils/priceCalculations';
 import { BomTable } from '../summary/BomTable';
+import { CableSummaryPanel } from '../summary/CableSummary';
 import { ElectricalSummaryPanel } from '../summary/ElectricalSummary';
 import { PriceSummaryPanel } from '../summary/PriceSummary';
 
-type BomTab = 'bom' | 'price' | 'electrical';
+type BomTab = 'bom' | 'cables' | 'price' | 'electrical';
 
 interface Props {
   bomRows: BomRow[];
+  cableSummary: CableLengthSummaryItem[];
   priceSummary: PriceSummary;
   electricalSummary: ElectricalSummary;
   onClose: () => void;
@@ -18,6 +20,7 @@ interface Props {
 
 export function BomSummaryModal({
   bomRows,
+  cableSummary,
   priceSummary,
   electricalSummary,
   onClose,
@@ -52,6 +55,12 @@ export function BomSummaryModal({
             BOM ({bomRows.length})
           </button>
           <button
+            className={`bottom-tab ${activeTab === 'cables' ? 'bottom-tab-active' : ''}`}
+            onClick={() => setActiveTab('cables')}
+          >
+            Cable Summary
+          </button>
+          <button
             className={`bottom-tab ${activeTab === 'price' ? 'bottom-tab-active' : ''}`}
             onClick={() => setActiveTab('price')}
           >
@@ -71,6 +80,7 @@ export function BomSummaryModal({
 
         <div className="bom-summary-content">
           {activeTab === 'bom' && <BomTable rows={bomRows} />}
+          {activeTab === 'cables' && <CableSummaryPanel summary={cableSummary} />}
           {activeTab === 'price' && (
             <PriceSummaryPanel
               summary={priceSummary}

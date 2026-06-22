@@ -90,6 +90,16 @@ export type VoltageClass =
 export type TerminalSide = 'left' | 'right' | 'top' | 'bottom';
 export type BusPolarity = 'positive' | 'negative';
 export type SolarWiringMode = 'series' | 'parallel';
+export type CableLengthUnit = 'ft' | 'm';
+
+export type ProductCapability =
+  | 'ac-charger'
+  | 'inverter'
+  | 'inverter-charger'
+  | 'dc-dc-converter'
+  | 'mppt'
+  | 'pv-input'
+  | 'battery-charger';
 
 /** Existing terminal definition (preserved). Canvas positioning included. */
 export interface TerminalDefinition {
@@ -458,6 +468,8 @@ export interface Product {
   datasheetUrl?: string;
   /** URL to product image. */
   imageUrl?: string;
+  /** Electrical/application capabilities for multi-function products and filtering. */
+  capabilities?: ProductCapability[];
 
   /**
    * Structured pricing (supplements msrpUsd/oemPriceUsd).
@@ -500,6 +512,7 @@ export interface SystemComponent {
   x: number;
   y: number;
   rotationDeg?: number;
+  locked?: boolean;
   busPolarity?: BusPolarity;
   /** Legacy quick selector for arrays that are all-series or all-parallel. */
   solarWiringMode?: SolarWiringMode;
@@ -512,8 +525,14 @@ export interface SystemComponent {
   includeInBom?: boolean;
   /** Per-instance voltage for source/load blocks — overrides product default (V). */
   instanceVoltageV?: number;
+  /** Per-instance nominal DC bus voltage for busbar/distribution components (V). */
+  dcNominalVoltage?: number;
   /** Per-instance max current for source/load blocks — overrides product default (A). */
   instanceMaxCurrentA?: number;
+  /** Whether raw fuse components should add a matching holder/base to the BOM. */
+  includeFuseHolder?: boolean;
+  /** Optional explicit holder/base product for a raw fuse component. */
+  fuseHolderProductId?: string;
   /** Per-slot fuse/breaker settings for fused distribution products. */
   fuseSlots?: Record<string, FuseSlotState>;
   userNotes?: string;
@@ -536,6 +555,8 @@ export interface SystemConnection {
   toTerminalId: string;
   routePoints?: Array<{ x: number; y: number }>;
   cableLengthFt: number;
+  /** Unit for cableLengthFt when edited/imported; length is normalized to feet internally. */
+  cableLengthUnit?: CableLengthUnit;
   /** User-entered branch design current. Overrides inferred graph current for this conductor. */
   designCurrentOverrideA?: number;
   calculatedCurrentA?: number;
@@ -564,10 +585,29 @@ export interface SystemTextAnnotation {
   fontSize: number;
   color: string;
   backgroundColor?: string;
+  showBackground?: boolean;
   bold?: boolean;
   italic?: boolean;
   textAlign?: 'left' | 'center' | 'right';
 }
+
+export type ShapeAnnotationType = 'rectangle' | 'circle' | 'triangle' | 'arrow';
+
+export interface SystemShapeAnnotation {
+  id: string;
+  kind: 'shape';
+  shapeType: ShapeAnnotationType;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  strokeColor: string;
+  fillColor?: string;
+  showFill?: boolean;
+  strokeWidth?: number;
+}
+
+export type SystemDiagramAnnotation = SystemTextAnnotation | SystemShapeAnnotation;
 
 // -----------------------------------------------------------
 // System Assumptions
@@ -593,7 +633,7 @@ export interface SystemDesign {
   nominalVoltage: NominalVoltage;
   components: SystemComponent[];
   connections: SystemConnection[];
-  annotations?: SystemTextAnnotation[];
+  annotations?: SystemDiagramAnnotation[];
   assumptions: SystemAssumptions;
   createdAt: string;
   updatedAt: string;
@@ -620,6 +660,7 @@ export interface BomRow {
   productType: ProductType;
   manufacturer: string;
   partName: string;
+  productUrl?: string;
   description: string;
   quantity: number;
   unitMsrpUsd: number | null;
@@ -638,6 +679,12 @@ export interface PriceSummary {
   savings: number;
   bySection: Record<string, { msrp: number; oem: number }>;
   byManufacturer: Record<string, { msrp: number; oem: number }>;
+}
+
+export interface CableLengthSummaryItem {
+  gauge: string;
+  totalLengthFt: number;
+  cableCount: number;
 }
 
 // -----------------------------------------------------------

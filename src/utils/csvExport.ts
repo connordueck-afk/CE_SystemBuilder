@@ -1,4 +1,4 @@
-import type { BomRow } from '../types/system';
+import type { BomRow, CableLengthSummaryItem } from '../types/system';
 
 function esc(value: string | number | null | boolean): string {
   if (value == null) return '';
@@ -9,7 +9,11 @@ function esc(value: string | number | null | boolean): string {
   return str;
 }
 
-export function exportBomCsv(rows: BomRow[], systemName: string): void {
+export function exportBomCsv(
+  rows: BomRow[],
+  systemName: string,
+  cableSummary: CableLengthSummaryItem[] = []
+): void {
   const headers = [
     'Section',
     'Product Type',
@@ -48,6 +52,21 @@ export function exportBomCsv(rows: BomRow[], systemName: string): void {
         .join(',')
     ),
   ];
+
+  if (cableSummary.length > 0) {
+    csvRows.push('');
+    csvRows.push(['Cable Summary'].map(esc).join(','));
+    csvRows.push(['Cable Gauge', 'Total Length (ft)', 'Cable Count'].map(esc).join(','));
+    csvRows.push(...cableSummary.map((item) =>
+      [
+        item.gauge,
+        item.totalLengthFt.toFixed(1),
+        item.cableCount,
+      ]
+        .map(esc)
+        .join(',')
+    ));
+  }
 
   const blob = new Blob([csvRows.join('\n')], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);

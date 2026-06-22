@@ -1,4 +1,4 @@
-// ============================================================
+﻿// ============================================================
 // inverterChargers.ts — Inverter/charger product definitions
 // ============================================================
 // All existing product IDs, pricing, and terminal layouts are
@@ -272,7 +272,7 @@ export const inverterChargers: Product[] = [
 
   {
     id: 'phoenix-inverter-12-1200',
-    manufacturer: 'Victron Energy',
+    manufacturer: 'Victron',
     name: 'Phoenix Inverter Smart 12/1200',
     productType: 'inverter_charger',
     category: 'Inverters',
@@ -301,7 +301,7 @@ export const inverterChargers: Product[] = [
 
   {
     id: 'multiplus-12-2000',
-    manufacturer: 'Victron Energy',
+    manufacturer: 'Victron',
     name: 'MultiPlus 12/2000/80-50',
     productType: 'inverter_charger',
     category: 'Inverters',
@@ -332,7 +332,7 @@ export const inverterChargers: Product[] = [
 
   {
     id: 'multiplus-ii-12-3000-230v',
-    manufacturer: 'Victron Energy',
+    manufacturer: 'Victron',
     name: 'MultiPlus-II 12/3000/120-32 (230V)',
     productType: 'inverter_charger',
     category: 'Inverters',
@@ -357,7 +357,7 @@ export const inverterChargers: Product[] = [
   },
   {
     id: 'multiplus-ii-12-4000-2x120v',
-    manufacturer: 'Victron Energy',
+    manufacturer: 'Victron',
     name: 'MultiPlus-II 12/4000/160-50 2x120V',
     productType: 'inverter_charger',
     category: 'Inverters',
@@ -387,7 +387,7 @@ export const inverterChargers: Product[] = [
 
   {
     id: 'multiplus-ii-24-3000-230v',
-    manufacturer: 'Victron Energy',
+    manufacturer: 'Victron',
     name: 'MultiPlus-II 24/3000/70-32 (230V)',
     productType: 'inverter_charger',
     category: 'Inverters',
@@ -412,7 +412,7 @@ export const inverterChargers: Product[] = [
   },
   {
     id: 'multiplus-ii-24-3000-2x120v',
-    manufacturer: 'Victron Energy',
+    manufacturer: 'Victron',
     name: 'MultiPlus-II 24/3000/70-50 2x120V',
     productType: 'inverter_charger',
     category: 'Inverters',
@@ -437,7 +437,7 @@ export const inverterChargers: Product[] = [
   },
   {
     id: 'multiplus-ii-24-5000-230v',
-    manufacturer: 'Victron Energy',
+    manufacturer: 'Victron',
     name: 'MultiPlus-II 24/5000/120-50 (230V)',
     productType: 'inverter_charger',
     category: 'Inverters',
@@ -467,7 +467,7 @@ export const inverterChargers: Product[] = [
 
   {
     id: 'multiplus-ii-48-3000',
-    manufacturer: 'Victron Energy',
+    manufacturer: 'Victron',
     name: 'MultiPlus-II 48/3000/35-50 (120V)',
     productType: 'inverter_charger',
     category: 'Inverters',
@@ -493,7 +493,7 @@ export const inverterChargers: Product[] = [
   },
   {
     id: 'multiplus-ii-48-3000-230v',
-    manufacturer: 'Victron Energy',
+    manufacturer: 'Victron',
     name: 'MultiPlus-II 48/3000/35-32 (230V)',
     productType: 'inverter_charger',
     category: 'Inverters',
@@ -518,7 +518,7 @@ export const inverterChargers: Product[] = [
   },
   {
     id: 'multiplus-ii-48-8000-230v',
-    manufacturer: 'Victron Energy',
+    manufacturer: 'Victron',
     name: 'MultiPlus-II 48/8000/110-100 (230V)',
     productType: 'inverter_charger',
     category: 'Inverters',
@@ -543,7 +543,7 @@ export const inverterChargers: Product[] = [
   },
   {
     id: 'multiplus-ii-48-10000-230v',
-    manufacturer: 'Victron Energy',
+    manufacturer: 'Victron',
     name: 'MultiPlus-II 48/10000/140-100 (230V)',
     productType: 'inverter_charger',
     category: 'Inverters',
@@ -568,7 +568,7 @@ export const inverterChargers: Product[] = [
   },
   {
     id: 'multiplus-ii-48-15000-230v',
-    manufacturer: 'Victron Energy',
+    manufacturer: 'Victron',
     name: 'MultiPlus-II 48/15000/200-100 (230V)',
     productType: 'inverter_charger',
     category: 'Inverters',
@@ -593,7 +593,7 @@ export const inverterChargers: Product[] = [
   },
   {
     id: 'multiplus-ii-48-5000-120v',
-    manufacturer: 'Victron Energy',
+    manufacturer: 'Victron',
     name: 'MultiPlus-II 48/5000/70-95 (120V)',
     productType: 'inverter_charger',
     category: 'Inverters',
@@ -624,7 +624,7 @@ export const inverterChargers: Product[] = [
 
   {
     id: 'quattro-ii-12-3000-2x120v',
-    manufacturer: 'Victron Energy',
+    manufacturer: 'Victron',
     name: 'Quattro-II 12/3000/120-50/50 2x120V',
     productType: 'inverter_charger',
     category: 'Inverters',
@@ -650,7 +650,7 @@ export const inverterChargers: Product[] = [
   },
   {
     id: 'quattro-24-5000',
-    manufacturer: 'Victron Energy',
+    manufacturer: 'Victron',
     name: 'Quattro 24/5000/120-100/100',
     productType: 'inverter_charger',
     category: 'Inverters',
@@ -678,7 +678,7 @@ export const inverterChargers: Product[] = [
   },
   {
     id: 'quattro-ii-24-3000-2x120v',
-    manufacturer: 'Victron Energy',
+    manufacturer: 'Victron',
     name: 'Quattro-II 24/3000/70-50/50 2x120V',
     productType: 'inverter_charger',
     category: 'Inverters',
@@ -704,7 +704,7 @@ export const inverterChargers: Product[] = [
   },
   {
     id: 'quattro-ii-24-5000-230v',
-    manufacturer: 'Victron Energy',
+    manufacturer: 'Victron',
     name: 'Quattro-II 24/5000/120-50/50 (230V)',
     productType: 'inverter_charger',
     category: 'Inverters',
@@ -730,7 +730,7 @@ export const inverterChargers: Product[] = [
   },
   {
     id: 'quattro-ii-48-5000-230v',
-    manufacturer: 'Victron Energy',
+    manufacturer: 'Victron',
     name: 'Quattro-II 48/5000/70-50/50 (230V)',
     productType: 'inverter_charger',
     category: 'Inverters',
@@ -756,7 +756,7 @@ export const inverterChargers: Product[] = [
   },
   {
     id: 'quattro-48-10000',
-    manufacturer: 'Victron Energy',
+    manufacturer: 'Victron',
     name: 'Quattro 48/10000/140-100/100',
     productType: 'inverter_charger',
     category: 'Inverters',
@@ -783,7 +783,7 @@ export const inverterChargers: Product[] = [
   },
   {
     id: 'quattro-48-15000',
-    manufacturer: 'Victron Energy',
+    manufacturer: 'Victron',
     name: 'Quattro 48/15000/200-100/100',
     productType: 'inverter_charger',
     category: 'Inverters',

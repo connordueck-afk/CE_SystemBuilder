@@ -1,0 +1,75 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-70 -50 140 100">
+  <!--
+    Kisae ABSO / BIC Inverter-Charger — no text.
+    Product: width=140, height=100
+    Terminals: DC+ (-70,-18), DC- (-70,18),
+               AC In L (70,-30), AC In N (70,-10), AC Out L (70,10), AC Out N (70,30)
+  -->
+  <defs>
+    <linearGradient id="kic-shell" x1="0" y1="-50" x2="0" y2="50" gradientUnits="userSpaceOnUse">
+      <stop offset="0%"   stop-color="#222630"/>
+      <stop offset="100%" stop-color="#13151c"/>
+    </linearGradient>
+    <linearGradient id="kic-face" x1="0" y1="-43" x2="0" y2="43" gradientUnits="userSpaceOnUse">
+      <stop offset="0%"   stop-color="#ededf2"/>
+      <stop offset="100%" stop-color="#d2d5de"/>
+    </linearGradient>
+    <linearGradient id="kic-orange" x1="-48" y1="0" x2="48" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0%"   stop-color="#b85208"/>
+      <stop offset="50%"  stop-color="#e07820"/>
+      <stop offset="100%" stop-color="#b85208"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Outer shell -->
+  <rect x="-68" y="-48" width="136" height="96" rx="6" fill="url(#kic-shell)"/>
+
+  <!-- Cooling fins on top -->
+  <g fill="#0d0f16" opacity="0.6">
+    <rect x="-48" y="-48" width="3" height="6"/>
+    <rect x="-40" y="-48" width="3" height="6"/>
+    <rect x="-32" y="-48" width="3" height="6"/>
+    <rect x="29" y="-48" width="3" height="6"/>
+    <rect x="37" y="-48" width="3" height="6"/>
+    <rect x="45" y="-48" width="3" height="6"/>
+  </g>
+
+  <!-- Left terminal block (DC — heavy lugs) -->
+  <rect x="-70" y="-30" width="16" height="60" rx="3" fill="#0a0c12"/>
+  <circle cx="-62" cy="-18" r="5" fill="#7a1818" stroke="#1a1c24" stroke-width="1"/>
+  <circle cx="-62" cy="-18" r="2.6" fill="#0a0c12"/>
+  <circle cx="-62" cy="18" r="5" fill="#1a1a1a" stroke="#3a3c44" stroke-width="1"/>
+  <circle cx="-62" cy="18" r="2.6" fill="#0a0c12"/>
+
+  <!-- Right terminal block (AC in + AC out) -->
+  <rect x="54" y="-42" width="16" height="84" rx="3" fill="#0a0c12"/>
+  <!-- AC In L / N -->
+  <circle cx="62" cy="-30" r="3.4" fill="#060708" stroke="#20222a" stroke-width="0.8"/>
+  <circle cx="62" cy="-10" r="3.4" fill="#060708" stroke="#20222a" stroke-width="0.8"/>
+  <!-- divider -->
+  <rect x="55" y="-1" width="14" height="2" rx="1" fill="#2a2c34"/>
+  <!-- AC Out L / N -->
+  <circle cx="62" cy="10" r="3.4" fill="#060708" stroke="#20222a" stroke-width="0.8"/>
+  <circle cx="62" cy="30" r="3.4" fill="#060708" stroke="#20222a" stroke-width="0.8"/>
+
+  <!-- Face plate -->
+  <rect x="-50" y="-43" width="100" height="86" rx="4" fill="url(#kic-face)"/>
+
+  <!-- Orange Kisae accent stripe -->
+  <rect x="-50" y="-26" width="100" height="9" rx="2" fill="url(#kic-orange)"/>
+  <rect x="-49" y="-26" width="98" height="3" rx="1.5" fill="#f0a040" opacity="0.3"/>
+
+  <!-- LCD status display -->
+  <rect x="-38" y="-6" width="48" height="24" rx="2" fill="#0a1810"/>
+  <rect x="-34" y="-2" width="40" height="4" rx="1" fill="#1a8a3a" opacity="0.7"/>
+  <rect x="-34" y="6"  width="28" height="3" rx="1" fill="#157030" opacity="0.6"/>
+
+  <!-- Charge/invert flow LEDs -->
+  <circle cx="24" cy="-2" r="2.5" fill="#22c55e"/>
+  <circle cx="24" cy="6"  r="2.5" fill="#3b82f6"/>
+  <circle cx="24" cy="14" r="2.5" fill="#f59e0b" opacity="0.5"/>
+
+  <!-- Bottom label bar -->
+  <rect x="-34" y="28" width="46" height="9" rx="1.5" fill="#bcc4ce"/>
+  <rect x="-28" y="31" width="34" height="3.5" rx="1" fill="#2a3040"/>
+</svg>

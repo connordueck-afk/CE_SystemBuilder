@@ -1,4 +1,4 @@
-// ============================================================
+﻿// ============================================================
 // distribution.ts — DC distribution and busbar product definitions
 // ============================================================
 // All existing product IDs, pricing, terminal layouts, and
@@ -395,7 +395,7 @@ export const distribution: Product[] = [
 
   {
     id: 'lynx-smart-bms',
-    manufacturer: 'Victron Energy',
+    manufacturer: 'Victron',
     name: 'Lynx Smart BMS 500',
     productType: 'dc_distribution',
     category: 'Distribution',
@@ -419,7 +419,7 @@ export const distribution: Product[] = [
   },
   {
     id: 'lynx-smart-bms-ng-500',
-    manufacturer: 'Victron Energy',
+    manufacturer: 'Victron',
     name: 'Lynx Smart BMS NG 500',
     productType: 'dc_distribution',
     category: 'Distribution',
@@ -443,7 +443,7 @@ export const distribution: Product[] = [
   },
   {
     id: 'lynx-smart-bms-ng-1000',
-    manufacturer: 'Victron Energy',
+    manufacturer: 'Victron',
     name: 'Lynx Smart BMS NG 1000',
     productType: 'dc_distribution',
     category: 'Distribution',
@@ -472,7 +472,7 @@ export const distribution: Product[] = [
 
   {
     id: 've-bus-bms-ng',
-    manufacturer: 'Victron Energy',
+    manufacturer: 'Victron',
     name: 'VE.Bus BMS NG',
     productType: 'dc_distribution',
     category: 'Distribution',
@@ -497,7 +497,7 @@ export const distribution: Product[] = [
 
   {
     id: 'lynx-shunt-ve-can',
-    manufacturer: 'Victron Energy',
+    manufacturer: 'Victron',
     name: 'Lynx Shunt VE.Can',
     productType: 'dc_distribution',
     category: 'Distribution',
@@ -527,7 +527,7 @@ export const distribution: Product[] = [
 
   {
     id: 'lynx-class-t-power-in',
-    manufacturer: 'Victron Energy',
+    manufacturer: 'Victron',
     name: 'Lynx Class-T Power In',
     productType: 'dc_distribution',
     category: 'Distribution',

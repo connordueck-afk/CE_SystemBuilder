@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-45 -32 90 64">
+  <!--
+    Kisae ABSO AC Charger — no text, terminal-aligned coordinate space.
+    Product: width=90, height=64
+    Terminals: AC L (-40,-10), AC N (-40,10), DC+ (40,-10), DC- (40,10)
+  -->
+  <defs>
+    <linearGradient id="kac-shell" x1="0" y1="-32" x2="0" y2="32" gradientUnits="userSpaceOnUse">
+      <stop offset="0%"   stop-color="#1e2230"/>
+      <stop offset="100%" stop-color="#12141e"/>
+    </linearGradient>
+    <linearGradient id="kac-face" x1="0" y1="-28" x2="0" y2="28" gradientUnits="userSpaceOnUse">
+      <stop offset="0%"   stop-color="#eaecf2"/>
+      <stop offset="100%" stop-color="#d4d8e2"/>
+    </linearGradient>
+    <linearGradient id="kac-orange" x1="-26" y1="0" x2="26" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0%"   stop-color="#b85208"/>
+      <stop offset="50%"  stop-color="#e07820"/>
+      <stop offset="100%" stop-color="#b85208"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Outer shell -->
+  <rect x="-43" y="-30" width="86" height="60" rx="4" fill="url(#kac-shell)"/>
+  <rect x="-38" y="-29" width="76" height="2" rx="1" fill="#2a3040" opacity="0.5"/>
+
+  <!-- Left terminal block (AC input) -->
+  <rect x="-45" y="-22" width="14" height="44" rx="3" fill="#0c0e14"/>
+  <rect x="-46" y="-15" width="10" height="9" rx="1.5" fill="#181a22"/>
+  <circle cx="-41" cy="-10" r="3" fill="#060708" stroke="#20222a" stroke-width="0.7"/>
+  <circle cx="-41" cy="-10" r="1.8" fill="#040506"/>
+  <rect x="-46" y="6"  width="10" height="9" rx="1.5" fill="#181a22"/>
+  <circle cx="-41" cy="10" r="3" fill="#060708" stroke="#20222a" stroke-width="0.7"/>
+  <circle cx="-41" cy="10" r="1.8" fill="#040506"/>
+
+  <!-- Right terminal block (DC output) -->
+  <rect x="31" y="-22" width="14" height="44" rx="3" fill="#0c0e14"/>
+  <rect x="36" y="-15" width="10" height="9" rx="1.5" fill="#181a22"/>
+  <circle cx="41" cy="-10" r="3" fill="#060708" stroke="#20222a" stroke-width="0.7"/>
+  <circle cx="41" cy="-10" r="1.8" fill="#040506"/>
+  <rect x="36" y="6"  width="10" height="9" rx="1.5" fill="#181a22"/>
+  <circle cx="41" cy="10" r="3" fill="#060708" stroke="#20222a" stroke-width="0.7"/>
+  <circle cx="41" cy="10" r="1.8" fill="#040506"/>
+
+  <!-- Face plate (light — ABSO style) -->
+  <rect x="-29" y="-28" width="58" height="56" rx="3" fill="url(#kac-face)"/>
+
+  <!-- Orange Kisae accent stripe -->
+  <rect x="-29" y="-13" width="58" height="7" rx="1.5" fill="url(#kac-orange)"/>
+  <rect x="-28" y="-13" width="56" height="2.5" rx="1"   fill="#f0a040" opacity="0.3"/>
+
+  <!-- Status LEDs -->
+  <circle cx="-10" cy="5"  r="2.5" fill="#22c55e"/>
+  <circle cx="-3"  cy="5"  r="2.5" fill="#3b82f6" opacity="0.8"/>
+  <circle cx="4"   cy="5"  r="2.5" fill="#f59e0b" opacity="0.5"/>
+
+  <!-- Bottom label bar -->
+  <rect x="-20" y="16" width="40" height="8" rx="1.5" fill="#c0c8d2"/>
+  <rect x="-14" y="18.5" width="28" height="3.5" rx="1" fill="#2a3040"/>
+
+  <!-- Top mounting slots -->
+  <rect x="-12" y="-30" width="7" height="3" rx="1" fill="#0a0c14"/>
+  <rect x="5"   y="-30" width="7" height="3" rx="1" fill="#0a0c14"/>
+</svg>

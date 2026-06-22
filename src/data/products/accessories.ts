@@ -1,4 +1,4 @@
-// ============================================================
+﻿// ============================================================
 // accessories.ts — Monitors, loads, and DC-DC charger definitions
 // ============================================================
 // All existing product IDs, pricing, and terminal layouts are
@@ -504,7 +504,7 @@ export const accessories: Product[] = [
 
   {
     id: 've-bus-smart-dongle',
-    manufacturer: 'Victron Energy',
+    manufacturer: 'Victron',
     name: 'VE.Bus Smart Dongle',
     productType: 'accessory',
     category: 'Accessories',
@@ -523,7 +523,7 @@ export const accessories: Product[] = [
   },
   {
     id: 'mk3-usb',
-    manufacturer: 'Victron Energy',
+    manufacturer: 'Victron',
     name: 'MK3-USB Interface',
     productType: 'accessory',
     category: 'Accessories',
@@ -542,7 +542,7 @@ export const accessories: Product[] = [
   },
   {
     id: 'vedirect-usb',
-    manufacturer: 'Victron Energy',
+    manufacturer: 'Victron',
     name: 'VE.Direct to USB Interface',
     productType: 'accessory',
     category: 'Accessories',
@@ -561,7 +561,7 @@ export const accessories: Product[] = [
   },
   {
     id: 'vedirect-cable-3m',
-    manufacturer: 'Victron Energy',
+    manufacturer: 'Victron',
     name: 'VE.Direct Cable 3m',
     productType: 'accessory',
     category: 'Accessories',
@@ -579,7 +579,7 @@ export const accessories: Product[] = [
   },
   {
     id: 'temperature-sensor-quattro',
-    manufacturer: 'Victron Energy',
+    manufacturer: 'Victron',
     name: 'Temperature Sensor for MultiPlus/Quattro',
     productType: 'accessory',
     category: 'Accessories',

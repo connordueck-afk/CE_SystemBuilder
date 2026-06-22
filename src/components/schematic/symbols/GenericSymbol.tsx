@@ -31,12 +31,13 @@ export function GenericSymbol({ product, selected }: Props) {
         fill="#ffffff" stroke={selected ? '#1769d2' : color} strokeWidth={selected ? 3 : 2}
       />
       <text x={0} y={0} textAnchor="middle" dominantBaseline="middle"
-        fill={color} fontSize={9} fontWeight="bold">
+        fill={color} fontSize={9} fontWeight={700}>
         {label}
       </text>
-      <text x={0} y={hh - 8} textAnchor="middle" fill="#6d7b90" fontSize={7} fontWeight={800}>
+      <text x={0} y={hh - 8} textAnchor="middle" fill="#6d7b90" fontSize={7} fontWeight={600}>
         {product.manufacturer}
       </text>
     </g>
   );
 }
+

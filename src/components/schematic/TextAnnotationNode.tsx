@@ -40,7 +40,9 @@ export function TextAnnotationNode({
   onResize,
 }: Props) {
   const [drag, setDrag] = useState<DragState | null>(null);
-  const background = annotation.backgroundColor || 'transparent';
+  const background = annotation.showBackground === false
+    ? 'transparent'
+    : annotation.backgroundColor || '#ffffff';
 
   const handlePointerMove = (e: React.PointerEvent<SVGElement>) => {
     if (!drag || drag.pointerId !== e.pointerId) return;
@@ -108,7 +110,7 @@ export function TextAnnotationNode({
             color: annotation.color,
             background,
             fontSize: annotation.fontSize,
-            fontWeight: annotation.bold ? 900 : 700,
+            fontWeight: annotation.bold ? 700 : 500,
             fontStyle: annotation.italic ? 'italic' : 'normal',
             textAlign: annotation.textAlign ?? 'left',
           }}

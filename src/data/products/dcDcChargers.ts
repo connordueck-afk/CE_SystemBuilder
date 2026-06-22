@@ -1,4 +1,4 @@
-// ============================================================
+﻿// ============================================================
 // dcDcChargers.ts — DC-DC converter and charger product definitions
 // ============================================================
 // Includes: Orion XS, Orion-Tr Smart (isolated & non-isolated),
@@ -91,7 +91,7 @@ export const dcDcChargers: Product[] = [
 
   {
     id: 'orion-xs-12-12-50',
-    manufacturer: 'Victron Energy',
+    manufacturer: 'Victron',
     name: 'Orion XS 12/12-50A DC-DC Charger',
     productType: 'dc_dc_charger',
     category: 'Charging',
@@ -110,7 +110,7 @@ export const dcDcChargers: Product[] = [
   },
   {
     id: 'orion-xs-24-24-50',
-    manufacturer: 'Victron Energy',
+    manufacturer: 'Victron',
     name: 'Orion XS 24/24-50A DC-DC Charger',
     productType: 'dc_dc_charger',
     category: 'Charging',
@@ -134,7 +134,7 @@ export const dcDcChargers: Product[] = [
 
   {
     id: 'buck-boost-25',
-    manufacturer: 'Victron Energy',
+    manufacturer: 'Victron',
     name: 'Buck-Boost 25A DC-DC Converter',
     productType: 'dc_dc_charger',
     category: 'Charging',
@@ -153,7 +153,7 @@ export const dcDcChargers: Product[] = [
   },
   {
     id: 'buck-boost-50',
-    manufacturer: 'Victron Energy',
+    manufacturer: 'Victron',
     name: 'Buck-Boost 50A DC-DC Converter',
     productType: 'dc_dc_charger',
     category: 'Charging',
@@ -172,7 +172,7 @@ export const dcDcChargers: Product[] = [
   },
   {
     id: 'buck-boost-100',
-    manufacturer: 'Victron Energy',
+    manufacturer: 'Victron',
     name: 'Buck-Boost 100A DC-DC Converter',
     productType: 'dc_dc_charger',
     category: 'Charging',
@@ -196,7 +196,7 @@ export const dcDcChargers: Product[] = [
 
   {
     id: 'orion-tr-smart-12-12-30-non-isolated',
-    manufacturer: 'Victron Energy',
+    manufacturer: 'Victron',
     name: 'Orion-Tr Smart 12/12-30A Non-Isolated',
     productType: 'dc_dc_charger',
     category: 'Charging',
@@ -216,7 +216,7 @@ export const dcDcChargers: Product[] = [
   },
   {
     id: 'orion-tr-smart-24-12-30-non-isolated',
-    manufacturer: 'Victron Energy',
+    manufacturer: 'Victron',
     name: 'Orion-Tr Smart 24/12-30A Non-Isolated',
     productType: 'dc_dc_charger',
     category: 'Charging',
@@ -236,7 +236,7 @@ export const dcDcChargers: Product[] = [
   },
   {
     id: 'orion-tr-smart-12-24-15-non-isolated',
-    manufacturer: 'Victron Energy',
+    manufacturer: 'Victron',
     name: 'Orion-Tr Smart 12/24-15A Non-Isolated',
     productType: 'dc_dc_charger',
     category: 'Charging',
@@ -256,7 +256,7 @@ export const dcDcChargers: Product[] = [
   },
   {
     id: 'orion-tr-smart-24-24-17-non-isolated',
-    manufacturer: 'Victron Energy',
+    manufacturer: 'Victron',
     name: 'Orion-Tr Smart 24/24-17A Non-Isolated',
     productType: 'dc_dc_charger',
     category: 'Charging',
@@ -281,7 +281,7 @@ export const dcDcChargers: Product[] = [
 
   {
     id: 'orion-tr-12-12-18-isolated',
-    manufacturer: 'Victron Energy',
+    manufacturer: 'Victron',
     name: 'Orion-Tr Smart 12/12-18A Isolated',
     productType: 'dc_dc_charger',
     category: 'Charging',
@@ -301,7 +301,7 @@ export const dcDcChargers: Product[] = [
   },
   {
     id: 'orion-tr-24-12-20',
-    manufacturer: 'Victron Energy',
+    manufacturer: 'Victron',
     name: 'Orion-Tr Smart 24/12-20A Isolated',
     productType: 'dc_dc_charger',
     category: 'Charging',
@@ -321,7 +321,7 @@ export const dcDcChargers: Product[] = [
   },
   {
     id: 'orion-tr-24-12-30',
-    manufacturer: 'Victron Energy',
+    manufacturer: 'Victron',
     name: 'Orion-Tr Smart 24/12-30A Isolated',
     productType: 'dc_dc_charger',
     category: 'Charging',
@@ -341,7 +341,7 @@ export const dcDcChargers: Product[] = [
   },
   {
     id: 'orion-tr-48-12-20',
-    manufacturer: 'Victron Energy',
+    manufacturer: 'Victron',
     name: 'Orion-Tr Smart 48/12-20A Isolated',
     productType: 'dc_dc_charger',
     category: 'Charging',
@@ -360,7 +360,7 @@ export const dcDcChargers: Product[] = [
   },
   {
     id: 'orion-tr-48-12-30',
-    manufacturer: 'Victron Energy',
+    manufacturer: 'Victron',
     name: 'Orion-Tr Smart 48/12-30A Isolated',
     productType: 'dc_dc_charger',
     category: 'Charging',
@@ -384,7 +384,7 @@ export const dcDcChargers: Product[] = [
 
   {
     id: 'orion-tr-12-24-10',
-    manufacturer: 'Victron Energy',
+    manufacturer: 'Victron',
     name: 'Orion-Tr Smart 12/24-10A Isolated',
     productType: 'dc_dc_charger',
     category: 'Charging',
@@ -404,7 +404,7 @@ export const dcDcChargers: Product[] = [
   },
   {
     id: 'orion-tr-12-24-15',
-    manufacturer: 'Victron Energy',
+    manufacturer: 'Victron',
     name: 'Orion-Tr Smart 12/24-15A Isolated',
     productType: 'dc_dc_charger',
     category: 'Charging',
@@ -424,7 +424,7 @@ export const dcDcChargers: Product[] = [
   },
   {
     id: 'orion-tr-24-24-12',
-    manufacturer: 'Victron Energy',
+    manufacturer: 'Victron',
     name: 'Orion-Tr Smart 24/24-12A Isolated',
     productType: 'dc_dc_charger',
     category: 'Charging',
@@ -443,7 +443,7 @@ export const dcDcChargers: Product[] = [
   },
   {
     id: 'orion-tr-24-24-17',
-    manufacturer: 'Victron Energy',
+    manufacturer: 'Victron',
     name: 'Orion-Tr Smart 24/24-17A Isolated',
     productType: 'dc_dc_charger',
     category: 'Charging',
@@ -463,7 +463,7 @@ export const dcDcChargers: Product[] = [
   },
   {
     id: 'orion-tr-48-24-16',
-    manufacturer: 'Victron Energy',
+    manufacturer: 'Victron',
     name: 'Orion-Tr Smart 48/24-16A Isolated',
     productType: 'dc_dc_charger',
     category: 'Charging',
@@ -487,7 +487,7 @@ export const dcDcChargers: Product[] = [
 
   {
     id: 'orion-tr-12-48-8',
-    manufacturer: 'Victron Energy',
+    manufacturer: 'Victron',
     name: 'Orion-Tr Smart 12/48-8A Isolated',
     productType: 'dc_dc_charger',
     category: 'Charging',
@@ -506,7 +506,7 @@ export const dcDcChargers: Product[] = [
   },
   {
     id: 'orion-tr-24-48-8-5',
-    manufacturer: 'Victron Energy',
+    manufacturer: 'Victron',
     name: 'Orion-Tr Smart 24/48-8.5A Isolated',
     productType: 'dc_dc_charger',
     category: 'Charging',
@@ -525,7 +525,7 @@ export const dcDcChargers: Product[] = [
   },
   {
     id: 'orion-tr-48-48-8',
-    manufacturer: 'Victron Energy',
+    manufacturer: 'Victron',
     name: 'Orion-Tr Smart 48/48-8A Isolated',
     productType: 'dc_dc_charger',
     category: 'Charging',
@@ -549,7 +549,7 @@ export const dcDcChargers: Product[] = [
 
   {
     id: 'orion-tr-12-12-9-converter',
-    manufacturer: 'Victron Energy',
+    manufacturer: 'Victron',
     name: 'Orion-Tr 12/12-9A Isolated',
     productType: 'dc_dc_charger',
     category: 'Charging',
@@ -569,7 +569,7 @@ export const dcDcChargers: Product[] = [
   },
   {
     id: 'orion-tr-12-12-18-converter',
-    manufacturer: 'Victron Energy',
+    manufacturer: 'Victron',
     name: 'Orion-Tr 12/12-18A Isolated',
     productType: 'dc_dc_charger',
     category: 'Charging',
@@ -589,7 +589,7 @@ export const dcDcChargers: Product[] = [
   },
   {
     id: 'orion-tr-24-12-9-converter',
-    manufacturer: 'Victron Energy',
+    manufacturer: 'Victron',
     name: 'Orion-Tr 24/12-9A Isolated',
     productType: 'dc_dc_charger',
     category: 'Charging',
@@ -609,7 +609,7 @@ export const dcDcChargers: Product[] = [
   },
   {
     id: 'orion-tr-24-12-20-converter',
-    manufacturer: 'Victron Energy',
+    manufacturer: 'Victron',
     name: 'Orion-Tr 24/12-20A Isolated',
     productType: 'dc_dc_charger',
     category: 'Charging',
@@ -629,7 +629,7 @@ export const dcDcChargers: Product[] = [
   },
   {
     id: 'orion-tr-24-12-30-converter',
-    manufacturer: 'Victron Energy',
+    manufacturer: 'Victron',
     name: 'Orion-Tr 24/12-30A Isolated',
     productType: 'dc_dc_charger',
     category: 'Charging',
@@ -649,7 +649,7 @@ export const dcDcChargers: Product[] = [
   },
   {
     id: 'orion-tr-48-12-9-converter',
-    manufacturer: 'Victron Energy',
+    manufacturer: 'Victron',
     name: 'Orion-Tr 48/12-9A Isolated',
     productType: 'dc_dc_charger',
     category: 'Charging',
@@ -669,7 +669,7 @@ export const dcDcChargers: Product[] = [
   },
   {
     id: 'orion-tr-48-12-20-converter',
-    manufacturer: 'Victron Energy',
+    manufacturer: 'Victron',
     name: 'Orion-Tr 48/12-20A Isolated',
     productType: 'dc_dc_charger',
     category: 'Charging',
@@ -689,7 +689,7 @@ export const dcDcChargers: Product[] = [
   },
   {
     id: 'orion-tr-48-12-30-converter',
-    manufacturer: 'Victron Energy',
+    manufacturer: 'Victron',
     name: 'Orion-Tr 48/12-30A Isolated',
     productType: 'dc_dc_charger',
     category: 'Charging',
@@ -709,7 +709,7 @@ export const dcDcChargers: Product[] = [
   },
   {
     id: 'orion-110-12-30-converter',
-    manufacturer: 'Victron Energy',
+    manufacturer: 'Victron',
     name: 'Orion 110/12-30A Isolated',
     productType: 'dc_dc_charger',
     category: 'Charging',
@@ -733,7 +733,7 @@ export const dcDcChargers: Product[] = [
 
   {
     id: 'orion-tr-12-24-5-converter',
-    manufacturer: 'Victron Energy',
+    manufacturer: 'Victron',
     name: 'Orion-Tr 12/24-5A Isolated',
     productType: 'dc_dc_charger',
     category: 'Charging',
@@ -753,7 +753,7 @@ export const dcDcChargers: Product[] = [
   },
   {
     id: 'orion-tr-12-24-10-converter',
-    manufacturer: 'Victron Energy',
+    manufacturer: 'Victron',
     name: 'Orion-Tr 12/24-10A Isolated',
     productType: 'dc_dc_charger',
     category: 'Charging',
@@ -773,7 +773,7 @@ export const dcDcChargers: Product[] = [
   },
   {
     id: 'orion-tr-12-24-15-converter',
-    manufacturer: 'Victron Energy',
+    manufacturer: 'Victron',
     name: 'Orion-Tr 12/24-15A Isolated',
     productType: 'dc_dc_charger',
     category: 'Charging',
@@ -793,7 +793,7 @@ export const dcDcChargers: Product[] = [
   },
   {
     id: 'orion-tr-24-24-5-converter',
-    manufacturer: 'Victron Energy',
+    manufacturer: 'Victron',
     name: 'Orion-Tr 24/24-5A Isolated',
     productType: 'dc_dc_charger',
     category: 'Charging',
@@ -813,7 +813,7 @@ export const dcDcChargers: Product[] = [
   },
   {
     id: 'orion-tr-24-24-12-converter',
-    manufacturer: 'Victron Energy',
+    manufacturer: 'Victron',
     name: 'Orion-Tr 24/24-12A Isolated',
     productType: 'dc_dc_charger',
     category: 'Charging',
@@ -833,7 +833,7 @@ export const dcDcChargers: Product[] = [
   },
   {
     id: 'orion-tr-24-24-17-converter',
-    manufacturer: 'Victron Energy',
+    manufacturer: 'Victron',
     name: 'Orion-Tr 24/24-17A Isolated',
     productType: 'dc_dc_charger',
     category: 'Charging',
@@ -853,7 +853,7 @@ export const dcDcChargers: Product[] = [
   },
   {
     id: 'orion-tr-48-24-5-converter',
-    manufacturer: 'Victron Energy',
+    manufacturer: 'Victron',
     name: 'Orion-Tr 48/24-5A Isolated',
     productType: 'dc_dc_charger',
     category: 'Charging',
@@ -873,7 +873,7 @@ export const dcDcChargers: Product[] = [
   },
   {
     id: 'orion-tr-48-24-12-converter',
-    manufacturer: 'Victron Energy',
+    manufacturer: 'Victron',
     name: 'Orion-Tr 48/24-12A Isolated',
     productType: 'dc_dc_charger',
     category: 'Charging',
@@ -893,7 +893,7 @@ export const dcDcChargers: Product[] = [
   },
   {
     id: 'orion-tr-48-24-16-converter',
-    manufacturer: 'Victron Energy',
+    manufacturer: 'Victron',
     name: 'Orion-Tr 48/24-16A Isolated',
     productType: 'dc_dc_charger',
     category: 'Charging',
@@ -913,7 +913,7 @@ export const dcDcChargers: Product[] = [
   },
   {
     id: 'orion-110-24-15-converter',
-    manufacturer: 'Victron Energy',
+    manufacturer: 'Victron',
     name: 'Orion 110/24-15A Isolated',
     productType: 'dc_dc_charger',
     category: 'Charging',
@@ -937,7 +937,7 @@ export const dcDcChargers: Product[] = [
 
   {
     id: 'orion-tr-12-48-8-converter',
-    manufacturer: 'Victron Energy',
+    manufacturer: 'Victron',
     name: 'Orion-Tr 12/48-8A Isolated',
     productType: 'dc_dc_charger',
     category: 'Charging',
@@ -956,7 +956,7 @@ export const dcDcChargers: Product[] = [
   },
   {
     id: 'orion-tr-24-48-2-5-converter',
-    manufacturer: 'Victron Energy',
+    manufacturer: 'Victron',
     name: 'Orion-Tr 24/48-2.5A Isolated',
     productType: 'dc_dc_charger',
     category: 'Charging',
@@ -976,7 +976,7 @@ export const dcDcChargers: Product[] = [
   },
   {
     id: 'orion-tr-24-48-6-converter',
-    manufacturer: 'Victron Energy',
+    manufacturer: 'Victron',
     name: 'Orion-Tr 24/48-6A Isolated',
     productType: 'dc_dc_charger',
     category: 'Charging',
@@ -996,7 +996,7 @@ export const dcDcChargers: Product[] = [
   },
   {
     id: 'orion-tr-24-48-8-5-converter',
-    manufacturer: 'Victron Energy',
+    manufacturer: 'Victron',
     name: 'Orion-Tr 24/48-8.5A Isolated',
     productType: 'dc_dc_charger',
     category: 'Charging',
@@ -1016,7 +1016,7 @@ export const dcDcChargers: Product[] = [
   },
   {
     id: 'orion-tr-48-48-2-5-converter',
-    manufacturer: 'Victron Energy',
+    manufacturer: 'Victron',
     name: 'Orion-Tr 48/48-2.5A Isolated',
     productType: 'dc_dc_charger',
     category: 'Charging',
@@ -1036,7 +1036,7 @@ export const dcDcChargers: Product[] = [
   },
   {
     id: 'orion-tr-48-48-6-converter',
-    manufacturer: 'Victron Energy',
+    manufacturer: 'Victron',
     name: 'Orion-Tr 48/48-6A Isolated',
     productType: 'dc_dc_charger',
     category: 'Charging',
@@ -1056,7 +1056,7 @@ export const dcDcChargers: Product[] = [
   },
   {
     id: 'orion-tr-48-48-8-converter',
-    manufacturer: 'Victron Energy',
+    manufacturer: 'Victron',
     name: 'Orion-Tr 48/48-8A Isolated',
     productType: 'dc_dc_charger',
     category: 'Charging',

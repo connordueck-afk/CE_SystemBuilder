@@ -1,4 +1,4 @@
-import type { NominalVoltage, SystemComponent, Product } from '../../types/system';
+import type { NominalVoltage, SystemComponent, Product, ShapeAnnotationType } from '../../types/system';
 import { PartLibrary } from '../parts/PartLibrary';
 
 interface SourceLoadOptions {
@@ -10,6 +10,7 @@ interface Props {
   systemVoltage: NominalVoltage;
   onAddProduct: (productId: string, options?: SourceLoadOptions) => void;
   onAddTextAnnotation: () => void;
+  onAddShapeAnnotation: (shapeType: ShapeAnnotationType) => void;
   components: SystemComponent[];
   products: Map<string, Product>;
   selectedComponentId: string | null;
@@ -25,6 +26,7 @@ export function LeftPartSidebar({
   systemVoltage,
   onAddProduct,
   onAddTextAnnotation,
+  onAddShapeAnnotation,
   components,
   products,
   selectedComponentId,
@@ -50,6 +52,7 @@ export function LeftPartSidebar({
         systemVoltage={systemVoltage}
         onAdd={(productId, options) => onAddProduct(productId, options)}
         onAddTextAnnotation={onAddTextAnnotation}
+        onAddShapeAnnotation={onAddShapeAnnotation}
         components={components}
         products={products}
         selectedComponentId={selectedComponentId}

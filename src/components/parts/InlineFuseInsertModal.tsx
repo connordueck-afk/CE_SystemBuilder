@@ -3,6 +3,13 @@ import type { NominalVoltage, Product } from '../../types/system';
 import type { ProtectionRecommendation } from '../../utils/protectionRecommendations';
 import { fmt } from '../../utils/priceCalculations';
 import { getProductImageUrl, resolveProductImageUrl } from '../../utils/productImages';
+import {
+  selectBestFuseProduct,
+  getFuseStyle,
+  getFuseRating,
+  fuseStyleRank,
+  ampacityForAwg,
+} from '../../utils/fuseSelection';
 
 interface Props {
   recommendation: ProtectionRecommendation;
@@ -12,36 +19,10 @@ interface Props {
   onConfirm: (productId: string) => void;
 }
 
-const STYLE_PRIORITY = ['MIDI', 'MEGA', 'ANL', 'Class T', 'MRBF'];
-
 function voltageCompatible(product: Product, systemVoltage: NominalVoltage): boolean {
   if (product.nominalVoltage == null) return true;
   const voltages = Array.isArray(product.nominalVoltage) ? product.nominalVoltage : [product.nominalVoltage];
   return voltages.includes(systemVoltage);
-}
-
-function getFuseStyle(product: Product): string {
-  return product.protectionRatings?.fuseStyle ?? product.category ?? 'Fuse';
-}
-
-function getFuseRating(product: Product): number {
-  return product.protectionRatings?.currentRatingA ?? product.maxCurrentA ?? 0;
-}
-
-function styleRank(style: string): number {
-  const index = STYLE_PRIORITY.indexOf(style);
-  return index >= 0 ? index : STYLE_PRIORITY.length;
-}
-
-function bestFuseProduct(products: Product[], targetA: number | undefined): Product | undefined {
-  const target = targetA ?? 0;
-  const adequate = products.filter((product) => getFuseRating(product) >= target);
-  const candidates = adequate.length > 0 ? adequate : products;
-  return [...candidates].sort((a, b) => (
-    getFuseRating(a) - getFuseRating(b) ||
-    styleRank(getFuseStyle(a)) - styleRank(getFuseStyle(b)) ||
-    a.name.localeCompare(b.name)
-  ))[0];
 }
 
 export function InlineFuseInsertModal({
@@ -59,20 +40,25 @@ export function InlineFuseInsertModal({
       .filter((product) => product.productType === 'fuse' && voltageCompatible(product, systemVoltage))
       .sort((a, b) => (
         getFuseRating(a) - getFuseRating(b) ||
-        styleRank(getFuseStyle(a)) - styleRank(getFuseStyle(b)) ||
+        fuseStyleRank(getFuseStyle(a)) - fuseStyleRank(getFuseStyle(b)) ||
         a.name.localeCompare(b.name)
       ));
   }, [products, systemVoltage]);
 
+  const maxAmpacityA = ampacityForAwg(recommendation.recommendedCableAwg);
+
   useEffect(() => {
-    const best = bestFuseProduct(fuseProducts, recommendation.recommendedFuseA);
+    const best = selectBestFuseProduct(fuseProducts, {
+      targetA: recommendation.recommendedFuseA,
+      maxAmpacityA,
+    });
     setSelectedFuseStyle(best ? getFuseStyle(best) : '');
     setSelectedProductId(best?.id ?? '');
-  }, [fuseProducts, recommendation.connectionId, recommendation.recommendedFuseA]);
+  }, [fuseProducts, recommendation.connectionId, recommendation.recommendedFuseA, maxAmpacityA]);
 
   const fuseStyles = useMemo(() => {
     return [...new Set(fuseProducts.map(getFuseStyle))]
-      .sort((a, b) => styleRank(a) - styleRank(b) || a.localeCompare(b));
+      .sort((a, b) => fuseStyleRank(a) - fuseStyleRank(b) || a.localeCompare(b));
   }, [fuseProducts]);
 
   const fuseProductsForStyle = useMemo(() => {
@@ -90,7 +76,10 @@ export function InlineFuseInsertModal({
     const productsForStyle = fuseProducts
       .filter((product) => getFuseStyle(product) === style)
       .sort((a, b) => getFuseRating(a) - getFuseRating(b) || a.name.localeCompare(b.name));
-    const best = bestFuseProduct(productsForStyle, recommendation.recommendedFuseA);
+    const best = selectBestFuseProduct(productsForStyle, {
+      targetA: recommendation.recommendedFuseA,
+      maxAmpacityA,
+    });
     setSelectedFuseStyle(style);
     setSelectedProductId(best?.id ?? productsForStyle[0]?.id ?? '');
   }

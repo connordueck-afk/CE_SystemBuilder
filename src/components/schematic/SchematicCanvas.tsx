@@ -3,6 +3,7 @@ import type { SystemDesign, SystemComponent, Product } from '../../types/system'
 import { ComponentNode } from './ComponentNode';
 import { ConnectionLayer } from './ConnectionLayer';
 import { TextAnnotationNode } from './TextAnnotationNode';
+import { ShapeAnnotationNode } from './ShapeAnnotationNode';
 import { getEffectiveTerminal } from '../../utils/effectiveTerminals';
 import { getEffectiveProductForComponent } from '../../utils/solarCalculations';
 import type { ProtectionRecommendation } from '../../utils/protectionRecommendations';
@@ -51,6 +52,17 @@ interface CanvasSize {
   height: number;
 }
 
+interface ComponentContextMenuState {
+  componentId: string;
+  x: number;
+  y: number;
+}
+
+interface CanvasContextMenuState {
+  x: number;
+  y: number;
+}
+
 interface Props {
   system: SystemDesign;
   products: Map<string, Product>;
@@ -68,7 +80,12 @@ interface Props {
   onMoveComponent: (id: string, x: number, y: number) => void;
   onMoveAnnotation: (id: string, x: number, y: number) => void;
   onResizeAnnotation: (id: string, width: number, height: number) => void;
+  onUndo: () => void;
+  onPasteComponent: () => void;
+  onCopyComponent: (id: string) => void;
+  onCutComponent: (id: string) => void;
   onRotateComponent: (id: string) => void;
+  onToggleComponentLock: (id: string) => void;
   onRemoveComponent: (id: string) => void;
   onRemoveConnection: (id: string) => void;
   onRemoveAnnotation: (id: string) => void;
@@ -198,6 +215,81 @@ function terminalOffset(comp: SystemComponent, terminal: { offsetX: number; offs
   return transformOrientationOffset(comp.rotationDeg, terminal.offsetX, terminal.offsetY);
 }
 
+function MenuIcon({
+  name,
+}: {
+  name: 'undo' | 'paste' | 'fit' | 'copy' | 'cut' | 'delete' | 'rotate' | 'lock' | 'unlock';
+}) {
+  const common = {
+    fill: 'none',
+    stroke: 'currentColor',
+    strokeWidth: 2,
+    strokeLinecap: 'round' as const,
+    strokeLinejoin: 'round' as const,
+  };
+
+  return (
+    <svg className="canvas-context-menu-icon" viewBox="0 0 24 24" aria-hidden="true">
+      {name === 'undo' && (
+        <>
+          <path d="M 9 7 L 4 12 L 9 17" {...common} />
+          <path d="M 5 12 L 15 12 C 18 12 20 14 20 17 C 20 18.5 19.4 19.7 18.4 20.6" {...common} />
+        </>
+      )}
+      {name === 'paste' && (
+        <>
+          <path d="M 9 4 L 15 4 L 15 7 L 9 7 Z" {...common} />
+          <path d="M 7 6 L 5 6 L 5 21 L 19 21 L 19 6 L 17 6" {...common} />
+          <path d="M 8 12 L 16 12 M 8 16 L 14 16" {...common} />
+        </>
+      )}
+      {name === 'fit' && (
+        <>
+          <path d="M 4 9 L 4 4 L 9 4 M 15 4 L 20 4 L 20 9 M 20 15 L 20 20 L 15 20 M 9 20 L 4 20 L 4 15" {...common} />
+          <path d="M 9 9 L 15 15 M 15 9 L 9 15" {...common} />
+        </>
+      )}
+      {name === 'copy' && (
+        <>
+          <rect x="8" y="8" width="10" height="10" rx="2" {...common} />
+          <path d="M 6 14 L 5 14 C 4 14 3 13 3 12 L 3 5 C 3 4 4 3 5 3 L 12 3 C 13 3 14 4 14 5 L 14 6" {...common} />
+        </>
+      )}
+      {name === 'cut' && (
+        <>
+          <circle cx="6" cy="6" r="2" {...common} />
+          <circle cx="6" cy="18" r="2" {...common} />
+          <path d="M 8 8 L 19 19 M 8 16 L 19 5" {...common} />
+        </>
+      )}
+      {name === 'delete' && (
+        <>
+          <path d="M 4 7 L 20 7 M 10 11 L 10 17 M 14 11 L 14 17" {...common} />
+          <path d="M 9 7 L 9 5 L 15 5 L 15 7 M 6 7 L 7 21 L 17 21 L 18 7" {...common} />
+        </>
+      )}
+      {name === 'rotate' && (
+        <>
+          <path d="M 20 12 A 8 8 0 1 1 17.7 6.4" {...common} />
+          <path d="M 18 3 L 18 7 L 22 7" {...common} />
+        </>
+      )}
+      {name === 'lock' && (
+        <>
+          <rect x="5" y="10" width="14" height="10" rx="2" {...common} />
+          <path d="M 8 10 L 8 7 A 4 4 0 0 1 16 7 L 16 10" {...common} />
+        </>
+      )}
+      {name === 'unlock' && (
+        <>
+          <rect x="5" y="10" width="14" height="10" rx="2" {...common} />
+          <path d="M 8 10 L 8 7 A 4 4 0 0 1 15 4.4" {...common} />
+        </>
+      )}
+    </svg>
+  );
+}
+
 export function SchematicCanvas({
   system,
   products,
@@ -215,7 +307,12 @@ export function SchematicCanvas({
   onMoveComponent,
   onMoveAnnotation,
   onResizeAnnotation,
+  onUndo,
+  onPasteComponent,
+  onCopyComponent,
+  onCutComponent,
   onRotateComponent,
+  onToggleComponentLock,
   onRemoveComponent,
   onRemoveConnection,
   onRemoveAnnotation,
@@ -231,6 +328,8 @@ export function SchematicCanvas({
   const [panning, setPanning] = useState<PanState | null>(null);
   const [scrollDragging, setScrollDragging] = useState<ScrollDragState | null>(null);
   const [fusePrompt, setFusePrompt] = useState<FusePrompt | null>(null);
+  const [componentContextMenu, setComponentContextMenu] = useState<ComponentContextMenuState | null>(null);
+  const [canvasContextMenu, setCanvasContextMenu] = useState<CanvasContextMenuState | null>(null);
   const [mousePos, setMousePos] = useState<{ x: number; y: number } | null>(null);
   const [zoom, setZoom] = useState(1);
   const [viewportCenter, setViewportCenter] = useState({ x: VIEW_W / 2, y: VIEW_H / 2 });
@@ -298,6 +397,28 @@ export function SchematicCanvas({
       setFusePrompt(null);
     }
   }, [fusePrompt, selectedConnectionId]);
+
+  useEffect(() => {
+    if (!componentContextMenu && !canvasContextMenu) return;
+
+    function closeMenu() {
+      setComponentContextMenu(null);
+      setCanvasContextMenu(null);
+    }
+
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') closeMenu();
+    }
+
+    window.addEventListener('pointerdown', closeMenu);
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('blur', closeMenu);
+    return () => {
+      window.removeEventListener('pointerdown', closeMenu);
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('blur', closeMenu);
+    };
+  }, [canvasContextMenu, componentContextMenu]);
 
   useEffect(() => {
     if (!dragging) return;
@@ -527,8 +648,17 @@ export function SchematicCanvas({
     const pos = svgCoords(e, svgRef.current);
     const comp = system.components.find((c) => c.id === componentId);
     if (!comp) return;
+    if (comp.locked) {
+      e.stopPropagation();
+      onSelectComponent(componentId);
+      setComponentContextMenu(null);
+      setCanvasContextMenu(null);
+      return;
+    }
     e.stopPropagation();
     setFusePrompt(null);
+    setComponentContextMenu(null);
+    setCanvasContextMenu(null);
     setDragging({
       componentId,
       startMouseX: pos.x,
@@ -536,7 +666,57 @@ export function SchematicCanvas({
       startCompX: comp.x,
       startCompY: comp.y,
     });
-  }, [system.components, pendingConn]);
+  }, [onSelectComponent, system.components, pendingConn]);
+
+  const handleComponentContextMenu = useCallback((componentId: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setFusePrompt(null);
+    setPendingConn(null);
+    setPanning(null);
+    setDragging(null);
+    setCanvasContextMenu(null);
+    onSelectComponent(componentId);
+    onSelectConnection(null);
+    onSelectAnnotation(null);
+    setComponentContextMenu({
+      componentId,
+      x: e.clientX,
+      y: e.clientY,
+    });
+  }, [onSelectAnnotation, onSelectComponent, onSelectConnection]);
+
+  const runComponentMenuAction = useCallback((action: (componentId: string) => void) => {
+    const componentId = componentContextMenu?.componentId;
+    if (!componentId) return;
+    action(componentId);
+    setComponentContextMenu(null);
+  }, [componentContextMenu]);
+
+  const handleCanvasContextMenu = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
+    const target = e.target as Element;
+    if (target !== e.currentTarget && target.getAttribute('data-canvas-bg') !== 'true') return;
+
+    e.preventDefault();
+    e.stopPropagation();
+    setFusePrompt(null);
+    setPendingConn(null);
+    setPanning(null);
+    setDragging(null);
+    setComponentContextMenu(null);
+    onSelectComponent(null);
+    onSelectConnection(null);
+    onSelectAnnotation(null);
+    setCanvasContextMenu({
+      x: e.clientX,
+      y: e.clientY,
+    });
+  }, [onSelectAnnotation, onSelectComponent, onSelectConnection]);
+
+  const runCanvasMenuAction = useCallback((action: () => void) => {
+    action();
+    setCanvasContextMenu(null);
+  }, []);
 
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
     if (!svgRef.current) return;
@@ -621,6 +801,8 @@ export function SchematicCanvas({
   }, [pendingConn, onAddConnection, system.components, products]);
 
   const handleCanvasClick = useCallback(() => {
+    setComponentContextMenu(null);
+    setCanvasContextMenu(null);
     if (didPanRef.current) {
       didPanRef.current = false;
       return;
@@ -652,6 +834,9 @@ export function SchematicCanvas({
     height: `${verticalThumbSize}%`,
     top: `${Math.max(0, Math.min(100 - verticalThumbSize, verticalScrollRatio * (100 - verticalThumbSize)))}%`,
   };
+  const menuComponent = componentContextMenu
+    ? system.components.find((component) => component.id === componentContextMenu.componentId)
+    : undefined;
 
   return (
     <div ref={canvasRef} className="canvas-shell">
@@ -676,7 +861,7 @@ export function SchematicCanvas({
         <div style={{
           position: 'absolute', top: 8, left: '50%', transform: 'translateX(-50%)',
           background: '#eaf4ff', color: '#1769d2', padding: '6px 12px',
-          borderRadius: 8, fontSize: 11, fontWeight: 800, zIndex: 10, pointerEvents: 'none',
+          borderRadius: 8, fontSize: 13, fontWeight: 600, zIndex: 10, pointerEvents: 'none',
           border: '1px solid #cfe1f8',
           boxShadow: '0 8px 20px rgb(30 45 70 / 8%)',
         }}>
@@ -695,6 +880,7 @@ export function SchematicCanvas({
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
         onClick={handleCanvasClick}
+        onContextMenu={handleCanvasContextMenu}
       >
         {/* Grid dots */}
         <defs>
@@ -743,26 +929,30 @@ export function SchematicCanvas({
                 onSelectComponent(id);
               }}
               onDragStart={handleDragStart}
+              onContextMenu={handleComponentContextMenu}
               onTerminalMouseDown={handleTerminalMouseDown}
             />
           );
         })}
 
-        {(system.annotations ?? []).map((annotation) => (
-          <TextAnnotationNode
-            key={annotation.id}
-            annotation={annotation}
-            selected={annotation.id === selectedAnnotationId}
-            onSelect={(id) => {
+        {(system.annotations ?? []).map((annotation) => {
+          const commonProps = {
+            key: annotation.id,
+            selected: annotation.id === selectedAnnotationId,
+            onSelect: (id: string) => {
               setFusePrompt(null);
               onSelectAnnotation(id);
               onSelectComponent(null);
               onSelectConnection(null);
-            }}
-            onMove={onMoveAnnotation}
-            onResize={onResizeAnnotation}
-          />
-        ))}
+            },
+            onMove: onMoveAnnotation,
+            onResize: onResizeAnnotation,
+          };
+
+          return annotation.kind === 'shape'
+            ? <ShapeAnnotationNode {...commonProps} annotation={annotation} />
+            : <TextAnnotationNode {...commonProps} annotation={annotation} />;
+        })}
 
         {fusePrompt && (
           <g
@@ -791,7 +981,7 @@ export function SchematicCanvas({
               textAnchor="middle"
               fill="#ffffff"
               fontSize={10}
-              fontWeight={900}
+              fontWeight={700}
               style={{ pointerEvents: 'none', userSelect: 'none' }}
             >
               Add Fuse
@@ -799,6 +989,66 @@ export function SchematicCanvas({
           </g>
         )}
       </svg>
+      {componentContextMenu && menuComponent && (
+        <div
+          className="canvas-context-menu"
+          style={{
+            left: componentContextMenu.x,
+            top: componentContextMenu.y,
+          }}
+          role="menu"
+          aria-label="Component actions"
+          onContextMenu={(e) => e.preventDefault()}
+          onPointerDown={(e) => e.stopPropagation()}
+        >
+          <button type="button" role="menuitem" onClick={() => runComponentMenuAction(onCopyComponent)}>
+            <MenuIcon name="copy" />
+            <span>Copy</span>
+          </button>
+          <button type="button" role="menuitem" onClick={() => runComponentMenuAction(onCutComponent)}>
+            <MenuIcon name="cut" />
+            <span>Cut</span>
+          </button>
+          <button type="button" role="menuitem" onClick={() => runComponentMenuAction(onRemoveComponent)}>
+            <MenuIcon name="delete" />
+            <span>Delete</span>
+          </button>
+          <button type="button" role="menuitem" onClick={() => runComponentMenuAction(onRotateComponent)}>
+            <MenuIcon name="rotate" />
+            <span>Rotate</span>
+          </button>
+          <button type="button" role="menuitem" onClick={() => runComponentMenuAction(onToggleComponentLock)}>
+            <MenuIcon name={menuComponent.locked ? 'unlock' : 'lock'} />
+            <span>{menuComponent.locked ? 'Unlock' : 'Lock'}</span>
+          </button>
+        </div>
+      )}
+      {canvasContextMenu && (
+        <div
+          className="canvas-context-menu"
+          style={{
+            left: canvasContextMenu.x,
+            top: canvasContextMenu.y,
+          }}
+          role="menu"
+          aria-label="Canvas actions"
+          onContextMenu={(e) => e.preventDefault()}
+          onPointerDown={(e) => e.stopPropagation()}
+        >
+          <button type="button" role="menuitem" onClick={() => runCanvasMenuAction(onUndo)}>
+            <MenuIcon name="undo" />
+            <span>Undo</span>
+          </button>
+          <button type="button" role="menuitem" onClick={() => runCanvasMenuAction(onPasteComponent)}>
+            <MenuIcon name="paste" />
+            <span>Paste</span>
+          </button>
+          <button type="button" role="menuitem" onClick={() => runCanvasMenuAction(fitDiagram)}>
+            <MenuIcon name="fit" />
+            <span>Fit</span>
+          </button>
+        </div>
+      )}
       <div
         className="canvas-scrollbar canvas-scrollbar-horizontal"
         onPointerDown={(e) => handleScrollTrackPointerDown('x', e)}
@@ -828,3 +1078,4 @@ export function SchematicCanvas({
     </div>
   );
 }
+

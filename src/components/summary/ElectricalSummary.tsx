@@ -43,7 +43,7 @@ export function ElectricalSummaryPanel({ summary }: Props) {
         ) : (
           summary.solar.map((array) => (
             <div key={array.mpptComponentId} style={{ marginBottom: 10 }}>
-              <div style={{ color: '#182235', fontSize: 11, fontWeight: 900, marginBottom: 4 }}>
+              <div style={{ color: '#182235', fontSize: 13, fontWeight: 700, marginBottom: 4 }}>
                 {array.mpptLabel}
               </div>
               <Row label="Array Size" value={`${fmtNumber(array.powerW)} W`} />
@@ -65,7 +65,7 @@ export function ElectricalSummaryPanel({ summary }: Props) {
         ) : (
           summary.powerNodes.map((node) => (
             <div key={node.componentId} style={{ marginBottom: 10 }}>
-              <div style={{ color: '#182235', fontSize: 11, fontWeight: 900, marginBottom: 4 }}>
+              <div style={{ color: '#182235', fontSize: 13, fontWeight: 700, marginBottom: 4 }}>
                 {node.label}
               </div>
               <Row label="Net" value={node.netId} />
@@ -82,3 +82,4 @@ export function ElectricalSummaryPanel({ summary }: Props) {
     </div>
   );
 }
+

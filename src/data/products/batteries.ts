@@ -1,4 +1,4 @@
-// ============================================================
+﻿// ============================================================
 // batteries.ts — Battery product definitions
 // ============================================================
 
@@ -204,7 +204,7 @@ export const batteries: Product[] = [
 
   {
     id: 'victron-lithium-ng-12-100',
-    manufacturer: 'Victron Energy',
+    manufacturer: 'Victron',
     name: 'Lithium Battery NG 12.8V/100Ah',
     productType: 'battery',
     category: 'Batteries',
@@ -233,7 +233,7 @@ export const batteries: Product[] = [
   },
   {
     id: 'victron-lithium-ng-12-200',
-    manufacturer: 'Victron Energy',
+    manufacturer: 'Victron',
     name: 'Lithium Battery NG 12.8V/200Ah',
     productType: 'battery',
     category: 'Batteries',
@@ -262,7 +262,7 @@ export const batteries: Product[] = [
   },
   {
     id: 'victron-lithium-ng-25-100',
-    manufacturer: 'Victron Energy',
+    manufacturer: 'Victron',
     name: 'Lithium Battery NG 25.6V/100Ah',
     productType: 'battery',
     category: 'Batteries',
@@ -291,7 +291,7 @@ export const batteries: Product[] = [
   },
   {
     id: 'victron-lithium-ng-51-100',
-    manufacturer: 'Victron Energy',
+    manufacturer: 'Victron',
     name: 'Lithium Battery NG 51.2V/100Ah',
     productType: 'battery',
     category: 'Batteries',

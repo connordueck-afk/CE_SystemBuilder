@@ -35,6 +35,8 @@ function NumberField({
 }
 
 export function TextAnnotationInspector({ annotation, onUpdate, onRemove }: Props) {
+  const showBackground = annotation.showBackground !== false;
+
   return (
     <div className="inspector-content">
       <div className="inspector-section">
@@ -68,12 +70,21 @@ export function TextAnnotationInspector({ annotation, onUpdate, onRemove }: Prop
             <input
               type="color"
               value={annotation.backgroundColor || '#ffffff'}
+              disabled={!showBackground}
               onChange={(e) => onUpdate(annotation.id, { backgroundColor: e.target.value })}
             />
           </label>
         </div>
 
         <div className="annotation-button-row">
+          <button
+            type="button"
+            className={`annotation-toggle annotation-toggle-wide${showBackground ? ' annotation-toggle-active' : ''}`}
+            onClick={() => onUpdate(annotation.id, { showBackground: !showBackground })}
+            title="Show background fill"
+          >
+            Fill
+          </button>
           <button
             type="button"
             className={`annotation-toggle${annotation.bold ? ' annotation-toggle-active' : ''}`}

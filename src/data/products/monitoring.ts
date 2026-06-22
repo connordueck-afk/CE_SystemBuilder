@@ -1,4 +1,4 @@
-// ============================================================
+﻿// ============================================================
 // monitoring.ts — Battery monitors and system controllers
 // ============================================================
 // Includes: SmartShunt, BMV (new entries), Cerbo GX (new entries),
@@ -65,7 +65,7 @@ export const monitoring: Product[] = [
 
   {
     id: 'smartshunt-500',
-    manufacturer: 'Victron Energy',
+    manufacturer: 'Victron',
     name: 'SmartShunt 500A/50mV',
     productType: 'monitor',
     category: 'Monitoring',
@@ -81,7 +81,7 @@ export const monitoring: Product[] = [
   },
   {
     id: 'smartshunt-1000',
-    manufacturer: 'Victron Energy',
+    manufacturer: 'Victron',
     name: 'SmartShunt 1000A/50mV',
     productType: 'monitor',
     category: 'Monitoring',
@@ -97,7 +97,7 @@ export const monitoring: Product[] = [
   },
   {
     id: 'smartshunt-2000',
-    manufacturer: 'Victron Energy',
+    manufacturer: 'Victron',
     name: 'SmartShunt 2000A/50mV',
     productType: 'monitor',
     category: 'Monitoring',
@@ -118,7 +118,7 @@ export const monitoring: Product[] = [
 
   {
     id: 'ekrano-gx',
-    manufacturer: 'Victron Energy',
+    manufacturer: 'Victron',
     name: 'Ekrano GX',
     productType: 'monitor',
     category: 'Monitoring',
@@ -134,7 +134,7 @@ export const monitoring: Product[] = [
   },
   {
     id: 'globallink-520',
-    manufacturer: 'Victron Energy',
+    manufacturer: 'Victron',
     name: 'GlobalLink 520 Cellular Gateway',
     productType: 'monitor',
     category: 'Monitoring',
@@ -155,7 +155,7 @@ export const monitoring: Product[] = [
 
   {
     id: 'gx-touch-50',
-    manufacturer: 'Victron Energy',
+    manufacturer: 'Victron',
     name: 'GX Touch 50 Display',
     productType: 'accessory',
     category: 'Monitoring',
@@ -171,7 +171,7 @@ export const monitoring: Product[] = [
   },
   {
     id: 'gx-touch-70',
-    manufacturer: 'Victron Energy',
+    manufacturer: 'Victron',
     name: 'GX Touch 70 Display',
     productType: 'accessory',
     category: 'Monitoring',

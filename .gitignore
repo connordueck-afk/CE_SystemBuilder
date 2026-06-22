@@ -1,6 +1,7 @@
 node_modules/
 dist/
 .local-node/
+tests/.*.out.mjs
 
 dev-server*.log
 *.log

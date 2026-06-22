@@ -28,18 +28,19 @@ export function BatterySymbol({ product, selected }: Props) {
           fill="#eaf4ff" stroke="#3975c5" strokeWidth={0.8} />
       ))}
       {/* Positive terminal marker */}
-      <text x={hw - 14} y={-hh + 12} textAnchor="middle" fill="#2f9461" fontSize={12} fontWeight="bold">+</text>
+      <text x={hw - 14} y={-hh + 12} textAnchor="middle" fill="#2f9461" fontSize={12} fontWeight={700}>+</text>
       {/* Negative terminal marker */}
-      <text x={-hw + 14} y={-hh + 12} textAnchor="middle" fill="#b93232" fontSize={12} fontWeight="bold">-</text>
+      <text x={-hw + 14} y={-hh + 12} textAnchor="middle" fill="#b93232" fontSize={12} fontWeight={700}>-</text>
       {/* Labels */}
-      <text x={0} y={hh - 22} textAnchor="middle" fill="#46546a" fontSize={9} fontWeight={800}>
+      <text x={0} y={hh - 22} textAnchor="middle" fill="#46546a" fontSize={9} fontWeight={600}>
         {product.nominalVoltage}V
       </text>
       {capacityKwh && (
-        <text x={0} y={hh - 10} textAnchor="middle" fill="#46546a" fontSize={9} fontWeight={800}>
+        <text x={0} y={hh - 10} textAnchor="middle" fill="#46546a" fontSize={9} fontWeight={600}>
           {capacityKwh} kWh
         </text>
       )}
     </g>
   );
 }
+

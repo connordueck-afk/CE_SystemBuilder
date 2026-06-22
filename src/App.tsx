@@ -1,5 +1,16 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
-import type { FuseSlotState, SystemDesign, NominalVoltage, Product, SystemComponent, SystemConnection, SolarWiringMode, SystemTextAnnotation } from './types/system';
+import type {
+  FuseSlotState,
+  SystemDesign,
+  NominalVoltage,
+  Product,
+  SystemComponent,
+  SystemConnection,
+  SolarWiringMode,
+  SystemTextAnnotation,
+  SystemShapeAnnotation,
+  ShapeAnnotationType,
+} from './types/system';
 import { ALL_PRODUCTS, getProduct } from './data/products';
 import { DEFAULT_SYSTEM } from './data/defaultSystem';
 import { DEFAULT_ASSUMPTIONS } from './data/electricalRules';
@@ -17,6 +28,7 @@ import type { BusType } from './utils/electricalNetlist';
 import { buildProtectionRecommendations } from './utils/protectionRecommendations';
 import type { ProtectionRecommendation } from './utils/protectionRecommendations';
 import { analyzeSystemCircuits } from './utils/circuitAnalysis';
+import { buildCableLengthSummary } from './utils/cableSummary';
 import { DEFAULT_BUS_COLORS, type BusColorMap } from './utils/busColors';
 import { isVerticalOrientation } from './utils/componentOrientation';
 import { HeaderBar } from './components/layout/HeaderBar';
@@ -73,6 +85,26 @@ function clampComponentPosition(
 
 function snapPlacement(value: number): number {
   return Math.round(value / PLACEMENT_GRID) * PLACEMENT_GRID;
+}
+
+function numberedLabel(baseLabel: string, components: SystemComponent[]): string {
+  const matcher = new RegExp(`^${baseLabel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?:\\s+(\\d+))?$`);
+  const matchingNumbers: number[] = [];
+
+  for (const component of components) {
+    const match = component.label?.match(matcher);
+    if (!match) continue;
+    matchingNumbers.push(match[1] == null ? 1 : Number(match[1]));
+  }
+
+  if (matchingNumbers.length === 0) return baseLabel;
+  return `${baseLabel} ${Math.max(...matchingNumbers) + 1}`;
+}
+
+function defaultComponentLabel(product: Product, components: SystemComponent[]): string {
+  if (product.productType === 'fuse') return numberedLabel('Fuse', components);
+  if (product.productType === 'breaker') return numberedLabel('Breaker', components);
+  return product.name;
 }
 
 function normalizeCardinalRotation(value: number): 0 | 90 | 180 | 270 {
@@ -231,6 +263,7 @@ export function App() {
 
   // Derived
   const bomRows = useMemo(() => buildBom(system, PRODUCT_MAP), [system]);
+  const cableSummary = useMemo(() => buildCableLengthSummary(system.connections), [system.connections]);
   const priceSummary = useMemo(() => buildPriceSummary(bomRows), [bomRows]);
   const electricalSummary = useMemo(() => buildElectricalSummary(system, PRODUCT_MAP), [system]);
   const warnings = useMemo(() => generateWarnings(system, PRODUCT_MAP), [system]);
@@ -308,7 +341,7 @@ export function App() {
     const comp: SystemComponent = {
       id: genId('comp'),
       productId,
-      label: product.name,
+      label: defaultComponentLabel(product, system.components),
       quantity: 1,
       x: bounded.x,
       y: bounded.y,
@@ -335,9 +368,31 @@ export function App() {
       fontSize: 16,
       color: '#182235',
       backgroundColor: '#ffffff',
+      showBackground: true,
       bold: false,
       italic: false,
       textAlign: 'left',
+    };
+
+    updateSystem((s) => ({ ...s, annotations: [...(s.annotations ?? []), annotation] }), { recordHistory: true });
+    setSelectedAnnotationId(annotation.id);
+    setSelectedComponentId(null);
+    setSelectedConnectionId(null);
+  }, [canvasViewportCenter.x, canvasViewportCenter.y, updateSystem]);
+
+  const handleAddShapeAnnotation = useCallback((shapeType: ShapeAnnotationType) => {
+    const annotation: SystemShapeAnnotation = {
+      id: genId('shape'),
+      kind: 'shape',
+      shapeType,
+      x: snapPlacement(canvasViewportCenter.x - 60),
+      y: snapPlacement(canvasViewportCenter.y - 40),
+      width: shapeType === 'arrow' ? 140 : 120,
+      height: shapeType === 'arrow' ? 48 : 80,
+      strokeColor: '#33435a',
+      fillColor: '#ffffff',
+      showFill: shapeType !== 'arrow',
+      strokeWidth: 2,
     };
 
     updateSystem((s) => ({ ...s, annotations: [...(s.annotations ?? []), annotation] }), { recordHistory: true });
@@ -367,6 +422,15 @@ export function App() {
     }));
   }, [updateSystem]);
 
+  const handleToggleComponentLock = useCallback((id: string) => {
+    updateSystem((s) => ({
+      ...s,
+      components: s.components.map((c) =>
+        c.id === id ? { ...c, locked: !c.locked } : c
+      ),
+    }), { recordHistory: true });
+  }, [updateSystem]);
+
   const handleUpdateLabel = useCallback((id: string, label: string) => {
     updateSystem((s) => ({
       ...s,
@@ -392,11 +456,33 @@ export function App() {
     }));
   }, [updateSystem]);
 
+  const handleUpdateFuseHolder = useCallback((
+    id: string,
+    includeFuseHolder: boolean,
+    fuseHolderProductId?: string
+  ) => {
+    updateSystem((s) => ({
+      ...s,
+      components: s.components.map((c) =>
+        c.id === id ? { ...c, includeFuseHolder, fuseHolderProductId } : c
+      ),
+    }));
+  }, [updateSystem]);
+
   const handleUpdateInstanceVoltage = useCallback((id: string, voltageV: number | undefined) => {
     updateSystem((s) => ({
       ...s,
       components: s.components.map((c) =>
         c.id === id ? { ...c, instanceVoltageV: voltageV } : c
+      ),
+    }));
+  }, [updateSystem]);
+
+  const handleUpdateDcBusNominalVoltage = useCallback((id: string, voltageV: number | undefined) => {
+    updateSystem((s) => ({
+      ...s,
+      components: s.components.map((c) =>
+        c.id === id ? { ...c, dcNominalVoltage: voltageV } : c
       ),
     }));
   }, [updateSystem]);
@@ -639,7 +725,7 @@ export function App() {
       const protectionComponent: SystemComponent = {
         id: insertedComponentId,
         productId: product.id,
-        label: product.name,
+        label: defaultComponentLabel(product, system.components),
         quantity: 1,
         x: bounded.x,
         y: bounded.y,
@@ -733,11 +819,20 @@ export function App() {
     }));
   }, []);
 
-  const handleUpdateAnnotation = useCallback((id: string, patch: Partial<SystemTextAnnotation>) => {
+  const handleUpdateTextAnnotation = useCallback((id: string, patch: Partial<SystemTextAnnotation>) => {
     updateSystem((s) => ({
       ...s,
       annotations: (s.annotations ?? []).map((annotation) =>
-        annotation.id === id ? { ...annotation, ...patch } : annotation
+        annotation.id === id && annotation.kind === 'text' ? { ...annotation, ...patch } : annotation
+      ),
+    }));
+  }, [updateSystem]);
+
+  const handleUpdateShapeAnnotation = useCallback((id: string, patch: Partial<SystemShapeAnnotation>) => {
+    updateSystem((s) => ({
+      ...s,
+      annotations: (s.annotations ?? []).map((annotation) =>
+        annotation.id === id && annotation.kind === 'shape' ? { ...annotation, ...patch } : annotation
       ),
     }));
   }, [updateSystem]);
@@ -759,12 +854,23 @@ export function App() {
     }));
   }, [updateSystem]);
 
-  const handleCopySelectedComponent = useCallback(() => {
-    if (!selectedComponentId) return;
-    const component = system.components.find((c) => c.id === selectedComponentId);
+  const handleCopyComponent = useCallback((id: string) => {
+    const component = system.components.find((c) => c.id === id);
     if (!component) return;
     copiedComponentRef.current = component;
-  }, [selectedComponentId, system.components]);
+  }, [system.components]);
+
+  const handleCopySelectedComponent = useCallback(() => {
+    if (!selectedComponentId) return;
+    handleCopyComponent(selectedComponentId);
+  }, [handleCopyComponent, selectedComponentId]);
+
+  const handleCutComponent = useCallback((id: string) => {
+    const component = system.components.find((c) => c.id === id);
+    if (!component) return;
+    copiedComponentRef.current = component;
+    handleRemoveComponent(id);
+  }, [handleRemoveComponent, system.components]);
 
   const handlePasteComponent = useCallback(() => {
     const source = copiedComponentRef.current;
@@ -784,6 +890,7 @@ export function App() {
       label: source.label ? `${source.label} Copy` : `${product.name} Copy`,
       x: bounded.x,
       y: bounded.y,
+      locked: false,
       inferredElectricalType: undefined,
       inferredConnectionKind: undefined,
       inferredPolarity: undefined,
@@ -853,14 +960,11 @@ export function App() {
   }, [handleCopySelectedComponent, handlePasteComponent, redo, selectedComponentId, undo]);
 
   const handleSave = useCallback(() => {
-    saveCurrentSystem(system);
-    setSavedSystems(loadSavedSystems());
-    alert(`System "${system.name}" saved.`);
-  }, [system]);
+    alert('Save Is Not Implemented Yet');
+  }, []);
 
   const handleLoad = useCallback(() => {
-    setSavedSystems(loadSavedSystems());
-    setShowLoadModal(true);
+    alert('Load Is Not Implemented Yet');
   }, []);
 
   const handleLoadSystem = useCallback((s: SystemDesign) => {
@@ -888,8 +992,8 @@ export function App() {
   }, []);
 
   const handleExportCsv = useCallback(() => {
-    exportBomCsv(bomRows, system.name);
-  }, [bomRows, system.name]);
+    exportBomCsv(bomRows, system.name, cableSummary);
+  }, [bomRows, cableSummary, system.name]);
 
   const handleSelectComponent = useCallback((id: string | null) => {
     setSelectedComponentId(id);
@@ -951,6 +1055,7 @@ export function App() {
         systemVoltage={system.nominalVoltage}
         onAddProduct={handleAddProduct}
         onAddTextAnnotation={handleAddTextAnnotation}
+        onAddShapeAnnotation={handleAddShapeAnnotation}
         components={system.components}
         products={PRODUCT_MAP}
         selectedComponentId={selectedComponentId}
@@ -980,7 +1085,12 @@ export function App() {
           onMoveComponent={handleMoveComponent}
           onMoveAnnotation={handleMoveAnnotation}
           onResizeAnnotation={handleResizeAnnotation}
+          onUndo={undo}
+          onPasteComponent={handlePasteComponent}
+          onCopyComponent={handleCopyComponent}
+          onCutComponent={handleCutComponent}
           onRotateComponent={handleRotateComponent}
+          onToggleComponentLock={handleToggleComponentLock}
           onRemoveComponent={handleRemoveComponent}
           onRemoveConnection={handleRemoveConnection}
           onRemoveAnnotation={handleRemoveAnnotation}
@@ -1007,7 +1117,9 @@ export function App() {
         onUpdateLabel={handleUpdateLabel}
         onUpdatePrice={handleUpdatePrice}
         onUpdateIncludeInBom={handleUpdateIncludeInBom}
+        onUpdateFuseHolder={handleUpdateFuseHolder}
         onUpdateInstanceVoltage={handleUpdateInstanceVoltage}
+        onUpdateDcBusNominalVoltage={handleUpdateDcBusNominalVoltage}
         onUpdateInstanceMaxCurrent={handleUpdateInstanceMaxCurrent}
         onUpdateBusPolarity={handleUpdateBusPolarity}
         onUpdateFuseSlot={handleUpdateFuseSlot}
@@ -1019,7 +1131,8 @@ export function App() {
         onUpdateConnectionCableAwg={handleUpdateConnectionCableAwg}
         onAutoConnectionCableAwg={handleAutoConnectionCableAwg}
         onResetConnectionRoute={handleResetConnectionRoute}
-        onUpdateAnnotation={handleUpdateAnnotation}
+        onUpdateTextAnnotation={handleUpdateTextAnnotation}
+        onUpdateShapeAnnotation={handleUpdateShapeAnnotation}
         onRemoveComponent={handleRemoveComponent}
         onRemoveConnection={handleRemoveConnection}
         onRemoveAnnotation={handleRemoveAnnotation}
@@ -1030,6 +1143,7 @@ export function App() {
       {bomModalOpen && (
         <BomSummaryModal
           bomRows={bomRows}
+          cableSummary={cableSummary}
           priceSummary={priceSummary}
           electricalSummary={electricalSummary}
           onClose={() => setBomModalOpen(false)}
@@ -1063,7 +1177,7 @@ export function App() {
                     onClick={() => handleLoadSystem(s)}
                   >
                     <span style={{ fontWeight: 600 }}>{s.name}</span>
-                    <span style={{ color: '#6d7b90', fontSize: 10 }}>
+                    <span style={{ color: '#6d7b90', fontSize: 12 }}>
                       {s.nominalVoltage}V · {s.components.length} components · {new Date(s.updatedAt).toLocaleDateString()}
                     </span>
                   </button>

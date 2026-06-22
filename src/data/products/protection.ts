@@ -1,4 +1,4 @@
-// ============================================================
+﻿// ============================================================
 // protection.ts — Fuse and circuit breaker product definitions
 // ============================================================
 // All existing product IDs, pricing, terminal layouts, and
@@ -215,7 +215,7 @@ export const protection: Product[] = [
 
   {
     id: 'filax-2',
-    manufacturer: 'Victron Energy',
+    manufacturer: 'Victron',
     name: 'Filax 2 Transfer Switch',
     productType: 'transferSwitch',
     category: 'Protection',
@@ -237,7 +237,7 @@ export const protection: Product[] = [
   },
   {
     id: 've-transfer-switch-5kva',
-    manufacturer: 'Victron Energy',
+    manufacturer: 'Victron',
     name: 'VE Transfer Switch 5 kVA',
     productType: 'transferSwitch',
     category: 'Protection',
@@ -259,7 +259,7 @@ export const protection: Product[] = [
   },
   {
     id: 'isolation-transformer-3600',
-    manufacturer: 'Victron Energy',
+    manufacturer: 'Victron',
     name: 'Isolation Transformer 3600W',
     productType: 'transferSwitch',
     category: 'Protection',

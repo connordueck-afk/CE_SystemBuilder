@@ -8,7 +8,7 @@ import type {
 } from '../types/system';
 import { CABLE_TABLE, cableByAwg, cableForCurrent, voltageDropV } from '../data/cableAmpacity';
 import { STANDARD_FUSE_RATINGS, nextStandardFuse } from '../data/fuseRatings';
-import { CONTINUOUS_LOAD_FACTOR } from '../data/electricalRules';
+import { continuousFactorForBus } from '../data/electricalRules';
 import { getEffectiveProductForComponent } from './solarCalculations';
 import { getEffectiveTerminals, isDynamicSingleConductorProduct } from './effectiveTerminals';
 import { canProvidePower, canReceivePower, inferTerminalDirection } from './terminalDirection';
@@ -763,9 +763,12 @@ function analyzeConnection(
     toNode?.behavior.maxFuseA
   );
 
-  const minimumFuseA = protectionRequired ? nextStandardFuse(designCurrentA * CONTINUOUS_LOAD_FACTOR) : undefined;
+  // PV source/output conductors are sized at 156% of design current (NEC 690.8);
+  // all other circuits use the standard 125% continuous-load factor.
+  const continuousFactor = continuousFactorForBus(busType);
+  const minimumFuseA = protectionRequired ? nextStandardFuse(designCurrentA * continuousFactor) : undefined;
   const targetFuseA = minimumFuseA != null ? Math.max(minimumFuseA, preferredFuseA ?? 0) : undefined;
-  const cableSizingCurrentA = targetFuseA ?? designCurrentA * CONTINUOUS_LOAD_FACTOR;
+  const cableSizingCurrentA = targetFuseA ?? designCurrentA * continuousFactor;
   const autoCable = cableForAmpacityAndDrop(
     cableSizingCurrentA,
     designCurrentA,

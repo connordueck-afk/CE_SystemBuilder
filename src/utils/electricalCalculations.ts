@@ -15,6 +15,8 @@ import {
   type BusType,
 } from './electricalNetlist';
 import { resolveTerminalCurrentA } from './terminalElectrics';
+import { getEffectiveTerminal } from './effectiveTerminals';
+import { getDcBusNominalVoltage, isDcBusTerminal } from './dcBusVoltage';
 
 const PASS_THROUGH_TYPES = new Set<string>(['fuse', 'breaker']);
 
@@ -51,6 +53,13 @@ export function calcVoltageDropPercent(
   return (drop / systemVoltageV) * 100;
 }
 
+/**
+ * @deprecated Superseded by the graph engine in circuitAnalysis.ts, which is the
+ * single source of truth wired through App.tsx `enrichConnections`. This function
+ * is no longer called anywhere; kept only to avoid a large deletion in this change.
+ * Do not wire new UI to it — read `connection.recommendedFuseA/recommendedCableAwg`
+ * (already ampacity-capped) instead. Safe to delete in a dedicated cleanup.
+ */
 export function enrichConnection(
   conn: SystemConnection,
   fromProduct: Product | undefined,
@@ -149,6 +158,10 @@ export function enrichConnection(
   };
 }
 
+/**
+ * @deprecated Pre-terminal-model fuse/cable estimator. Not called anywhere.
+ * Superseded by circuitAnalysis.ts. Safe to delete in a dedicated cleanup.
+ */
 export function enrichConnectionLegacy(
   conn: SystemConnection,
   fromProduct: Product | undefined,
@@ -448,6 +461,39 @@ export function generateWarnings(
         undefined,
         conn.id
       );
+    }
+
+    const fromComp = system.components.find((component) => component.id === conn.fromComponentId);
+    const toComp = system.components.find((component) => component.id === conn.toComponentId);
+    const fromProduct = fromComp ? products.get(fromComp.productId) : undefined;
+    const toProduct = toComp ? products.get(toComp.productId) : undefined;
+    const fromTerminal = fromComp && fromProduct
+      ? getEffectiveTerminal(fromProduct, conn.fromTerminalId, fromComp)
+      : undefined;
+    const toTerminal = toComp && toProduct
+      ? getEffectiveTerminal(toProduct, conn.toTerminalId, toComp)
+      : undefined;
+    if (
+      fromComp &&
+      toComp &&
+      fromProduct &&
+      toProduct &&
+      fromTerminal &&
+      toTerminal &&
+      isDcBusTerminal(fromProduct, fromTerminal) &&
+      isDcBusTerminal(toProduct, toTerminal)
+    ) {
+      const fromVoltage = getDcBusNominalVoltage(fromComp, fromProduct);
+      const toVoltage = getDcBusNominalVoltage(toComp, toProduct);
+      if (fromVoltage == null || toVoltage == null) {
+        warn(
+          'warning',
+          'One or more directly connected DC buses do not have a nominal voltage assigned. Voltage compatibility could not be verified.',
+          'DC_BUS_VOLTAGE_UNKNOWN',
+          undefined,
+          conn.id
+        );
+      }
     }
 
     if ((conn.voltageDropPercent ?? 0) > system.assumptions.maxVoltageDropPercent) {

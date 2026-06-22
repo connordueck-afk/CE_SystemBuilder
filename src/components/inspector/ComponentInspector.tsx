@@ -6,6 +6,8 @@ import {
   getSolarPanelCount,
   getSolarPanelUnitRatings,
 } from '../../utils/solarCalculations';
+import { isDcBusProduct } from '../../utils/dcBusVoltage';
+import { getFuseHolderForProduct } from '../../utils/fuseHolders';
 
 type SourceLoadKind = 'dc_source' | 'ac_source' | 'dc_load' | 'ac_load';
 
@@ -30,7 +32,9 @@ interface Props {
   onUpdateLabel: (id: string, label: string) => void;
   onUpdatePrice: (id: string, price: number | undefined) => void;
   onUpdateIncludeInBom: (id: string, includeInBom: boolean) => void;
+  onUpdateFuseHolder: (id: string, includeFuseHolder: boolean, fuseHolderProductId?: string) => void;
   onUpdateInstanceVoltage: (id: string, voltageV: number | undefined) => void;
+  onUpdateDcBusNominalVoltage: (id: string, voltageV: number | undefined) => void;
   onUpdateInstanceMaxCurrent: (id: string, currentA: number | undefined) => void;
   onUpdateBusPolarity: (id: string, busPolarity: SystemComponent['busPolarity']) => void;
   onUpdateFuseSlot: (id: string, slotId: string, patch: FuseSlotState) => void;
@@ -58,7 +62,9 @@ export function ComponentInspector({
   onUpdateLabel,
   onUpdatePrice,
   onUpdateIncludeInBom,
+  onUpdateFuseHolder,
   onUpdateInstanceVoltage,
+  onUpdateDcBusNominalVoltage,
   onUpdateInstanceMaxCurrent,
   onUpdateBusPolarity,
   onUpdateFuseSlot,
@@ -78,6 +84,8 @@ export function ComponentInspector({
   const supplierUrl = product.productUrl ?? product.datasheetUrl;
   const includeInBom = component.includeInBom !== false;
   const fuseSlots = product.distributionTopology?.fuseSlots ?? [];
+  const isDcBus = isDcBusProduct(product);
+  const fuseHolder = getFuseHolderForProduct(product);
 
   return (
     <div className="inspector-content">
@@ -92,8 +100,8 @@ export function ComponentInspector({
 
       <div className="inspector-section">
         <div className="inspector-label">Product</div>
-        <div style={{ color: '#182235', fontSize: 12, fontWeight: 900 }}>{product.name}</div>
-        <div style={{ color: '#6d7b90', fontSize: 10, fontWeight: 700 }}>{product.manufacturer}</div>
+        <div style={{ color: '#182235', fontSize: 14, fontWeight: 700 }}>{product.name}</div>
+        <div style={{ color: '#6d7b90', fontSize: 12, fontWeight: 700 }}>{product.manufacturer}</div>
       </div>
 
       {(product.productType === 'fuse' || product.productType === 'breaker') &&
@@ -133,7 +141,7 @@ export function ComponentInspector({
           <div className="inspector-label">Solar String</div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 6 }}>
             <div>
-              <div style={{ color: '#6d7b90', fontSize: 9, fontWeight: 800, marginBottom: 3 }}>Panels in Series</div>
+              <div style={{ color: '#6d7b90', fontSize: 11, fontWeight: 600, marginBottom: 3 }}>Panels in Series</div>
               <input
                 type="number"
                 className="inspector-input"
@@ -166,6 +174,23 @@ export function ComponentInspector({
           <SpecRow label="Max Current" value={`${product.maxCurrentA} A`} />
         )}
         {product.maxPvVoltageV && <SpecRow label="Max PV Voltage" value={`${product.maxPvVoltageV} V`} />}
+        {isDcBus && (
+          <div className="spec-row spec-row-editable">
+            <span className="spec-row-label">Nominal Voltage</span>
+            <input
+              type="number"
+              className="spec-row-input"
+              min={1}
+              value={component.dcNominalVoltage ?? ''}
+              placeholder={String(systemVoltage)}
+              onChange={(e) => {
+                const v = parseFloat(e.target.value);
+                onUpdateDcBusNominalVoltage(component.id, isNaN(v) ? undefined : v);
+              }}
+            />
+            <span className="spec-row-unit">VDC</span>
+          </div>
+        )}
         {sourceLoadKind && (
           <>
             <div className="spec-row spec-row-editable">
@@ -242,7 +267,7 @@ export function ComponentInspector({
           {arrayStats.iscA != null && <SpecRow label="Array Isc" value={`${arrayStats.iscA.toFixed(1)} A`} />}
           {arrayStats.impA != null && <SpecRow label="Array Imp" value={`${arrayStats.impA.toFixed(1)} A`} />}
           {(solarArray?.mismatches.length ?? 0) > 0 && (
-            <div style={{ color: '#b93232', fontSize: 10, fontWeight: 800, lineHeight: 1.4, marginTop: 6 }}>
+            <div style={{ color: '#b93232', fontSize: 12, fontWeight: 600, lineHeight: 1.4, marginTop: 6 }}>
               Parallel strings have mismatched open-circuit voltage.
             </div>
           )}
@@ -302,10 +327,26 @@ export function ComponentInspector({
           />
           <span>Include In BOM</span>
         </label>
+        {fuseHolder && (
+          <label className="inspector-checkbox-row">
+            <input
+              type="checkbox"
+              checked={component.includeFuseHolder === true}
+              onChange={(e) =>
+                onUpdateFuseHolder(
+                  component.id,
+                  e.target.checked,
+                  e.target.checked ? fuseHolder.id : undefined
+                )
+              }
+            />
+            <span>Include fuse holder</span>
+          </label>
+        )}
         <SpecRow label="MSRP" value={fmt(product.msrpUsd ?? null)} />
         <SpecRow label="OEM Est." value={fmt(product.oemPriceUsd ?? null)} />
         <div style={{ marginTop: 6 }}>
-          <div style={{ color: '#6d7b90', fontSize: 9, fontWeight: 800, marginBottom: 3 }}>Price override (unit)</div>
+          <div style={{ color: '#6d7b90', fontSize: 11, fontWeight: 600, marginBottom: 3 }}>Price override (unit)</div>
           <input
             type="number"
             className="inspector-input"
@@ -322,7 +363,7 @@ export function ComponentInspector({
       {product.notes && (
         <div className="inspector-section">
           <div className="inspector-label">Notes</div>
-          <div style={{ color: '#46546a', fontSize: 10, lineHeight: 1.5 }}>{product.notes}</div>
+          <div style={{ color: '#46546a', fontSize: 12, lineHeight: 1.5 }}>{product.notes}</div>
         </div>
       )}
 
@@ -352,3 +393,4 @@ export function ComponentInspector({
     </div>
   );
 }
+

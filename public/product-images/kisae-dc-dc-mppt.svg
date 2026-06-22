@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-48 -40 96 80">
+  <!--
+    Kisae DMT DC-DC Charger with MPPT — no text.
+    Product: width=96, height=80
+    Terminals: Alt+ (-48,-18), Alt- (-48,18), PV+ (-16,-40), PV- (16,-40),
+               Bat+ (48,-18), Bat- (48,18)
+  -->
+  <defs>
+    <linearGradient id="kdc-shell" x1="0" y1="-40" x2="0" y2="40" gradientUnits="userSpaceOnUse">
+      <stop offset="0%"   stop-color="#202430"/>
+      <stop offset="100%" stop-color="#12141c"/>
+    </linearGradient>
+    <linearGradient id="kdc-face" x1="0" y1="-30" x2="0" y2="32" gradientUnits="userSpaceOnUse">
+      <stop offset="0%"   stop-color="#ededf2"/>
+      <stop offset="100%" stop-color="#d2d5de"/>
+    </linearGradient>
+    <linearGradient id="kdc-orange" x1="-30" y1="0" x2="30" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0%"   stop-color="#b85208"/>
+      <stop offset="50%"  stop-color="#e07820"/>
+      <stop offset="100%" stop-color="#b85208"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Outer shell -->
+  <rect x="-46" y="-38" width="92" height="76" rx="5" fill="url(#kdc-shell)"/>
+
+  <!-- Top terminal block (PV input) -->
+  <rect x="-30" y="-40" width="60" height="13" rx="2" fill="#0a0c12"/>
+  <circle cx="-16" cy="-33" r="3.2" fill="#060708" stroke="#20222a" stroke-width="0.8"/>
+  <circle cx="16"  cy="-33" r="3.2" fill="#060708" stroke="#20222a" stroke-width="0.8"/>
+
+  <!-- Left terminal block (Alternator input) -->
+  <rect x="-48" y="-26" width="13" height="52" rx="3" fill="#0a0c12"/>
+  <circle cx="-41" cy="-18" r="3.6" fill="#7a1818" stroke="#1a1c24" stroke-width="0.9"/>
+  <circle cx="-41" cy="-18" r="1.8" fill="#0a0c12"/>
+  <circle cx="-41" cy="18"  r="3.6" fill="#1a1a1a" stroke="#3a3c44" stroke-width="0.9"/>
+  <circle cx="-41" cy="18"  r="1.8" fill="#0a0c12"/>
+
+  <!-- Right terminal block (Battery output) -->
+  <rect x="35" y="-26" width="13" height="52" rx="3" fill="#0a0c12"/>
+  <circle cx="41" cy="-18" r="3.6" fill="#7a1818" stroke="#1a1c24" stroke-width="0.9"/>
+  <circle cx="41" cy="-18" r="1.8" fill="#0a0c12"/>
+  <circle cx="41" cy="18"  r="3.6" fill="#1a1a1a" stroke="#3a3c44" stroke-width="0.9"/>
+  <circle cx="41" cy="18"  r="1.8" fill="#0a0c12"/>
+
+  <!-- Face plate -->
+  <rect x="-32" y="-24" width="64" height="56" rx="4" fill="url(#kdc-face)"/>
+
+  <!-- Orange Kisae accent stripe -->
+  <rect x="-32" y="-12" width="64" height="7" rx="1.5" fill="url(#kdc-orange)"/>
+  <rect x="-31" y="-12" width="62" height="2.5" rx="1"   fill="#f0a040" opacity="0.3"/>
+
+  <!-- Dual-input flow glyph: two arrows converging right -->
+  <line x1="-22" y1="3"  x2="-6" y2="8" stroke="#3a5060" stroke-width="1.2"/>
+  <line x1="-22" y1="14" x2="-6" y2="9" stroke="#3a5060" stroke-width="1.2"/>
+  <polygon points="-6,8.5 -12,5 -12,12" fill="#3a5060"/>
+  <line x1="-6" y1="8.5" x2="14" y2="8.5" stroke="#2d7a4a" stroke-width="1.2"/>
+  <polygon points="14,8.5 9,5.5 9,11.5" fill="#2d7a4a"/>
+
+  <!-- Status LEDs -->
+  <circle cx="-14" cy="22" r="2.2" fill="#22c55e"/>
+  <circle cx="-7"  cy="22" r="2.2" fill="#3b82f6"/>
+  <circle cx="0"   cy="22" r="2.2" fill="#f59e0b" opacity="0.5"/>
+
+  <!-- Bottom label bar -->
+  <rect x="10" y="18" width="20" height="9" rx="1.5" fill="#bcc4ce"/>
+  <rect x="13" y="21" width="14" height="3.5" rx="1" fill="#2a3040"/>
+</svg>

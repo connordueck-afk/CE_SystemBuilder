@@ -9,6 +9,7 @@ import type {
 } from '../types/system';
 import { getEffectiveTerminal, isDynamicSingleConductorProduct } from './effectiveTerminals';
 import { canProvidePower, canReceivePower, terminalDirectionLabel } from './terminalDirection';
+import { getDcBusNominalVoltage, isDcBusTerminal } from './dcBusVoltage';
 
 export interface TerminalRef {
   component: SystemComponent;
@@ -155,6 +156,17 @@ export function validateConnectionPair(from: TerminalRef, to: TerminalRef): Conn
       valid: false,
       message: `${terminalName(from)} is ${from.terminal.voltageClass}; ${terminalName(to)} is ${to.terminal.voltageClass}.`,
     };
+  }
+
+  if (isDcBusTerminal(from.product, from.terminal) && isDcBusTerminal(to.product, to.terminal)) {
+    const fromVoltage = getDcBusNominalVoltage(from.component, from.product);
+    const toVoltage = getDcBusNominalVoltage(to.component, to.product);
+    if (fromVoltage != null && toVoltage != null && fromVoltage !== toVoltage) {
+      return {
+        valid: false,
+        message: `Cannot directly connect ${fromVoltage} VDC bus to ${toVoltage} VDC bus. Use a DC-to-DC converter between voltage domains.`,
+      };
+    }
   }
 
   return { valid: true };

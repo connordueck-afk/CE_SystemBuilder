@@ -1,4 +1,4 @@
-// ============================================================
+﻿// ============================================================
 // acChargers.ts — AC-powered battery charger product definitions
 // ============================================================
 // Shore power / AC chargers (not inverter/chargers).
@@ -86,7 +86,7 @@ export const acChargers: Product[] = [
 
   {
     id: 'blue-smart-ip22-15',
-    manufacturer: 'Victron Energy',
+    manufacturer: 'Victron',
     name: 'Blue Smart IP22 Charger 12/15',
     productType: 'shore_charger',
     category: 'Charging',
@@ -104,7 +104,7 @@ export const acChargers: Product[] = [
   },
   {
     id: 'blue-smart-ip22-30',
-    manufacturer: 'Victron Energy',
+    manufacturer: 'Victron',
     name: 'Blue Smart IP22 Charger 12/30',
     productType: 'shore_charger',
     category: 'Charging',
@@ -123,7 +123,7 @@ export const acChargers: Product[] = [
   },
   {
     id: 'blue-smart-ip22-24-16',
-    manufacturer: 'Victron Energy',
+    manufacturer: 'Victron',
     name: 'Blue Smart IP22 Charger 24/16',
     productType: 'shore_charger',
     category: 'Charging',
@@ -147,7 +147,7 @@ export const acChargers: Product[] = [
 
   {
     id: 'blue-smart-ip65-12-15',
-    manufacturer: 'Victron Energy',
+    manufacturer: 'Victron',
     name: 'Blue Smart IP65 Charger 12/15',
     productType: 'shore_charger',
     category: 'Charging',
@@ -171,7 +171,7 @@ export const acChargers: Product[] = [
 
   {
     id: 'skylla-ip65-24-70',
-    manufacturer: 'Victron Energy',
+    manufacturer: 'Victron',
     name: 'Skylla-IP65 24/70 Charger',
     productType: 'shore_charger',
     category: 'Charging',

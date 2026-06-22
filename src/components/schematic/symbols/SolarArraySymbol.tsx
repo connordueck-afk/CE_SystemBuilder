@@ -32,14 +32,15 @@ export function SolarArraySymbol({ product, component, selected }: Props) {
       <line x1={hw - 14} y1={-hh + 3} x2={hw - 14} y2={-hh + 1} stroke="#c98518" strokeWidth={1} />
       <line x1={hw - 6} y1={-hh + 10} x2={hw - 4} y2={-hh + 9} stroke="#c98518" strokeWidth={1} />
       {/* Label */}
-      <text x={0} y={hh - 10} textAnchor="middle" fill="#935f0d" fontSize={9} fontWeight="bold">
+      <text x={0} y={hh - 10} textAnchor="middle" fill="#935f0d" fontSize={9} fontWeight={700}>
         {totalW}W
       </text>
       {panelCount > 1 && (
-        <text x={0} y={hh - 22} textAnchor="middle" fill="#935f0d" fontSize={7} fontWeight={800}>
+        <text x={0} y={hh - 22} textAnchor="middle" fill="#935f0d" fontSize={7} fontWeight={600}>
           {stats ? `${stats.seriesCount}S string` : 'String'}
         </text>
       )}
     </g>
   );
 }
+

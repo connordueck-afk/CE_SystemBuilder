@@ -6,15 +6,18 @@ import type {
   FuseSlotState,
   NominalVoltage,
   SolarWiringMode,
+  SystemDiagramAnnotation,
   SystemTextAnnotation,
+  SystemShapeAnnotation,
 } from '../../types/system';
 import { ComponentInspector } from '../inspector/ComponentInspector';
 import { ConnectionInspector } from '../inspector/ConnectionInspector';
 import { TextAnnotationInspector } from '../inspector/TextAnnotationInspector';
+import { ShapeAnnotationInspector } from '../inspector/ShapeAnnotationInspector';
 import { WarningList } from '../inspector/WarningList';
 import { findSolarArrayFeedingComponent, getEffectiveProductForComponent } from '../../utils/solarCalculations';
 import type { ProtectionRecommendation } from '../../utils/protectionRecommendations';
-import { recommendedFuseA } from '../../utils/electricalCalculations';
+import { selectBestFuseProduct, ampacityForAwg } from '../../utils/fuseSelection';
 
 interface Props {
   selectedComponentId: string | null;
@@ -22,7 +25,7 @@ interface Props {
   selectedAnnotationId: string | null;
   components: SystemComponent[];
   connections: SystemConnection[];
-  annotations: SystemTextAnnotation[];
+  annotations: SystemDiagramAnnotation[];
   products: Map<string, Product>;
   systemVoltage: NominalVoltage;
   warnings: SystemWarning[];
@@ -32,7 +35,9 @@ interface Props {
   onUpdateLabel: (id: string, label: string) => void;
   onUpdatePrice: (id: string, price: number | undefined) => void;
   onUpdateIncludeInBom: (id: string, includeInBom: boolean) => void;
+  onUpdateFuseHolder: (id: string, includeFuseHolder: boolean, fuseHolderProductId?: string) => void;
   onUpdateInstanceVoltage: (id: string, voltageV: number | undefined) => void;
+  onUpdateDcBusNominalVoltage: (id: string, voltageV: number | undefined) => void;
   onUpdateInstanceMaxCurrent: (id: string, currentA: number | undefined) => void;
   onUpdateBusPolarity: (id: string, busPolarity: SystemComponent['busPolarity']) => void;
   onUpdateFuseSlot: (id: string, slotId: string, patch: FuseSlotState) => void;
@@ -44,7 +49,8 @@ interface Props {
   onUpdateConnectionCableAwg: (id: string, awg: string) => void;
   onAutoConnectionCableAwg: (id: string) => void;
   onResetConnectionRoute: (id: string) => void;
-  onUpdateAnnotation: (id: string, patch: Partial<SystemTextAnnotation>) => void;
+  onUpdateTextAnnotation: (id: string, patch: Partial<SystemTextAnnotation>) => void;
+  onUpdateShapeAnnotation: (id: string, patch: Partial<SystemShapeAnnotation>) => void;
   onRemoveComponent: (id: string) => void;
   onRemoveConnection: (id: string) => void;
   onRemoveAnnotation: (id: string) => void;
@@ -68,7 +74,9 @@ export function RightInspector({
   onUpdateLabel,
   onUpdatePrice,
   onUpdateIncludeInBom,
+  onUpdateFuseHolder,
   onUpdateInstanceVoltage,
+  onUpdateDcBusNominalVoltage,
   onUpdateInstanceMaxCurrent,
   onUpdateBusPolarity,
   onUpdateFuseSlot,
@@ -80,7 +88,8 @@ export function RightInspector({
   onUpdateConnectionCableAwg,
   onAutoConnectionCableAwg,
   onResetConnectionRoute,
-  onUpdateAnnotation,
+  onUpdateTextAnnotation,
+  onUpdateShapeAnnotation,
   onRemoveComponent,
   onRemoveConnection,
   onRemoveAnnotation,
@@ -127,7 +136,7 @@ export function RightInspector({
     : selectedConnection
     ? 'L'
     : selectedAnnotation
-    ? 'T'
+    ? selectedAnnotation.kind === 'shape' ? 'S' : 'T'
     : 'I';
 
   const isFuseOrBreaker = selectedProduct?.productType === 'fuse' || selectedProduct?.productType === 'breaker';
@@ -148,13 +157,20 @@ export function RightInspector({
     const adjConns = connections.filter(
       (c) => c.fromComponentId === selectedComponentId || c.toComponentId === selectedComponentId
     );
-    const knownCurrentConns = adjConns.filter((c) => (c.calculatedCurrentA ?? 0) > 0);
-    if (knownCurrentConns.length > 0) {
-      const throughCurrentA = Math.max(...knownCurrentConns.map((c) => c.calculatedCurrentA!));
-      const targetA = recommendedFuseA(throughCurrentA);
-      const match = availableFuseProducts.find((p) => p.ratingA >= targetA);
-      autoSizedProductId = match?.productId ?? null;
-    }
+    // Use the circuit engine's already ampacity-capped recommendation as the target,
+    // and never let the auto-sized part exceed the smallest adjacent cable ampacity
+    // (the cable-protection invariant). Both come straight from circuitAnalysis output.
+    const targetA = Math.max(0, ...adjConns.map((c) => c.recommendedFuseA ?? 0)) || undefined;
+    const adjacentAmpacities = adjConns
+      .map((c) => ampacityForAwg(c.manualCableAwg ?? c.recommendedCableAwg))
+      .filter((a): a is number => a != null);
+    const maxAmpacityA = adjacentAmpacities.length > 0 ? Math.min(...adjacentAmpacities) : undefined;
+
+    const candidates = availableFuseProducts
+      .map((p) => products.get(p.productId))
+      .filter((p): p is Product => p != null);
+    const best = selectBestFuseProduct(candidates, { targetA, maxAmpacityA });
+    autoSizedProductId = best?.id ?? null;
   }
 
   return (
@@ -167,7 +183,7 @@ export function RightInspector({
               : selectedConnection
               ? 'Connection'
               : selectedAnnotation
-              ? 'Text'
+              ? selectedAnnotation.kind === 'shape' ? 'Shape' : 'Text'
               : 'Inspector'}
           </span>
         )}
@@ -215,7 +231,7 @@ export function RightInspector({
         <>
       {!selectedComponent && !selectedConnection && !selectedAnnotation && (
         <div className="inspector-content">
-          <div style={{ color: '#6d7b90', fontSize: 11, fontWeight: 700, marginBottom: 12 }}>
+          <div style={{ color: '#6d7b90', fontSize: 13, fontWeight: 700, marginBottom: 12 }}>
             Select a component or connection to inspect.
           </div>
           <div className="inspector-section">
@@ -232,7 +248,7 @@ export function RightInspector({
       {selectedComponent && selectedProduct && (
         <>
           {componentWarnings.length > 0 && (
-            <div style={{ padding: '8px', borderBottom: '1px solid #dbe2ec' }}>
+            <div style={{ padding: '8px 16px 8px 8px', borderBottom: '1px solid #dbe2ec' }}>
               <WarningList warnings={componentWarnings} />
             </div>
           )}
@@ -247,7 +263,9 @@ export function RightInspector({
             onUpdateLabel={onUpdateLabel}
             onUpdatePrice={onUpdatePrice}
             onUpdateIncludeInBom={onUpdateIncludeInBom}
+            onUpdateFuseHolder={onUpdateFuseHolder}
             onUpdateInstanceVoltage={onUpdateInstanceVoltage}
+            onUpdateDcBusNominalVoltage={onUpdateDcBusNominalVoltage}
             onUpdateInstanceMaxCurrent={onUpdateInstanceMaxCurrent}
             onUpdateBusPolarity={onUpdateBusPolarity}
             onUpdateFuseSlot={onUpdateFuseSlot}
@@ -260,7 +278,7 @@ export function RightInspector({
       {selectedConnection && (
         <>
           {connectionWarnings.length > 0 && (
-            <div style={{ padding: '8px', borderBottom: '1px solid #dbe2ec' }}>
+            <div style={{ padding: '8px 16px 8px 8px', borderBottom: '1px solid #dbe2ec' }}>
               <WarningList warnings={connectionWarnings} />
             </div>
           )}
@@ -282,10 +300,18 @@ export function RightInspector({
         </>
       )}
 
-      {selectedAnnotation && (
+      {selectedAnnotation?.kind === 'text' && (
         <TextAnnotationInspector
           annotation={selectedAnnotation}
-          onUpdate={onUpdateAnnotation}
+          onUpdate={onUpdateTextAnnotation}
+          onRemove={onRemoveAnnotation}
+        />
+      )}
+
+      {selectedAnnotation?.kind === 'shape' && (
+        <ShapeAnnotationInspector
+          annotation={selectedAnnotation}
+          onUpdate={onUpdateShapeAnnotation}
           onRemove={onRemoveAnnotation}
         />
       )}

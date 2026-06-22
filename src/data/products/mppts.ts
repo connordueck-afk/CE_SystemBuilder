@@ -1,4 +1,4 @@
-// ============================================================
+﻿// ============================================================
 // mppts.ts — MPPT charge controller product definitions
 // ============================================================
 // All existing product IDs, pricing, and terminal layouts are
@@ -228,7 +228,7 @@ export const mppts: Product[] = [
 
   {
     id: 'mppt-75-15',
-    manufacturer: 'Victron Energy',
+    manufacturer: 'Victron',
     name: 'SmartSolar MPPT 75/15',
     productType: 'mppt',
     category: 'Charging',
@@ -258,7 +258,7 @@ export const mppts: Product[] = [
   },
   {
     id: 'mppt-100-20',
-    manufacturer: 'Victron Energy',
+    manufacturer: 'Victron',
     name: 'SmartSolar MPPT 100/20',
     productType: 'mppt',
     category: 'Charging',
@@ -288,7 +288,7 @@ export const mppts: Product[] = [
   },
   {
     id: 'mppt-100-50',
-    manufacturer: 'Victron Energy',
+    manufacturer: 'Victron',
     name: 'SmartSolar MPPT 100/50',
     productType: 'mppt',
     category: 'Charging',
@@ -318,7 +318,7 @@ export const mppts: Product[] = [
   },
   {
     id: 'mppt-150-35',
-    manufacturer: 'Victron Energy',
+    manufacturer: 'Victron',
     name: 'SmartSolar MPPT 150/35',
     productType: 'mppt',
     category: 'Charging',
@@ -348,7 +348,7 @@ export const mppts: Product[] = [
   },
   {
     id: 'mppt-150-45',
-    manufacturer: 'Victron Energy',
+    manufacturer: 'Victron',
     name: 'SmartSolar MPPT 150/45',
     productType: 'mppt',
     category: 'Charging',
@@ -377,7 +377,7 @@ export const mppts: Product[] = [
   },
   {
     id: 'mppt-150-70',
-    manufacturer: 'Victron Energy',
+    manufacturer: 'Victron',
     name: 'SmartSolar MPPT 150/70',
     productType: 'mppt',
     category: 'Charging',
@@ -406,7 +406,7 @@ export const mppts: Product[] = [
   },
   {
     id: 'mppt-150-85',
-    manufacturer: 'Victron Energy',
+    manufacturer: 'Victron',
     name: 'SmartSolar MPPT 150/85',
     productType: 'mppt',
     category: 'Charging',
@@ -436,7 +436,7 @@ export const mppts: Product[] = [
   },
   {
     id: 'mppt-250-70',
-    manufacturer: 'Victron Energy',
+    manufacturer: 'Victron',
     name: 'SmartSolar MPPT 250/70',
     productType: 'mppt',
     category: 'Charging',
