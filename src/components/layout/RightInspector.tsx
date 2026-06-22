@@ -50,6 +50,8 @@ interface Props {
   onUpdateConnectionDesignCurrent: (id: string, currentA: number | undefined) => void;
   onUpdateConnectionCableAwg: (id: string, awg: string) => void;
   onAutoConnectionCableAwg: (id: string) => void;
+  onUpdateConnectionCableColor: (id: string, color: string) => void;
+  onUpdateConnectionCableType: (id: string, type: string) => void;
   onResetConnectionRoute: (id: string) => void;
   onUpdateTextAnnotation: (id: string, patch: Partial<SystemTextAnnotation>) => void;
   onUpdateShapeAnnotation: (id: string, patch: Partial<SystemShapeAnnotation>) => void;
@@ -91,6 +93,8 @@ export function RightInspector({
   onUpdateConnectionDesignCurrent,
   onUpdateConnectionCableAwg,
   onAutoConnectionCableAwg,
+  onUpdateConnectionCableColor,
+  onUpdateConnectionCableType,
   onResetConnectionRoute,
   onUpdateTextAnnotation,
   onUpdateShapeAnnotation,
@@ -300,6 +304,8 @@ export function RightInspector({
             onUpdateDesignCurrent={onUpdateConnectionDesignCurrent}
             onUpdateCableAwg={onUpdateConnectionCableAwg}
             onAutoCableAwg={onAutoConnectionCableAwg}
+            onUpdateCableColor={onUpdateConnectionCableColor}
+            onUpdateCableType={onUpdateConnectionCableType}
             onResetRoute={onResetConnectionRoute}
             onRemove={onRemoveConnection}
           />

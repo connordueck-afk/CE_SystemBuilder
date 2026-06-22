@@ -1,4 +1,5 @@
 import type { CableLengthSummaryItem } from '../../types/system';
+import { cableColorSwatch } from '../inspector/ConnectionInspector';
 
 interface Props {
   summary: CableLengthSummaryItem[];
@@ -18,19 +19,43 @@ export function CableSummaryPanel({ summary }: Props) {
       <table className="bom-table">
         <thead>
           <tr>
-            <th>Cable Gauge</th>
-            <th>Total Length</th>
-            <th>Cable Count</th>
+            <th>Gauge</th>
+            <th>Color</th>
+            <th>Type</th>
+            <th>Length</th>
+            <th>Runs</th>
           </tr>
         </thead>
         <tbody>
-          {summary.map((item) => (
-            <tr key={item.gauge}>
-              <td>{item.gauge}</td>
-              <td>{item.totalLengthFt.toFixed(1)} ft</td>
-              <td>{item.cableCount}</td>
-            </tr>
-          ))}
+          {summary.map((item, i) => {
+            const swatch = item.color ? cableColorSwatch(item.color) : null;
+            return (
+              <tr key={i}>
+                <td>{item.gauge}</td>
+                <td>
+                  {item.color ? (
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                      {swatch && (
+                        <span style={{
+                          display: 'inline-block',
+                          width: 10,
+                          height: 10,
+                          borderRadius: '50%',
+                          background: swatch,
+                          border: '1px solid rgba(0,0,0,0.18)',
+                          flexShrink: 0,
+                        }} />
+                      )}
+                      {item.color}
+                    </span>
+                  ) : <span style={{ color: '#9aa5b4' }}>—</span>}
+                </td>
+                <td>{item.type || <span style={{ color: '#9aa5b4' }}>—</span>}</td>
+                <td>{item.totalLengthFt.toFixed(1)} ft</td>
+                <td>{item.cableCount}</td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>

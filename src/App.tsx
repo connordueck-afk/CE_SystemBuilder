@@ -36,6 +36,7 @@ import { HeaderBar } from './components/layout/HeaderBar';
 import { LeftPartSidebar } from './components/layout/LeftPartSidebar';
 import { RightInspector } from './components/layout/RightInspector';
 import { BomSummaryModal } from './components/layout/BomSummaryModal';
+import { NewSystemModal } from './components/layout/NewSystemModal';
 import { SchematicCanvas } from './components/schematic/SchematicCanvas';
 import { InlineFuseInsertModal } from './components/parts/InlineFuseInsertModal';
 import {
@@ -229,6 +230,7 @@ function enrichConnections(system: SystemDesign): SystemDesign {
 
       return {
         ...conn,
+        busType: connectionAnalysis.busType,
         calculatedCurrentA: connectionAnalysis.designCurrentA,
         recommendedFuseA: connectionAnalysis.recommendedFuseA,
         recommendedCableAwg: connectionAnalysis.recommendedCableAwg,
@@ -259,6 +261,7 @@ export function App() {
   const [canvasViewportCenter, setCanvasViewportCenter] = useState({ x: 600, y: 380 });
   const [busColors, setBusColors] = useState<BusColorMap>(DEFAULT_BUS_COLORS);
   const [bomModalOpen, setBomModalOpen] = useState(false);
+  const [newSystemModalOpen, setNewSystemModalOpen] = useState(false);
   const [leftDetailOpen, setLeftDetailOpen] = useState(false);
   const [leftCollapsed, setLeftCollapsed] = useState(false);
   const [rightCollapsed, setRightCollapsed] = useState(false);
@@ -698,6 +701,24 @@ export function App() {
     }));
   }, [updateSystem]);
 
+  const handleUpdateConnectionCableColor = useCallback((id: string, color: string) => {
+    updateSystem((s) => ({
+      ...s,
+      connections: s.connections.map((c) =>
+        c.id === id ? { ...c, cableColor: color || undefined } : c
+      ),
+    }));
+  }, [updateSystem]);
+
+  const handleUpdateConnectionCableType = useCallback((id: string, type: string) => {
+    updateSystem((s) => ({
+      ...s,
+      connections: s.connections.map((c) =>
+        c.id === id ? { ...c, cableType: type || undefined } : c
+      ),
+    }));
+  }, [updateSystem]);
+
   const handleInsertProtection = useCallback((recommendation: ProtectionRecommendation, marker: PathMarker) => {
     if (recommendation.busType !== 'dc_pos') {
       alert('Inline fuse insertion is currently available for DC positive conductors.');
@@ -1008,16 +1029,20 @@ export function App() {
   }, []);
 
   const handleReset = useCallback(() => {
-    if (confirm('Reset to the default 12V sample system? Unsaved changes will be lost.')) {
-      const fresh = { ...DEFAULT_SYSTEM, id: genId('sys'), createdAt: new Date().toISOString() };
-      setSystem(enrichConnections(withInferredConductors(withSingleComponentQuantities(fresh))));
-      undoStackRef.current = [];
-      redoStackRef.current = [];
-      copiedComponentRef.current = null;
-      setSelectedComponentId(null);
-      setSelectedConnectionId(null);
-      setSelectedAnnotationId(null);
-    }
+    setNewSystemModalOpen(true);
+  }, []);
+
+  const handleNewSystemSelect = useCallback((template: SystemDesign | null) => {
+    setNewSystemModalOpen(false);
+    const base = template ?? { ...DEFAULT_SYSTEM, components: [], connections: [], annotations: [] };
+    const fresh = { ...base, id: genId('sys'), createdAt: new Date().toISOString() };
+    setSystem(enrichConnections(withInferredConductors(withSingleComponentQuantities(fresh))));
+    undoStackRef.current = [];
+    redoStackRef.current = [];
+    copiedComponentRef.current = null;
+    setSelectedComponentId(null);
+    setSelectedConnectionId(null);
+    setSelectedAnnotationId(null);
   }, []);
 
   const handleExportCsv = useCallback(() => {
@@ -1172,6 +1197,8 @@ export function App() {
         onUpdateConnectionDesignCurrent={handleUpdateConnectionDesignCurrent}
         onUpdateConnectionCableAwg={handleUpdateConnectionCableAwg}
         onAutoConnectionCableAwg={handleAutoConnectionCableAwg}
+        onUpdateConnectionCableColor={handleUpdateConnectionCableColor}
+        onUpdateConnectionCableType={handleUpdateConnectionCableType}
         onResetConnectionRoute={handleResetConnectionRoute}
         onUpdateTextAnnotation={handleUpdateTextAnnotation}
         onUpdateShapeAnnotation={handleUpdateShapeAnnotation}
@@ -1181,6 +1208,13 @@ export function App() {
         onSelectComponent={handleFocusComponent}
         onSelectConnection={handleFocusConnection}
       />
+
+      {newSystemModalOpen && (
+        <NewSystemModal
+          onSelect={handleNewSystemSelect}
+          onClose={() => setNewSystemModalOpen(false)}
+        />
+      )}
 
       {bomModalOpen && (
         <BomSummaryModal

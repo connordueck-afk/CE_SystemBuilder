@@ -56,10 +56,12 @@ export function exportBomCsv(
   if (cableSummary.length > 0) {
     csvRows.push('');
     csvRows.push(['Cable Summary'].map(esc).join(','));
-    csvRows.push(['Cable Gauge', 'Total Length (ft)', 'Cable Count'].map(esc).join(','));
+    csvRows.push(['Cable Gauge', 'Color', 'Type', 'Total Length (ft)', 'Cable Count'].map(esc).join(','));
     csvRows.push(...cableSummary.map((item) =>
       [
         item.gauge,
+        item.color || '',
+        item.type || '',
         item.totalLengthFt.toFixed(1),
         item.cableCount,
       ]

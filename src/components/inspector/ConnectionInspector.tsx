@@ -1,8 +1,43 @@
-import type { SystemConnection, SystemComponent, Product } from '../../types/system';
+import type { InternalBusType, SystemConnection, SystemComponent, Product } from '../../types/system';
 import { CABLE_TABLE } from '../../data/cableAmpacity';
 import { getEffectiveTerminal } from '../../utils/effectiveTerminals';
 import { terminalDirectionLabel } from '../../utils/terminalDirection';
 import type { ProtectionRecommendation } from '../../utils/protectionRecommendations';
+
+const CABLE_COLORS = ['Red', 'Black', 'Yellow', 'Orange', 'Blue', 'Green', 'White', 'Brown', 'Gray', 'Purple'];
+const CABLE_TYPES = ['THHN/THWN', 'RHH/RHW-2', 'Marine Grade', 'Welding Cable', 'Battery Cable', 'Chassis Wire (MTW)'];
+
+const COLOR_SWATCHES: Record<string, string> = {
+  red: '#e53535', black: '#1a1a1a', yellow: '#e8c020', orange: '#e87020',
+  blue: '#1e6fd0', green: '#2a8a2a', white: '#e8e8e8', brown: '#8b5e3c',
+  gray: '#808080', grey: '#808080', purple: '#8040a0',
+};
+
+export function cableColorSwatch(color: string): string | null {
+  return COLOR_SWATCHES[color.toLowerCase()] ?? null;
+}
+
+const BUS_DEFAULT_COLOR: Partial<Record<InternalBusType, string>> = {
+  dc_pos: 'Red',
+  dc_neg: 'Black',
+  pv_pos: 'Red',
+  pv_neg: 'Black',
+  ac_line: 'Black',
+  ac_neutral: 'White',
+  ac_ground: 'Green',
+  chassis_ground: 'Green',
+};
+
+const BUS_DEFAULT_TYPE: Partial<Record<InternalBusType, string>> = {
+  dc_pos: 'Marine Grade',
+  dc_neg: 'Marine Grade',
+  pv_pos: 'RHH/RHW-2',
+  pv_neg: 'RHH/RHW-2',
+  ac_line: 'THHN/THWN',
+  ac_neutral: 'THHN/THWN',
+  ac_ground: 'THHN/THWN',
+  chassis_ground: 'THHN/THWN',
+};
 
 interface Props {
   connection: SystemConnection;
@@ -16,6 +51,8 @@ interface Props {
   onUpdateDesignCurrent: (id: string, currentA: number | undefined) => void;
   onUpdateCableAwg: (id: string, awg: string) => void;
   onAutoCableAwg: (id: string) => void;
+  onUpdateCableColor: (id: string, color: string) => void;
+  onUpdateCableType: (id: string, type: string) => void;
   onResetRoute: (id: string) => void;
   onRemove: (id: string) => void;
 }
@@ -41,12 +78,17 @@ export function ConnectionInspector({
   onUpdateDesignCurrent,
   onUpdateCableAwg,
   onAutoCableAwg,
+  onUpdateCableColor,
+  onUpdateCableType,
   onResetRoute,
   onRemove,
 }: Props) {
   const fromLabel = fromComponent?.label ?? fromProduct?.name ?? 'Unknown';
   const toLabel = toComponent?.label ?? toProduct?.name ?? 'Unknown';
   const dropWarn = (connection.voltageDropPercent ?? 0) > 3;
+  const busType = connection.busType;
+  const suggestedColor = busType ? (BUS_DEFAULT_COLOR[busType] ?? null) : null;
+  const suggestedType = busType ? (BUS_DEFAULT_TYPE[busType] ?? null) : null;
   const fromTerminal = fromComponent && fromProduct
     ? getEffectiveTerminal(fromProduct, connection.fromTerminalId, fromComponent)
     : undefined;
@@ -159,6 +201,38 @@ export function ConnectionInspector({
             }}
           />
           <span style={{ color: '#6d7b90', fontSize: 12, fontWeight: 600 }}>ft</span>
+        </div>
+        <div style={{ marginBottom: 6 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
+            <span className="connection-row-label" style={{ flex: 1 }}>Color</span>
+            <select
+              className="inspector-input"
+              style={{ width: 110 }}
+              value={connection.cableColor ?? ''}
+              onChange={(e) => onUpdateCableColor(connection.id, e.target.value)}
+            >
+              <option value="">{suggestedColor ? `Default (${suggestedColor})` : 'Select...'}</option>
+              {CABLE_COLORS.map((c) => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+        <div style={{ marginBottom: 6 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
+            <span className="connection-row-label" style={{ flex: 1 }}>Type</span>
+            <select
+              className="inspector-input"
+              style={{ width: 110 }}
+              value={connection.cableType ?? ''}
+              onChange={(e) => onUpdateCableType(connection.id, e.target.value)}
+            >
+              <option value="">{suggestedType ? `Default (${suggestedType})` : 'Select...'}</option>
+              {CABLE_TYPES.map((t) => (
+                <option key={t} value={t}>{t}</option>
+              ))}
+            </select>
+          </div>
         </div>
         <Row
           label="Voltage Drop"
