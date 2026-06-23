@@ -1,4 +1,12 @@
-import type { CableLengthSummaryItem, SystemConnection } from '../types/system';
+import type {
+  CableLengthSummaryItem,
+  Product,
+  SystemConnection,
+  SystemDesign,
+  TerminalConnector,
+} from '../types/system';
+import { selectLug, lugKey, type LugSpec } from '../data/lugs';
+import { connectorLabel, getEffectiveConnector } from './terminalConnectors';
 
 const INCHES_PER_FOOT = 12;
 
@@ -60,5 +68,166 @@ export function buildCableLengthSummary(connections: SystemConnection[]): CableL
     const colorCompare = a.color.localeCompare(b.color);
     if (colorCompare !== 0) return colorCompare;
     return a.type.localeCompare(b.type);
+  });
+}
+
+// -----------------------------------------------------------
+// Per-cable BOM + connector/lug aggregation
+// -----------------------------------------------------------
+
+/** Termination at one end of a physical cable. */
+export interface CableEndTermination {
+  /** Resolved connector at the node, when both endpoint product and terminal are known. */
+  connector?: TerminalConnector;
+  /** Lug part, present when the connector is a lug and the cable gauge is known. */
+  lug?: LugSpec;
+  /** Display label, e.g. 'Lug 3/8"', 'Screw terminal', or '—' when unknown. */
+  label: string;
+}
+
+/** One row per physical cable run, with termination detail at each end. */
+export interface CableBomRow {
+  connectionId: string;
+  fromLabel: string;
+  toLabel: string;
+  gauge: string;
+  color: string;
+  type: string;
+  lengthFt: number;
+  fromEnd: CableEndTermination;
+  toEnd: CableEndTermination;
+}
+
+/** Aggregated lug/connector line item across all cable ends. */
+export interface ConnectorSummaryItem {
+  key: string;
+  label: string;
+  holeSize?: string;
+  gauge?: string;
+  count: number;
+  /** Estimated unit price (USD), or null when not priced. */
+  estUnitMsrpUsd: number | null;
+  /** Estimated extended price (USD), or null when not priced. */
+  estExtendedMsrpUsd: number | null;
+}
+
+function effectiveGauge(connection: SystemConnection): string | undefined {
+  return connection.manualCableAwg ?? connection.recommendedCableAwg ?? undefined;
+}
+
+function resolveTermination(
+  product: Product | undefined,
+  terminalId: string,
+  component: SystemDesign['components'][number] | undefined,
+  gauge: string | undefined
+): CableEndTermination {
+  if (!product || !component) return { label: '—' };
+
+  const connector = getEffectiveConnector(product, terminalId, component);
+  if (!connector) return { label: '—' };
+
+  const lug = connector.kind === 'lug' ? selectLug(gauge, connector.holeSize) : undefined;
+  return { connector, lug, label: connectorLabel(connector) };
+}
+
+export function buildCableBomRows(
+  system: SystemDesign,
+  products: Map<string, Product>
+): CableBomRow[] {
+  const componentsById = new Map(system.components.map((c) => [c.id, c]));
+
+  const labelFor = (componentId: string): string => {
+    const component = componentsById.get(componentId);
+    if (!component) return 'Unknown';
+    return component.label ?? products.get(component.productId)?.name ?? 'Unknown';
+  };
+
+  const rows: CableBomRow[] = [];
+
+  for (const connection of system.connections) {
+    if (connection.cableLengthFt <= 0) continue;
+
+    const fromComponent = componentsById.get(connection.fromComponentId);
+    const toComponent = componentsById.get(connection.toComponentId);
+    const fromProduct = fromComponent ? products.get(fromComponent.productId) : undefined;
+    const toProduct = toComponent ? products.get(toComponent.productId) : undefined;
+    const gauge = effectiveGauge(connection);
+
+    rows.push({
+      connectionId: connection.id,
+      fromLabel: labelFor(connection.fromComponentId),
+      toLabel: labelFor(connection.toComponentId),
+      gauge: gauge ?? 'Unspecified',
+      color: connection.cableColor?.trim() || '',
+      type: connection.cableType?.trim() || '',
+      lengthFt: connection.cableLengthFt,
+      fromEnd: resolveTermination(fromProduct, connection.fromTerminalId, fromComponent, gauge),
+      toEnd: resolveTermination(toProduct, connection.toTerminalId, toComponent, gauge),
+    });
+  }
+
+  return rows;
+}
+
+export function buildConnectorSummary(rows: CableBomRow[]): ConnectorSummaryItem[] {
+  const byKey = new Map<string, ConnectorSummaryItem>();
+
+  const addEnd = (end: CableEndTermination) => {
+    if (!end.connector) return;
+
+    let key: string;
+    let label: string;
+    let holeSize: string | undefined;
+    let gauge: string | undefined;
+    let estUnit: number | null;
+
+    if (end.lug) {
+      key = lugKey(end.lug.awg, end.lug.holeSize);
+      label = end.lug.label;
+      holeSize = end.lug.holeSize;
+      gauge = end.lug.awg;
+      estUnit = end.lug.estMsrpUsd;
+    } else {
+      // Aggregate other countable terminations (screw terminals, ferrules, etc.)
+      key = `${end.connector.kind}|${end.connector.holeSize ?? ''}`;
+      label = connectorLabel(end.connector);
+      holeSize = end.connector.holeSize;
+      estUnit = null;
+    }
+
+    const existing = byKey.get(key);
+    if (existing) {
+      existing.count += 1;
+      existing.estExtendedMsrpUsd =
+        existing.estUnitMsrpUsd != null ? existing.estUnitMsrpUsd * existing.count : null;
+      return;
+    }
+
+    byKey.set(key, {
+      key,
+      label,
+      holeSize,
+      gauge,
+      count: 1,
+      estUnitMsrpUsd: estUnit,
+      estExtendedMsrpUsd: estUnit != null ? estUnit : null,
+    });
+  };
+
+  for (const row of rows) {
+    addEnd(row.fromEnd);
+    addEnd(row.toEnd);
+  }
+
+  return Array.from(byKey.values()).sort((a, b) => {
+    // Lugs (priced) first, then by gauge, then label.
+    const aLug = a.gauge != null;
+    const bLug = b.gauge != null;
+    if (aLug !== bLug) return aLug ? -1 : 1;
+    if (a.gauge && b.gauge) {
+      const g = a.gauge.localeCompare(b.gauge, undefined, { numeric: true });
+      if (g !== 0) return g;
+    }
+    return a.label.localeCompare(b.label);
   });
 }

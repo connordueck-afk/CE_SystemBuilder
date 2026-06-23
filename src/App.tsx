@@ -28,7 +28,7 @@ import type { BusType } from './utils/electricalNetlist';
 import { buildProtectionRecommendations } from './utils/protectionRecommendations';
 import type { ProtectionRecommendation } from './utils/protectionRecommendations';
 import { analyzeSystemCircuits } from './utils/circuitAnalysis';
-import { buildCableLengthSummary } from './utils/cableSummary';
+import { buildCableLengthSummary, buildCableBomRows, buildConnectorSummary } from './utils/cableSummary';
 import { DEFAULT_BUS_COLORS, type BusColorMap } from './utils/busColors';
 import { isVerticalOrientation } from './utils/componentOrientation';
 import { clampComponentScale, componentScale, scaledProductSize } from './utils/componentScale';
@@ -272,6 +272,8 @@ export function App() {
   // Derived
   const bomRows = useMemo(() => buildBom(system, PRODUCT_MAP), [system]);
   const cableSummary = useMemo(() => buildCableLengthSummary(system.connections), [system.connections]);
+  const cableBomRows = useMemo(() => buildCableBomRows(system, PRODUCT_MAP), [system]);
+  const connectorSummary = useMemo(() => buildConnectorSummary(cableBomRows), [cableBomRows]);
   const priceSummary = useMemo(() => buildPriceSummary(bomRows), [bomRows]);
   const electricalSummary = useMemo(() => buildElectricalSummary(system, PRODUCT_MAP), [system]);
   const warnings = useMemo(() => generateWarnings(system, PRODUCT_MAP), [system]);
@@ -1046,8 +1048,8 @@ export function App() {
   }, []);
 
   const handleExportCsv = useCallback(() => {
-    exportBomCsv(bomRows, system.name, cableSummary);
-  }, [bomRows, cableSummary, system.name]);
+    exportBomCsv(bomRows, system.name, cableSummary, connectorSummary);
+  }, [bomRows, cableSummary, connectorSummary, system.name]);
 
   const handleSelectComponent = useCallback((id: string | null) => {
     setSelectedComponentId(id);
@@ -1220,6 +1222,8 @@ export function App() {
         <BomSummaryModal
           bomRows={bomRows}
           cableSummary={cableSummary}
+          cableBomRows={cableBomRows}
+          connectorSummary={connectorSummary}
           priceSummary={priceSummary}
           electricalSummary={electricalSummary}
           onClose={() => setBomModalOpen(false)}

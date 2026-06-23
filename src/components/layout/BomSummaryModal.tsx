@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { BomRow, CableLengthSummaryItem, PriceSummary } from '../../types/system';
+import type { CableBomRow, ConnectorSummaryItem } from '../../utils/cableSummary';
 import type { ElectricalSummary } from '../../utils/systemSummary';
 import { fmt } from '../../utils/priceCalculations';
 import { BomTable } from '../summary/BomTable';
@@ -12,6 +13,8 @@ type BomTab = 'bom' | 'cables' | 'price' | 'electrical';
 interface Props {
   bomRows: BomRow[];
   cableSummary: CableLengthSummaryItem[];
+  cableBomRows: CableBomRow[];
+  connectorSummary: ConnectorSummaryItem[];
   priceSummary: PriceSummary;
   electricalSummary: ElectricalSummary;
   onClose: () => void;
@@ -21,6 +24,8 @@ interface Props {
 export function BomSummaryModal({
   bomRows,
   cableSummary,
+  cableBomRows,
+  connectorSummary,
   priceSummary,
   electricalSummary,
   onClose,
@@ -80,7 +85,13 @@ export function BomSummaryModal({
 
         <div className="bom-summary-content">
           {activeTab === 'bom' && <BomTable rows={bomRows} />}
-          {activeTab === 'cables' && <CableSummaryPanel summary={cableSummary} />}
+          {activeTab === 'cables' && (
+            <CableSummaryPanel
+              summary={cableSummary}
+              cableRows={cableBomRows}
+              connectorSummary={connectorSummary}
+            />
+          )}
           {activeTab === 'price' && (
             <PriceSummaryPanel
               summary={priceSummary}

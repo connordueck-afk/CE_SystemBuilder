@@ -209,6 +209,7 @@ const arrayTerminals: Product['terminals'] = [
     offsetX: 25,
     offsetY: 40,
     domain: 'pv' as const,
+    connector: { kind: 'mc4_male' },
     notes: 'PV array positive output.',
   },
   {
@@ -223,6 +224,7 @@ const arrayTerminals: Product['terminals'] = [
     offsetX: -25,
     offsetY: 40,
     domain: 'pv' as const,
+    connector: { kind: 'mc4_female' },
     notes: 'PV array negative output.',
   },
 ];

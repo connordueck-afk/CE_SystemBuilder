@@ -92,6 +92,26 @@ export type BusPolarity = 'positive' | 'negative';
 export type SolarWiringMode = 'series' | 'parallel';
 export type CableLengthUnit = 'ft' | 'm';
 
+// -----------------------------------------------------------
+// Connectors / terminations
+// -----------------------------------------------------------
+
+/**
+ * How a cable physically terminates at a node (product terminal). Baked into
+ * product definitions; not user-editable per placed component.
+ * - lug: a ring/lug crimped onto the cable, landing on a stud (carries holeSize).
+ * - screw_terminal: a clamp/screw terminal that accepts the bare conductor.
+ * - mc4_male / mc4_female: PV MC4 connectors (e.g. solar panel leads).
+ * Extensible for further specific connector types later.
+ */
+export type ConnectorKind = 'lug' | 'screw_terminal' | 'mc4_male' | 'mc4_female';
+
+export interface TerminalConnector {
+  kind: ConnectorKind;
+  /** Stud/hole size for lug-style connectors, e.g. '1/4', '5/16', '3/8', 'M6', 'M8', 'M10'. */
+  holeSize?: string;
+}
+
 export type ProductCapability =
   | 'ac-charger'
   | 'inverter'
@@ -143,6 +163,8 @@ export interface TerminalDefinition {
   voltageMaxV?: number;
   /** Maximum continuous power at this terminal (W). */
   powerMaxW?: number;
+  /** Default physical connector/termination at this node (overridable per placed component). */
+  connector?: TerminalConnector;
   /** Number of AC phases (1, 2, or 3). */
   phases?: 1 | 2 | 3;
   /** Total number of conductors at this terminal. */
