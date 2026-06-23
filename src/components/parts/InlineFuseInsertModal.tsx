@@ -25,6 +25,27 @@ function voltageCompatible(product: Product, systemVoltage: NominalVoltage): boo
   return voltages.includes(systemVoltage);
 }
 
+function protectionKind(recommendation: ProtectionRecommendation): 'Fuse' | 'Breaker' {
+  return recommendation.busType === 'ac_line' ? 'Breaker' : 'Fuse';
+}
+
+function productMatchesRecommendation(
+  product: Product,
+  recommendation: ProtectionRecommendation,
+  systemVoltage: NominalVoltage
+): boolean {
+  if (!voltageCompatible(product, systemVoltage)) return false;
+
+  if (recommendation.busType === 'ac_line') {
+    const acPowerTerminals = product.terminals.filter((terminal) => terminal.kind === 'ac_power');
+    return product.productType === 'breaker' &&
+      product.protectionRatings?.acDcCompatibility === 'ac' &&
+      acPowerTerminals.length === 2;
+  }
+
+  return product.productType === 'fuse';
+}
+
 export function InlineFuseInsertModal({
   recommendation,
   products,
@@ -32,55 +53,57 @@ export function InlineFuseInsertModal({
   onCancel,
   onConfirm,
 }: Props) {
-  const [selectedFuseStyle, setSelectedFuseStyle] = useState('');
+  const [selectedProtectionStyle, setSelectedProtectionStyle] = useState('');
   const [selectedProductId, setSelectedProductId] = useState('');
+  const kind = protectionKind(recommendation);
+  const kindLower = kind.toLowerCase();
 
-  const fuseProducts = useMemo(() => {
+  const protectionProducts = useMemo(() => {
     return [...products.values()]
-      .filter((product) => product.productType === 'fuse' && voltageCompatible(product, systemVoltage))
+      .filter((product) => productMatchesRecommendation(product, recommendation, systemVoltage))
       .sort((a, b) => (
         getFuseRating(a) - getFuseRating(b) ||
         fuseStyleRank(getFuseStyle(a)) - fuseStyleRank(getFuseStyle(b)) ||
         a.name.localeCompare(b.name)
       ));
-  }, [products, systemVoltage]);
+  }, [products, recommendation, systemVoltage]);
 
   const maxAmpacityA = ampacityForAwg(recommendation.recommendedCableAwg);
 
   useEffect(() => {
-    const best = selectBestFuseProduct(fuseProducts, {
+    const best = selectBestFuseProduct(protectionProducts, {
       targetA: recommendation.recommendedFuseA,
       maxAmpacityA,
     });
-    setSelectedFuseStyle(best ? getFuseStyle(best) : '');
+    setSelectedProtectionStyle(best ? getFuseStyle(best) : '');
     setSelectedProductId(best?.id ?? '');
-  }, [fuseProducts, recommendation.connectionId, recommendation.recommendedFuseA, maxAmpacityA]);
+  }, [protectionProducts, recommendation.connectionId, recommendation.recommendedFuseA, maxAmpacityA]);
 
-  const fuseStyles = useMemo(() => {
-    return [...new Set(fuseProducts.map(getFuseStyle))]
+  const protectionStyles = useMemo(() => {
+    return [...new Set(protectionProducts.map(getFuseStyle))]
       .sort((a, b) => fuseStyleRank(a) - fuseStyleRank(b) || a.localeCompare(b));
-  }, [fuseProducts]);
+  }, [protectionProducts]);
 
-  const fuseProductsForStyle = useMemo(() => {
-    return fuseProducts
-      .filter((product) => getFuseStyle(product) === selectedFuseStyle)
+  const protectionProductsForStyle = useMemo(() => {
+    return protectionProducts
+      .filter((product) => getFuseStyle(product) === selectedProtectionStyle)
       .sort((a, b) => getFuseRating(a) - getFuseRating(b) || a.name.localeCompare(b.name));
-  }, [fuseProducts, selectedFuseStyle]);
+  }, [protectionProducts, selectedProtectionStyle]);
 
-  const selectedProduct = products.get(selectedProductId) ?? fuseProductsForStyle[0];
+  const selectedProduct = products.get(selectedProductId) ?? protectionProductsForStyle[0];
   const selectedProductImageUrl = resolveProductImageUrl(
     selectedProduct ? getProductDisplayImageUrl(selectedProduct) : undefined
   );
 
-  function selectFuseStyle(style: string) {
-    const productsForStyle = fuseProducts
+  function selectProtectionStyle(style: string) {
+    const productsForStyle = protectionProducts
       .filter((product) => getFuseStyle(product) === style)
       .sort((a, b) => getFuseRating(a) - getFuseRating(b) || a.name.localeCompare(b.name));
     const best = selectBestFuseProduct(productsForStyle, {
       targetA: recommendation.recommendedFuseA,
       maxAmpacityA,
     });
-    setSelectedFuseStyle(style);
+    setSelectedProtectionStyle(style);
     setSelectedProductId(best?.id ?? productsForStyle[0]?.id ?? '');
   }
 
@@ -89,7 +112,7 @@ export function InlineFuseInsertModal({
       <div className="modal product-selector-modal" onClick={(event) => event.stopPropagation()}>
         <div className="product-selector-header">
           <div>
-            <div className="modal-title">Insert Fuse</div>
+            <div className="modal-title">Insert {kind}</div>
             <div className="product-selector-subtitle">
               {recommendation.message}
             </div>
@@ -113,14 +136,14 @@ export function InlineFuseInsertModal({
 
           <div className="product-selector-controls">
             <label className="selector-field">
-              <span>Fuse type</span>
+              <span>{kind} type</span>
               <select
                 className="category-select"
-                value={selectedFuseStyle}
-                onChange={(event) => selectFuseStyle(event.target.value)}
-                disabled={fuseStyles.length === 0}
+                value={selectedProtectionStyle}
+                onChange={(event) => selectProtectionStyle(event.target.value)}
+                disabled={protectionStyles.length === 0}
               >
-                {fuseStyles.map((style) => (
+                {protectionStyles.map((style) => (
                   <option key={style} value={style}>{style}</option>
                 ))}
               </select>
@@ -132,9 +155,9 @@ export function InlineFuseInsertModal({
                 className="category-select"
                 value={selectedProduct?.id ?? ''}
                 onChange={(event) => setSelectedProductId(event.target.value)}
-                disabled={fuseProductsForStyle.length === 0}
+                disabled={protectionProductsForStyle.length === 0}
               >
-                {fuseProductsForStyle.map((product) => (
+                {protectionProductsForStyle.map((product) => (
                   <option key={product.id} value={product.id}>{getFuseRating(product)}A</option>
                 ))}
               </select>
@@ -160,9 +183,9 @@ export function InlineFuseInsertModal({
               </div>
             ) : (
               <div className="selected-product-summary">
-                <div className="selected-product-name">No fuse models available</div>
+                <div className="selected-product-name">No {kindLower} models available</div>
                 <div className="selected-product-description">
-                  The catalog does not have a compatible fuse for this system voltage.
+                  The catalog does not have a compatible {kindLower} for this branch.
                 </div>
               </div>
             )}

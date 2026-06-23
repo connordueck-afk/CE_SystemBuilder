@@ -1,16 +1,17 @@
-import { useRef, useState, useCallback, useEffect } from 'react';
+import { useRef, useState, useCallback, useEffect, useMemo } from 'react';
 import type { SystemDesign, SystemComponent, Product } from '../../types/system';
 import { ComponentNode } from './ComponentNode';
 import { ConnectionLayer } from './ConnectionLayer';
 import { TextAnnotationNode } from './TextAnnotationNode';
 import { ShapeAnnotationNode } from './ShapeAnnotationNode';
-import { getEffectiveTerminal } from '../../utils/effectiveTerminals';
+import { getEffectiveTerminal, getEffectiveTerminals } from '../../utils/effectiveTerminals';
 import { getEffectiveProductForComponent } from '../../utils/solarCalculations';
 import type { ProtectionRecommendation } from '../../utils/protectionRecommendations';
 import type { BusColorMap } from '../../utils/busColors';
 import type { PathMarker } from '../../utils/connectionGeometry';
 import { isVerticalOrientation, transformOrientationOffset } from '../../utils/componentOrientation';
 import { componentScale, scaledProductSize, scaledTerminalOffset } from '../../utils/componentScale';
+import { validateSystemConnection } from '../../utils/connectionRules';
 
 interface DragState {
   componentId: string;
@@ -835,6 +836,37 @@ export function SchematicCanvas({
     });
   }, [pendingConn, viewportCenter, viewport.width, viewport.height]);
 
+  const validTargetTerminals = useMemo<Set<string> | null>(() => {
+    if (!pendingConn) return null;
+    const targets = new Set<string>();
+    for (const comp of system.components) {
+      const product = products.get(comp.productId);
+      if (!product) continue;
+      const effectiveProduct = getEffectiveProductForComponent(comp, product);
+      if (!effectiveProduct) continue;
+      const terminals = getEffectiveTerminals(effectiveProduct, comp);
+      for (const term of terminals) {
+        if (comp.id === pendingConn.fromComponentId && term.id === pendingConn.fromTerminalId) continue;
+        const result = validateSystemConnection(
+          {
+            fromComponentId: pendingConn.fromComponentId,
+            fromTerminalId: pendingConn.fromTerminalId,
+            toComponentId: comp.id,
+            toTerminalId: term.id,
+          },
+          system.components,
+          products
+        );
+        if (result.valid) targets.add(`${comp.id}:${term.id}`);
+      }
+    }
+    return targets;
+  }, [pendingConn, system.components, products]);
+
+  const pendingSourceKey = pendingConn
+    ? `${pendingConn.fromComponentId}:${pendingConn.fromTerminalId}`
+    : null;
+
   const handleTerminalMouseDown = useCallback((compId: string, termId: string, e: React.MouseEvent) => {
     if (!svgRef.current) return;
     e.stopPropagation();
@@ -842,7 +874,8 @@ export function SchematicCanvas({
     const pos = svgCoords(e, svgRef.current);
 
     if (pendingConn) {
-      if (pendingConn.fromComponentId !== compId || pendingConn.fromTerminalId !== termId) {
+      const isSelf = pendingConn.fromComponentId === compId && pendingConn.fromTerminalId === termId;
+      if (!isSelf && validTargetTerminals?.has(`${compId}:${termId}`)) {
         onAddConnection(pendingConn.fromComponentId, pendingConn.fromTerminalId, compId, termId);
       }
       setPendingConn(null);
@@ -858,7 +891,7 @@ export function SchematicCanvas({
         startY: comp ? comp.y + offset.y : pos.y,
       });
     }
-  }, [pendingConn, onAddConnection, system.components, products]);
+  }, [pendingConn, validTargetTerminals, onAddConnection, system.components, products]);
 
   const handleCanvasClick = useCallback(() => {
     setComponentContextMenu(null);
@@ -945,10 +978,10 @@ export function SchematicCanvas({
         {/* Grid dots */}
         <defs>
           <pattern id="grid" width={GRID} height={GRID} patternUnits="userSpaceOnUse">
-            <circle cx={GRID / 2} cy={GRID / 2} r={0.75} fill="#cbd6e4" />
+            <circle cx={GRID / 2} cy={GRID / 2} r={0.75} fill="var(--canvas-grid)" />
           </pattern>
         </defs>
-        <rect data-canvas-bg="true" x={WORLD_X} y={WORLD_Y} width={WORLD_W} height={WORLD_H} fill="#f4f7fb" />
+        <rect data-canvas-bg="true" x={WORLD_X} y={WORLD_Y} width={WORLD_W} height={WORLD_H} fill="var(--canvas)" />
         <rect data-canvas-bg="true" x={WORLD_X} y={WORLD_Y} width={WORLD_W} height={WORLD_H} fill="url(#grid)" />
 
         {/* Connection hit areas below components */}
@@ -983,7 +1016,8 @@ export function SchematicCanvas({
               component={comp}
               product={product}
               selected={comp.id === selectedComponentId}
-              pendingFromTerminal={pendingConn?.fromTerminalId ?? null}
+              pendingSourceKey={pendingSourceKey}
+              validTargetTerminals={validTargetTerminals}
               busColors={busColors}
               onSelect={(id) => {
                 setFusePrompt(null);
@@ -1038,40 +1072,44 @@ export function SchematicCanvas({
             : <TextAnnotationNode {...commonProps} annotation={annotation} />;
         })}
 
-        {fusePrompt && (
-          <g
-            transform={`translate(${fusePrompt.marker.point.x + 16} ${fusePrompt.marker.point.y + 14})`}
-            style={{ cursor: 'pointer' }}
-            onClick={(e) => {
-              e.stopPropagation();
-              onInsertProtection(fusePrompt.recommendation, fusePrompt.marker);
-              setFusePrompt(null);
-            }}
-          >
-            <title>Add recommended fuse</title>
-            <rect
-              x={0}
-              y={0}
-              width={70}
-              height={24}
-              rx={6}
-              fill="#1769d2"
-              stroke="#1055ad"
-              strokeWidth={1}
-            />
-            <text
-              x={35}
-              y={16}
-              textAnchor="middle"
-              fill="#ffffff"
-              fontSize={10}
-              fontWeight={700}
-              style={{ pointerEvents: 'none', userSelect: 'none' }}
+        {fusePrompt && (() => {
+          const label = fusePrompt.recommendation.busType === 'ac_line' ? 'Add Breaker' : 'Add Fuse';
+
+          return (
+            <g
+              transform={`translate(${fusePrompt.marker.point.x + 16} ${fusePrompt.marker.point.y + 14})`}
+              style={{ cursor: 'pointer' }}
+              onClick={(e) => {
+                e.stopPropagation();
+                onInsertProtection(fusePrompt.recommendation, fusePrompt.marker);
+                setFusePrompt(null);
+              }}
             >
-              Add Fuse
-            </text>
-          </g>
-        )}
+              <title>{label}</title>
+              <rect
+                x={0}
+                y={0}
+                width={82}
+                height={24}
+                rx={6}
+                fill="#1769d2"
+                stroke="#1055ad"
+                strokeWidth={1}
+              />
+              <text
+                x={41}
+                y={16}
+                textAnchor="middle"
+                fill="#ffffff"
+                fontSize={10}
+                fontWeight={700}
+                style={{ pointerEvents: 'none', userSelect: 'none' }}
+              >
+                {label}
+              </text>
+            </g>
+          );
+        })()}
       </svg>
       {componentContextMenu && menuComponent && (
         <div

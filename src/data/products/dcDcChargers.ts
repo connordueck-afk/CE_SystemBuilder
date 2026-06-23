@@ -1,5 +1,5 @@
 // ============================================================
-// dcDcChargers.ts — DC-DC converter and charger product definitions
+// dcDcChargers.ts ï¿½ DC-DC converter and charger product definitions
 // ============================================================
 // Includes: Orion XS, Orion-Tr Smart (isolated & non-isolated),
 // Orion-Tr (isolated), Buck-Boost, and Orion wide-input series.
@@ -12,7 +12,7 @@
 import type { Product } from '../../types/system';
 
 // Output terminals get maxCurrentA so the terminal-first path sizes output wires/fuses
-// correctly. Input terminals stay without maxCurrentA — for voltage-converting units the
+// correctly. Input terminals stay without maxCurrentA ï¿½ for voltage-converting units the
 // input current differs from output current; the productType switch derives input current
 // from outputPowerW / inputVoltage, which is correct.
 function dcDcTerminals(outputCurrentA: number): Product['terminals'] {
@@ -86,7 +86,7 @@ function dcDcTerminals(outputCurrentA: number): Product['terminals'] {
 
 export const dcDcChargers: Product[] = [
   // ==========================================================
-  // Orion XS — high-current smart chargers
+  // Orion XS ï¿½ high-current smart chargers
   // ==========================================================
 
   {
@@ -99,7 +99,7 @@ export const dcDcChargers: Product[] = [
     maxCurrentA: 50,
     continuousPowerW: 600,
     msrpUsd: 381,
-    description: 'Victron Orion XS 12V/12V-50A — smart DC-DC charger with Bluetooth/VE.Direct',
+    description: 'Victron Orion XS 12V/12V-50A ï¿½ smart DC-DC charger with Bluetooth/VE.Direct',
     partNumber: 'ORI121217050',
     source: 'Victron 2025',
     dataQuality: 'partial',
@@ -118,7 +118,7 @@ export const dcDcChargers: Product[] = [
     maxCurrentA: 50,
     continuousPowerW: 1200,
     msrpUsd: 436,
-    description: 'Victron Orion XS 24V/24V-50A — smart DC-DC charger with Bluetooth/VE.Direct',
+    description: 'Victron Orion XS 24V/24V-50A ï¿½ smart DC-DC charger with Bluetooth/VE.Direct',
     partNumber: 'ORI242417040',
     source: 'Victron 2025',
     dataQuality: 'partial',
@@ -129,7 +129,7 @@ export const dcDcChargers: Product[] = [
   },
 
   // ==========================================================
-  // Buck-Boost — bi-directional DC-DC converters
+  // Buck-Boost ï¿½ bi-directional DC-DC converters
   // ==========================================================
 
   {
@@ -142,7 +142,7 @@ export const dcDcChargers: Product[] = [
     maxCurrentA: 25,
     continuousPowerW: 300,
     msrpUsd: 662,
-    description: 'Victron 25A Buck-Boost bi-directional DC-DC converter — CAN-bus',
+    description: 'Victron 25A Buck-Boost bi-directional DC-DC converter ï¿½ CAN-bus',
     partNumber: 'ORI303025000',
     source: 'Victron 2025',
     dataQuality: 'partial',
@@ -161,7 +161,7 @@ export const dcDcChargers: Product[] = [
     maxCurrentA: 50,
     continuousPowerW: 600,
     msrpUsd: 823,
-    description: 'Victron 50A Buck-Boost bi-directional DC-DC converter — CAN-bus',
+    description: 'Victron 50A Buck-Boost bi-directional DC-DC converter ï¿½ CAN-bus',
     partNumber: 'ORI303050000',
     source: 'Victron 2025',
     dataQuality: 'partial',
@@ -180,7 +180,7 @@ export const dcDcChargers: Product[] = [
     maxCurrentA: 100,
     continuousPowerW: 1200,
     msrpUsd: 1440,
-    description: 'Victron 100A Buck-Boost bi-directional DC-DC converter — CAN-bus',
+    description: 'Victron 100A Buck-Boost bi-directional DC-DC converter ï¿½ CAN-bus',
     partNumber: 'ORI303100000',
     source: 'Victron 2025',
     dataQuality: 'partial',
@@ -191,7 +191,7 @@ export const dcDcChargers: Product[] = [
   },
 
   // ==========================================================
-  // Orion-Tr Smart — non-isolated (Bluetooth)
+  // Orion-Tr Smart ï¿½ non-isolated (Bluetooth)
   // ==========================================================
 
   {
@@ -204,7 +204,7 @@ export const dcDcChargers: Product[] = [
     maxCurrentA: 30,
     continuousPowerW: 360,
     msrpUsd: 264,
-    description: 'Victron Orion-Tr Smart 12V/12V-30A non-isolated DC-DC converter — Bluetooth',
+    description: 'Victron Orion-Tr Smart 12V/12V-30A non-isolated DC-DC converter ï¿½ Bluetooth',
     partNumber: 'ORI121236140',
     productUrl: 'https://www.cdnrg.com/products/veori121236140',
     source: 'Victron 2025',
@@ -224,7 +224,7 @@ export const dcDcChargers: Product[] = [
     maxCurrentA: 30,
     continuousPowerW: 360,
     msrpUsd: 264,
-    description: 'Victron Orion-Tr Smart 24V/12V-30A non-isolated DC-DC converter — Bluetooth',
+    description: 'Victron Orion-Tr Smart 24V/12V-30A non-isolated DC-DC converter ï¿½ Bluetooth',
     partNumber: 'ORI241236140',
     productUrl: 'https://www.cdnrg.com/products/veori241236140',
     source: 'Victron 2025',
@@ -244,7 +244,7 @@ export const dcDcChargers: Product[] = [
     maxCurrentA: 15,
     continuousPowerW: 360,
     msrpUsd: 264,
-    description: 'Victron Orion-Tr Smart 12V/24V-15A non-isolated DC-DC converter — Bluetooth',
+    description: 'Victron Orion-Tr Smart 12V/24V-15A non-isolated DC-DC converter ï¿½ Bluetooth',
     partNumber: 'ORI122436140',
     productUrl: 'https://www.cdnrg.com/products/veori122436140',
     source: 'Victron 2025',
@@ -264,7 +264,7 @@ export const dcDcChargers: Product[] = [
     maxCurrentA: 17,
     continuousPowerW: 408,
     msrpUsd: 264,
-    description: 'Victron Orion-Tr Smart 24V/24V-17A non-isolated DC-DC converter — Bluetooth',
+    description: 'Victron Orion-Tr Smart 24V/24V-17A non-isolated DC-DC converter ï¿½ Bluetooth',
     partNumber: 'ORI242440140',
     productUrl: 'https://www.cdnrg.com/products/veori242440140',
     source: 'Victron 2025',
@@ -276,7 +276,7 @@ export const dcDcChargers: Product[] = [
   },
 
   // ==========================================================
-  // Orion-Tr Smart — isolated (Bluetooth) — 12V output
+  // Orion-Tr Smart ï¿½ isolated (Bluetooth) ï¿½ 12V output
   // ==========================================================
 
   {
@@ -289,7 +289,7 @@ export const dcDcChargers: Product[] = [
     maxCurrentA: 18,
     continuousPowerW: 216,
     msrpUsd: 196,
-    description: 'Victron Orion-Tr Smart 12V/12V-18A isolated DC-DC charger — Bluetooth',
+    description: 'Victron Orion-Tr Smart 12V/12V-18A isolated DC-DC charger ï¿½ Bluetooth',
     partNumber: 'ORI121222120',
     productUrl: 'https://www.cdnrg.com/products/veori121222120',
     source: 'Victron 2025',
@@ -309,7 +309,7 @@ export const dcDcChargers: Product[] = [
     maxCurrentA: 20,
     continuousPowerW: 240,
     msrpUsd: 196,
-    description: 'Victron Orion-Tr Smart 24V/12V-20A isolated DC-DC charger — Bluetooth',
+    description: 'Victron Orion-Tr Smart 24V/12V-20A isolated DC-DC charger ï¿½ Bluetooth',
     partNumber: 'ORI241224120',
     productUrl: 'https://www.cdnrg.com/products/veori241224120',
     source: 'Victron 2025',
@@ -329,7 +329,7 @@ export const dcDcChargers: Product[] = [
     maxCurrentA: 30,
     continuousPowerW: 360,
     msrpUsd: 299,
-    description: 'Victron Orion-Tr Smart 24V/12V-30A isolated DC-DC charger — Bluetooth',
+    description: 'Victron Orion-Tr Smart 24V/12V-30A isolated DC-DC charger ï¿½ Bluetooth',
     partNumber: 'ORI241236120',
     productUrl: 'https://www.cdnrg.com/products/veori241236120',
     source: 'Victron 2025',
@@ -349,7 +349,7 @@ export const dcDcChargers: Product[] = [
     maxCurrentA: 20,
     continuousPowerW: 240,
     msrpUsd: 196,
-    description: 'Victron Orion-Tr Smart 48V/12V-20A isolated DC-DC charger — Bluetooth',
+    description: 'Victron Orion-Tr Smart 48V/12V-20A isolated DC-DC charger ï¿½ Bluetooth',
     partNumber: 'ORI481224120',
     source: 'Victron 2025',
     dataQuality: 'partial',
@@ -368,7 +368,7 @@ export const dcDcChargers: Product[] = [
     maxCurrentA: 30,
     continuousPowerW: 360,
     msrpUsd: 299,
-    description: 'Victron Orion-Tr Smart 48V/12V-30A isolated DC-DC charger — Bluetooth',
+    description: 'Victron Orion-Tr Smart 48V/12V-30A isolated DC-DC charger ï¿½ Bluetooth',
     partNumber: 'ORI481238120',
     source: 'Victron 2025',
     dataQuality: 'partial',
@@ -379,7 +379,7 @@ export const dcDcChargers: Product[] = [
   },
 
   // ==========================================================
-  // Orion-Tr Smart — isolated — 24V output
+  // Orion-Tr Smart ï¿½ isolated ï¿½ 24V output
   // ==========================================================
 
   {
@@ -392,7 +392,7 @@ export const dcDcChargers: Product[] = [
     maxCurrentA: 10,
     continuousPowerW: 240,
     msrpUsd: 196,
-    description: 'Victron Orion-Tr Smart 12V/24V-10A isolated DC-DC charger — Bluetooth',
+    description: 'Victron Orion-Tr Smart 12V/24V-10A isolated DC-DC charger ï¿½ Bluetooth',
     partNumber: 'ORI122424120',
     productUrl: 'https://www.cdnrg.com/products/veori122424120',
     source: 'Victron 2025',
@@ -412,7 +412,7 @@ export const dcDcChargers: Product[] = [
     maxCurrentA: 15,
     continuousPowerW: 360,
     msrpUsd: 299,
-    description: 'Victron Orion-Tr Smart 12V/24V-15A isolated DC-DC charger — Bluetooth',
+    description: 'Victron Orion-Tr Smart 12V/24V-15A isolated DC-DC charger ï¿½ Bluetooth',
     partNumber: 'ORI122436120',
     productUrl: 'https://www.cdnrg.com/products/veori122436120',
     source: 'Victron 2025',
@@ -432,7 +432,7 @@ export const dcDcChargers: Product[] = [
     maxCurrentA: 12,
     continuousPowerW: 280,
     msrpUsd: 196,
-    description: 'Victron Orion-Tr Smart 24V/24V-12A isolated DC-DC charger — Bluetooth',
+    description: 'Victron Orion-Tr Smart 24V/24V-12A isolated DC-DC charger ï¿½ Bluetooth',
     partNumber: 'ORI242428120',
     source: 'Victron 2025',
     dataQuality: 'partial',
@@ -451,7 +451,7 @@ export const dcDcChargers: Product[] = [
     maxCurrentA: 17,
     continuousPowerW: 400,
     msrpUsd: 299,
-    description: 'Victron Orion-Tr Smart 24V/24V-17A isolated DC-DC charger — Bluetooth',
+    description: 'Victron Orion-Tr Smart 24V/24V-17A isolated DC-DC charger ï¿½ Bluetooth',
     partNumber: 'ORI242440120',
     productUrl: 'https://www.cdnrg.com/products/veori242440120',
     source: 'Victron 2025',
@@ -471,7 +471,7 @@ export const dcDcChargers: Product[] = [
     maxCurrentA: 16,
     continuousPowerW: 380,
     msrpUsd: 299,
-    description: 'Victron Orion-Tr Smart 48V/24V-16A isolated DC-DC charger — Bluetooth',
+    description: 'Victron Orion-Tr Smart 48V/24V-16A isolated DC-DC charger ï¿½ Bluetooth',
     partNumber: 'ORI482438120',
     source: 'Victron 2025',
     dataQuality: 'partial',
@@ -482,7 +482,7 @@ export const dcDcChargers: Product[] = [
   },
 
   // ==========================================================
-  // Orion-Tr Smart — isolated — 48V output
+  // Orion-Tr Smart ï¿½ isolated ï¿½ 48V output
   // ==========================================================
 
   {
@@ -495,7 +495,7 @@ export const dcDcChargers: Product[] = [
     maxCurrentA: 8,
     continuousPowerW: 380,
     msrpUsd: 299,
-    description: 'Victron Orion-Tr Smart 12V/48V-8A isolated DC-DC charger — Bluetooth',
+    description: 'Victron Orion-Tr Smart 12V/48V-8A isolated DC-DC charger ï¿½ Bluetooth',
     partNumber: 'ORI124838120',
     source: 'Victron 2025',
     dataQuality: 'partial',
@@ -514,7 +514,7 @@ export const dcDcChargers: Product[] = [
     maxCurrentA: 9,
     continuousPowerW: 400,
     msrpUsd: 299,
-    description: 'Victron Orion-Tr Smart 24V/48V-8.5A isolated DC-DC charger — Bluetooth',
+    description: 'Victron Orion-Tr Smart 24V/48V-8.5A isolated DC-DC charger ï¿½ Bluetooth',
     partNumber: 'ORI244840120',
     source: 'Victron 2025',
     dataQuality: 'partial',
@@ -533,7 +533,7 @@ export const dcDcChargers: Product[] = [
     maxCurrentA: 8,
     continuousPowerW: 380,
     msrpUsd: 299,
-    description: 'Victron Orion-Tr Smart 48V/48V-8A isolated DC-DC charger — Bluetooth',
+    description: 'Victron Orion-Tr Smart 48V/48V-8A isolated DC-DC charger ï¿½ Bluetooth',
     partNumber: 'ORI484838120',
     source: 'Victron 2025',
     dataQuality: 'partial',
@@ -544,7 +544,7 @@ export const dcDcChargers: Product[] = [
   },
 
   // ==========================================================
-  // Orion-Tr (non-Smart) — isolated converters — 12V output
+  // Orion-Tr (non-Smart) ï¿½ isolated converters ï¿½ 12V output
   // ==========================================================
 
   {
@@ -557,7 +557,7 @@ export const dcDcChargers: Product[] = [
     maxCurrentA: 9,
     continuousPowerW: 110,
     msrpUsd: 78,
-    description: 'Victron Orion-Tr 12V/12V-9A isolated converter — remote on/off',
+    description: 'Victron Orion-Tr 12V/12V-9A isolated converter ï¿½ remote on/off',
     partNumber: 'ORI121210110',
     productUrl: 'https://www.cdnrg.com/products/veori121210110',
     source: 'Victron 2025',
@@ -577,7 +577,7 @@ export const dcDcChargers: Product[] = [
     maxCurrentA: 18,
     continuousPowerW: 220,
     msrpUsd: 140,
-    description: 'Victron Orion-Tr 12V/12V-18A isolated converter — remote on/off',
+    description: 'Victron Orion-Tr 12V/12V-18A isolated converter ï¿½ remote on/off',
     partNumber: 'ORI121222110',
     productUrl: 'https://www.cdnrg.com/products/veori121222110',
     source: 'Victron 2025',
@@ -597,7 +597,7 @@ export const dcDcChargers: Product[] = [
     maxCurrentA: 9,
     continuousPowerW: 110,
     msrpUsd: 78,
-    description: 'Victron Orion-Tr 24V/12V-9A isolated converter — remote on/off',
+    description: 'Victron Orion-Tr 24V/12V-9A isolated converter ï¿½ remote on/off',
     partNumber: 'ORI241210110',
     productUrl: 'https://www.cdnrg.com/products/veori241210110',
     source: 'Victron 2025',
@@ -617,7 +617,7 @@ export const dcDcChargers: Product[] = [
     maxCurrentA: 20,
     continuousPowerW: 240,
     msrpUsd: 140,
-    description: 'Victron Orion-Tr 24V/12V-20A isolated converter — remote on/off',
+    description: 'Victron Orion-Tr 24V/12V-20A isolated converter ï¿½ remote on/off',
     partNumber: 'ORI241224110',
     productUrl: 'https://www.cdnrg.com/products/veori241224110',
     source: 'Victron 2025',
@@ -637,7 +637,7 @@ export const dcDcChargers: Product[] = [
     maxCurrentA: 30,
     continuousPowerW: 360,
     msrpUsd: 246,
-    description: 'Victron Orion-Tr 24V/12V-30A isolated converter — remote on/off',
+    description: 'Victron Orion-Tr 24V/12V-30A isolated converter ï¿½ remote on/off',
     partNumber: 'ORI241240110',
     productUrl: 'https://www.cdnrg.com/products/veori241240110',
     source: 'Victron 2025',
@@ -657,7 +657,7 @@ export const dcDcChargers: Product[] = [
     maxCurrentA: 9,
     continuousPowerW: 110,
     msrpUsd: 78,
-    description: 'Victron Orion-Tr 48V/12V-9A isolated converter — remote on/off',
+    description: 'Victron Orion-Tr 48V/12V-9A isolated converter ï¿½ remote on/off',
     partNumber: 'ORI481210110',
     productUrl: 'https://www.cdnrg.com/products/veori481210110',
     source: 'Victron 2025',
@@ -677,7 +677,7 @@ export const dcDcChargers: Product[] = [
     maxCurrentA: 20,
     continuousPowerW: 240,
     msrpUsd: 140,
-    description: 'Victron Orion-Tr 48V/12V-20A isolated converter — remote on/off',
+    description: 'Victron Orion-Tr 48V/12V-20A isolated converter ï¿½ remote on/off',
     partNumber: 'ORI481224110',
     productUrl: 'https://www.cdnrg.com/products/veori481224110',
     source: 'Victron 2025',
@@ -697,7 +697,7 @@ export const dcDcChargers: Product[] = [
     maxCurrentA: 30,
     continuousPowerW: 360,
     msrpUsd: 246,
-    description: 'Victron Orion-Tr 48V/12V-30A isolated converter — remote on/off',
+    description: 'Victron Orion-Tr 48V/12V-30A isolated converter ï¿½ remote on/off',
     partNumber: 'ORI481240110',
     productUrl: 'https://www.cdnrg.com/products/veori481240110',
     source: 'Victron 2025',
@@ -717,7 +717,7 @@ export const dcDcChargers: Product[] = [
     maxCurrentA: 30,
     continuousPowerW: 360,
     msrpUsd: 447,
-    description: 'Victron Orion 110V/12V-30A isolated converter — remote on/off (wide input for truck/bus)',
+    description: 'Victron Orion 110V/12V-30A isolated converter ï¿½ remote on/off (wide input for truck/bus)',
     partNumber: 'ORI110123610',
     source: 'Victron 2025',
     dataQuality: 'partial',
@@ -728,7 +728,7 @@ export const dcDcChargers: Product[] = [
   },
 
   // ==========================================================
-  // Orion-Tr (non-Smart) — isolated — 24V output
+  // Orion-Tr (non-Smart) ï¿½ isolated ï¿½ 24V output
   // ==========================================================
 
   {
@@ -741,7 +741,7 @@ export const dcDcChargers: Product[] = [
     maxCurrentA: 5,
     continuousPowerW: 120,
     msrpUsd: 78,
-    description: 'Victron Orion-Tr 12V/24V-5A isolated converter — remote on/off',
+    description: 'Victron Orion-Tr 12V/24V-5A isolated converter ï¿½ remote on/off',
     partNumber: 'ORI122410110',
     productUrl: 'https://www.cdnrg.com/products/veori122410110',
     source: 'Victron 2025',
@@ -761,7 +761,7 @@ export const dcDcChargers: Product[] = [
     maxCurrentA: 10,
     continuousPowerW: 240,
     msrpUsd: 140,
-    description: 'Victron Orion-Tr 12V/24V-10A isolated converter — remote on/off',
+    description: 'Victron Orion-Tr 12V/24V-10A isolated converter ï¿½ remote on/off',
     partNumber: 'ORI122424110',
     productUrl: 'https://www.cdnrg.com/products/veori122424110',
     source: 'Victron 2025',
@@ -781,7 +781,7 @@ export const dcDcChargers: Product[] = [
     maxCurrentA: 15,
     continuousPowerW: 360,
     msrpUsd: 246,
-    description: 'Victron Orion-Tr 12V/24V-15A isolated converter — remote on/off',
+    description: 'Victron Orion-Tr 12V/24V-15A isolated converter ï¿½ remote on/off',
     partNumber: 'ORI122441110',
     productUrl: 'https://www.cdnrg.com/products/veori122441110',
     source: 'Victron 2025',
@@ -801,7 +801,7 @@ export const dcDcChargers: Product[] = [
     maxCurrentA: 5,
     continuousPowerW: 120,
     msrpUsd: 78,
-    description: 'Victron Orion-Tr 24V/24V-5A isolated converter — remote on/off',
+    description: 'Victron Orion-Tr 24V/24V-5A isolated converter ï¿½ remote on/off',
     partNumber: 'ORI242410110',
     productUrl: 'https://www.cdnrg.com/products/veori242410110',
     source: 'Victron 2025',
@@ -821,7 +821,7 @@ export const dcDcChargers: Product[] = [
     maxCurrentA: 12,
     continuousPowerW: 280,
     msrpUsd: 140,
-    description: 'Victron Orion-Tr 24V/24V-12A isolated converter — remote on/off',
+    description: 'Victron Orion-Tr 24V/24V-12A isolated converter ï¿½ remote on/off',
     partNumber: 'ORI242428110',
     productUrl: 'https://www.cdnrg.com/products/veori242428110',
     source: 'Victron 2025',
@@ -841,7 +841,7 @@ export const dcDcChargers: Product[] = [
     maxCurrentA: 17,
     continuousPowerW: 400,
     msrpUsd: 246,
-    description: 'Victron Orion-Tr 24V/24V-17A isolated converter — remote on/off',
+    description: 'Victron Orion-Tr 24V/24V-17A isolated converter ï¿½ remote on/off',
     partNumber: 'ORI242441110',
     productUrl: 'https://www.cdnrg.com/products/veori242441110',
     source: 'Victron 2025',
@@ -861,7 +861,7 @@ export const dcDcChargers: Product[] = [
     maxCurrentA: 5,
     continuousPowerW: 120,
     msrpUsd: 78,
-    description: 'Victron Orion-Tr 48V/24V-5A isolated converter — remote on/off',
+    description: 'Victron Orion-Tr 48V/24V-5A isolated converter ï¿½ remote on/off',
     partNumber: 'ORI482410110',
     productUrl: 'https://www.cdnrg.com/products/veori482410110',
     source: 'Victron 2025',
@@ -881,7 +881,7 @@ export const dcDcChargers: Product[] = [
     maxCurrentA: 12,
     continuousPowerW: 280,
     msrpUsd: 140,
-    description: 'Victron Orion-Tr 48V/24V-12A isolated converter — remote on/off',
+    description: 'Victron Orion-Tr 48V/24V-12A isolated converter ï¿½ remote on/off',
     partNumber: 'ORI482428110',
     productUrl: 'https://www.cdnrg.com/products/veori482428110',
     source: 'Victron 2025',
@@ -901,7 +901,7 @@ export const dcDcChargers: Product[] = [
     maxCurrentA: 16,
     continuousPowerW: 380,
     msrpUsd: 246,
-    description: 'Victron Orion-Tr 48V/24V-16A isolated converter — remote on/off',
+    description: 'Victron Orion-Tr 48V/24V-16A isolated converter ï¿½ remote on/off',
     partNumber: 'ORI482441110',
     productUrl: 'https://www.cdnrg.com/products/veori482441110',
     source: 'Victron 2025',
@@ -921,7 +921,7 @@ export const dcDcChargers: Product[] = [
     maxCurrentA: 15,
     continuousPowerW: 360,
     msrpUsd: 447,
-    description: 'Victron Orion 110V/24V-15A isolated converter — remote on/off (wide input for truck/bus)',
+    description: 'Victron Orion 110V/24V-15A isolated converter ï¿½ remote on/off (wide input for truck/bus)',
     partNumber: 'ORI110243610',
     source: 'Victron 2025',
     dataQuality: 'partial',
@@ -932,7 +932,7 @@ export const dcDcChargers: Product[] = [
   },
 
   // ==========================================================
-  // Orion-Tr (non-Smart) — isolated — 48V output
+  // Orion-Tr (non-Smart) ï¿½ isolated ï¿½ 48V output
   // ==========================================================
 
   {
@@ -945,7 +945,7 @@ export const dcDcChargers: Product[] = [
     maxCurrentA: 8,
     continuousPowerW: 380,
     msrpUsd: 246,
-    description: 'Victron Orion-Tr 12V/48V-8A isolated converter — remote on/off',
+    description: 'Victron Orion-Tr 12V/48V-8A isolated converter ï¿½ remote on/off',
     partNumber: 'ORI124838110',
     source: 'Victron 2025',
     dataQuality: 'partial',
@@ -964,7 +964,7 @@ export const dcDcChargers: Product[] = [
     maxCurrentA: 3,
     continuousPowerW: 120,
     msrpUsd: 78,
-    description: 'Victron Orion-Tr 24V/48V-2.5A isolated converter — remote on/off',
+    description: 'Victron Orion-Tr 24V/48V-2.5A isolated converter ï¿½ remote on/off',
     partNumber: 'ORI244810110',
     productUrl: 'https://www.cdnrg.com/products/veori244810110',
     source: 'Victron 2025',
@@ -984,7 +984,7 @@ export const dcDcChargers: Product[] = [
     maxCurrentA: 6,
     continuousPowerW: 280,
     msrpUsd: 140,
-    description: 'Victron Orion-Tr 24V/48V-6A isolated converter — remote on/off',
+    description: 'Victron Orion-Tr 24V/48V-6A isolated converter ï¿½ remote on/off',
     partNumber: 'ORI244828110',
     productUrl: 'https://www.cdnrg.com/products/veori244828110',
     source: 'Victron 2025',
@@ -1004,7 +1004,7 @@ export const dcDcChargers: Product[] = [
     maxCurrentA: 9,
     continuousPowerW: 400,
     msrpUsd: 246,
-    description: 'Victron Orion-Tr 24V/48V-8.5A isolated converter — remote on/off',
+    description: 'Victron Orion-Tr 24V/48V-8.5A isolated converter ï¿½ remote on/off',
     partNumber: 'ORI244841110',
     productUrl: 'https://www.cdnrg.com/products/veori244841110',
     source: 'Victron 2025',
@@ -1024,7 +1024,7 @@ export const dcDcChargers: Product[] = [
     maxCurrentA: 3,
     continuousPowerW: 120,
     msrpUsd: 78,
-    description: 'Victron Orion-Tr 48V/48V-2.5A isolated converter — remote on/off',
+    description: 'Victron Orion-Tr 48V/48V-2.5A isolated converter ï¿½ remote on/off',
     partNumber: 'ORI484810110',
     productUrl: 'https://www.cdnrg.com/products/veori484810110',
     source: 'Victron 2025',
@@ -1044,7 +1044,7 @@ export const dcDcChargers: Product[] = [
     maxCurrentA: 6,
     continuousPowerW: 280,
     msrpUsd: 140,
-    description: 'Victron Orion-Tr 48V/48V-6A isolated converter — remote on/off',
+    description: 'Victron Orion-Tr 48V/48V-6A isolated converter ï¿½ remote on/off',
     partNumber: 'ORI484828110',
     productUrl: 'https://www.cdnrg.com/products/veori484828110',
     source: 'Victron 2025',
@@ -1064,7 +1064,7 @@ export const dcDcChargers: Product[] = [
     maxCurrentA: 8,
     continuousPowerW: 380,
     msrpUsd: 246,
-    description: 'Victron Orion-Tr 48V/48V-8A isolated converter — remote on/off',
+    description: 'Victron Orion-Tr 48V/48V-8A isolated converter ï¿½ remote on/off',
     partNumber: 'ORI484841110',
     productUrl: 'https://www.cdnrg.com/products/veori484841110',
     source: 'Victron 2025',

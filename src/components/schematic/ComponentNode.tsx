@@ -18,7 +18,10 @@ interface Props {
   component: SystemComponent;
   product: Product;
   selected: boolean;
-  pendingFromTerminal: string | null;
+  /** Key of the terminal that initiated the pending connection ("compId:termId"), or null. */
+  pendingSourceKey: string | null;
+  /** Set of "compId:termId" keys that are valid targets for the pending connection, or null when not connecting. */
+  validTargetTerminals: Set<string> | null;
   busColors: BusColorMap;
   onSelect: (id: string) => void;
   onDragStart: (id: string, e: React.MouseEvent) => void;
@@ -39,7 +42,12 @@ function Symbol({
   const scale = componentScale(component);
   const { width: w, height: h } = scaledProductSize(product, scale);
   const scaledProduct = { ...product, width: w, height: h };
-  const imageUrl = resolveProductImageUrl(getProductDisplayImageUrl(product));
+  // Fused distribution modules are drawn as schematic symbols (not the product
+  // photo) so every tap/passthrough terminal lands exactly on the drawn shape.
+  const useSchematicSymbol = product.distributionTopology != null;
+  const imageUrl = useSchematicSymbol
+    ? undefined
+    : resolveProductImageUrl(getProductDisplayImageUrl(product));
 
   if (imageUrl) {
     return (
@@ -79,7 +87,7 @@ function Symbol({
       return <InverterChargerSymbol product={scaledProduct} selected={selected} />;
     case 'dc_distribution':
     case 'busbar':
-      return <LynxDistributionSymbol product={scaledProduct} selected={selected} />;
+      return <LynxDistributionSymbol product={product} scale={scale} selected={selected} />;
     case 'fuse':
     case 'breaker':
       return <FuseSymbol product={scaledProduct} component={component} selected={selected} />;
@@ -97,7 +105,8 @@ export function ComponentNode({
   component,
   product,
   selected,
-  pendingFromTerminal,
+  pendingSourceKey,
+  validTargetTerminals,
   busColors,
   onSelect,
   onDragStart,
@@ -161,13 +170,19 @@ export function ComponentNode({
         {/* Terminals */}
         {terminals.map((t) => {
           const offset = scaledTerminalOffset(component, t);
+          const key = `${component.id}:${t.id}`;
+          const isSource = pendingSourceKey === key;
+          const isHighlighted = !isSource && (validTargetTerminals?.has(key) ?? false);
+          const isDisabled = validTargetTerminals !== null && !isSource && !isHighlighted;
           return (
             <Terminal
               key={t.id}
               terminal={{ ...t, ...offset }}
               componentId={component.id}
-              isHighlighted={pendingFromTerminal !== null}
+              isHighlighted={isHighlighted}
               isPending={false}
+              isSource={isSource}
+              isDisabled={isDisabled}
               busColors={busColors}
               onMouseDown={onTerminalMouseDown}
             />
@@ -203,7 +218,10 @@ export function ComponentNode({
           x={0}
           y={-scaledHeight / 2 - 8}
           textAnchor="middle"
-          fill={selected ? '#1769d2' : product.productType === 'fuse' ? '#b93232' : '#33435a'}
+          fill={selected ? '#1769d2' : product.productType === 'fuse' ? '#b93232' : 'var(--schematic-label)'}
+          stroke="var(--schematic-label-halo)"
+          strokeWidth={3}
+          paintOrder="stroke fill"
           fontSize={9}
           fontWeight={700}
           style={{ userSelect: 'none', pointerEvents: 'none' }}
@@ -217,7 +235,10 @@ export function ComponentNode({
         x={0}
         y={scaledHeight / 2 + 14}
         textAnchor="middle"
-        fill={selected ? '#1769d2' : '#33435a'}
+        fill={selected ? '#1769d2' : 'var(--schematic-label)'}
+        stroke="var(--schematic-label-halo)"
+        strokeWidth={3}
+        paintOrder="stroke fill"
         fontSize={10}
         fontWeight={selected ? 700 : 600}
         style={{ userSelect: 'none', pointerEvents: 'none' }}
@@ -229,7 +250,10 @@ export function ComponentNode({
           x={0}
           y={scaledHeight / 2 + 28}
           textAnchor="middle"
-          fill={selected ? '#1769d2' : '#6d7b90'}
+          fill={selected ? '#1769d2' : 'var(--schematic-label-muted)'}
+          stroke="var(--schematic-label-halo)"
+          strokeWidth={3}
+          paintOrder="stroke fill"
           fontSize={10}
           fontWeight={700}
           style={{ userSelect: 'none', pointerEvents: 'none' }}

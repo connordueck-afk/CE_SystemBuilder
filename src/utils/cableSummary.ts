@@ -7,6 +7,19 @@ import type {
 } from '../types/system';
 import { selectLug, lugKey, type LugSpec } from '../data/lugs';
 import { connectorLabel, getEffectiveConnector } from './terminalConnectors';
+import { BUS_DEFAULT_COLOR, BUS_DEFAULT_TYPE } from './cableDefaults';
+
+function effectiveCableColor(connection: SystemConnection): string {
+  const explicit = connection.cableColor?.trim();
+  if (explicit) return explicit;
+  return (connection.busType && BUS_DEFAULT_COLOR[connection.busType]) ?? '';
+}
+
+function effectiveCableType(connection: SystemConnection): string {
+  const explicit = connection.cableType?.trim();
+  if (explicit) return explicit;
+  return (connection.busType && BUS_DEFAULT_TYPE[connection.busType]) ?? '';
+}
 
 const INCHES_PER_FOOT = 12;
 
@@ -42,12 +55,13 @@ export function buildCableLengthSummary(connections: SystemConnection[]): CableL
   const byKey = new Map<string, CableLengthSummaryItem>();
 
   for (const connection of connections) {
+    if (connection.busLink) continue;
     const totalLengthFt = connection.cableLengthFt;
     if (totalLengthFt <= 0) continue;
 
     const gauge = connection.manualCableAwg ?? connection.recommendedCableAwg ?? 'Unspecified';
-    const color = connection.cableColor?.trim() || '';
-    const type = connection.cableType?.trim() || '';
+    const color = effectiveCableColor(connection);
+    const type = effectiveCableType(connection);
     const key = `${gauge}|${color}|${type}`;
 
     const existing = byKey.get(key);
@@ -96,6 +110,8 @@ export interface CableBomRow {
   lengthFt: number;
   fromEnd: CableEndTermination;
   toEnd: CableEndTermination;
+  /** Direct bolted bus link — no cable, no terminations, excluded from totals/connectors. */
+  busLink?: boolean;
 }
 
 /** Aggregated lug/connector line item across all cable ends. */
@@ -145,6 +161,24 @@ export function buildCableBomRows(
   const rows: CableBomRow[] = [];
 
   for (const connection of system.connections) {
+    // Bus links carry no cable but are listed as toggleable rows so the user can
+    // convert them to a real cable from the cable summary.
+    if (connection.busLink) {
+      rows.push({
+        connectionId: connection.id,
+        fromLabel: labelFor(connection.fromComponentId),
+        toLabel: labelFor(connection.toComponentId),
+        gauge: 'Bus link',
+        color: '',
+        type: '',
+        lengthFt: 0,
+        fromEnd: { label: '—' },
+        toEnd: { label: '—' },
+        busLink: true,
+      });
+      continue;
+    }
+
     if (connection.cableLengthFt <= 0) continue;
 
     const fromComponent = componentsById.get(connection.fromComponentId);
@@ -158,8 +192,8 @@ export function buildCableBomRows(
       fromLabel: labelFor(connection.fromComponentId),
       toLabel: labelFor(connection.toComponentId),
       gauge: gauge ?? 'Unspecified',
-      color: connection.cableColor?.trim() || '',
-      type: connection.cableType?.trim() || '',
+      color: effectiveCableColor(connection),
+      type: effectiveCableType(connection),
       lengthFt: connection.cableLengthFt,
       fromEnd: resolveTermination(fromProduct, connection.fromTerminalId, fromComponent, gauge),
       toEnd: resolveTermination(toProduct, connection.toTerminalId, toComponent, gauge),

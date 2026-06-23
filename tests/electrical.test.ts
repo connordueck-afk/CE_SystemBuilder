@@ -455,6 +455,61 @@ function parallelBatteryBankWithSingleMainFuse(): SystemDesign {
   } as SystemDesign;
 }
 
+function daisyChainParallelBatteries(): SystemDesign {
+  const busDefaults = {
+    productId: 'dist-generic-busbar-5pt',
+    quantity: 1,
+    inferredConnectionKind: 'dc_power',
+    inferredVoltageClass: 'dc_low_voltage',
+  } as const;
+
+  return {
+    id: 'daisy-chain-parallel-batteries',
+    name: 'daisy-chain-parallel-batteries',
+    nominalVoltage: 12,
+    assumptions: { ...DEFAULT_ASSUMPTIONS },
+    createdAt: '',
+    updatedAt: '',
+    components: [
+      { id: 'bat-a', productId: 'bat-vic-smart-12-200', label: 'Battery A', quantity: 1, x: 0, y: -80 },
+      { id: 'bat-b', productId: 'bat-vic-smart-12-200', label: 'Battery B', quantity: 1, x: 0, y: 80 },
+      { id: 'fuse', productId: 'fuse-mega-300a', label: '300A Main Fuse', quantity: 1, x: 200, y: -80 },
+      {
+        ...busDefaults,
+        id: 'pos-main',
+        label: 'Positive Busbar',
+        x: 400,
+        y: -60,
+        busPolarity: 'positive',
+        inferredPolarity: 'positive',
+        inferredElectricalType: 'dc_pos',
+      },
+      {
+        ...busDefaults,
+        id: 'neg-main',
+        label: 'Negative Busbar',
+        x: 400,
+        y: 60,
+        busPolarity: 'negative',
+        inferredPolarity: 'negative',
+        inferredElectricalType: 'dc_neg',
+      },
+      { id: 'mppt', productId: 'mppt-100-50', label: 'MPPT Charge Controller', quantity: 1, x: 600, y: 0 },
+    ],
+    connections: [
+      // Batteries wired directly in parallel (no collector busbar).
+      { id: 'ab-pos', fromComponentId: 'bat-a', fromTerminalId: 'dc_pos', toComponentId: 'bat-b', toTerminalId: 'dc_pos', cableLengthFt: 2 },
+      { id: 'ab-neg', fromComponentId: 'bat-a', fromTerminalId: 'dc_neg', toComponentId: 'bat-b', toTerminalId: 'dc_neg', cableLengthFt: 2 },
+      // Diagonal takeoff: positive off Battery A through the main fuse, negative off Battery B.
+      { id: 'a-fuse', fromComponentId: 'bat-a', fromTerminalId: 'dc_pos', toComponentId: 'fuse', toTerminalId: 'in', cableLengthFt: 1 },
+      { id: 'fuse-main', fromComponentId: 'fuse', fromTerminalId: 'out', toComponentId: 'pos-main', toTerminalId: 'terminal_1', cableLengthFt: 2 },
+      { id: 'b-neg-main', fromComponentId: 'bat-b', fromTerminalId: 'dc_neg', toComponentId: 'neg-main', toTerminalId: 'terminal_1', cableLengthFt: 2 },
+      { id: 'mppt-pos', fromComponentId: 'mppt', fromTerminalId: 'bat_pos', toComponentId: 'pos-main', toTerminalId: 'terminal_2', cableLengthFt: 4 },
+      { id: 'mppt-neg', fromComponentId: 'mppt', fromTerminalId: 'bat_neg', toComponentId: 'neg-main', toTerminalId: 'terminal_2', cableLengthFt: 4 },
+    ],
+  } as SystemDesign;
+}
+
 function dcSourceFeedingSmallDcLoad(): SystemDesign {
   return {
     id: 'dc-source-small-load',
@@ -654,6 +709,23 @@ test('parallel bank negative output sizes from the shared positive main fuse', (
   const c = analyzeSystemCircuits(parallelBatteryBankWithSingleMainFuse(), PRODUCT_MAP).connections.get('neg-bank-main')!;
   assert.equal(c.designCurrentA, 300);
   assert.equal(c.recommendedCableAwg, '4/0');
+});
+
+test('daisy-chained parallel battery interconnects size for the pack fuse, not the table minimum', () => {
+  const analysis = analyzeSystemCircuits(daisyChainParallelBatteries(), PRODUCT_MAP);
+  const posInterconnect = analysis.connections.get('ab-pos')!;
+  const negInterconnect = analysis.connections.get('ab-neg')!;
+
+  assert.equal(posInterconnect.designCurrentA, 300);
+  assert.equal(posInterconnect.recommendedCableAwg, '4/0');
+  assert.equal(negInterconnect.designCurrentA, 300);
+  assert.equal(negInterconnect.recommendedCableAwg, '4/0');
+});
+
+test('daisy-chained parallel battery interconnects do not demand a separate source-side fuse', () => {
+  const system = daisyChainParallelBatteries();
+  assert.ok(!errorCodes(system, 'ab-pos').includes('SOURCE_SIDE_PROTECTION_MISSING'));
+  assert.ok(!errorCodes(system, 'ab-neg').includes('SOURCE_SIDE_PROTECTION_MISSING'));
 });
 
 test('battery source capability is not counted as busbar operating current', () => {

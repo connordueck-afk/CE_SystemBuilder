@@ -204,6 +204,16 @@ function isSolarSeriesConnection(from: TerminalNodeRef, to: TerminalNodeRef): bo
     from.terminal.polarity !== to.terminal.polarity;
 }
 
+function isBatterySeriesConnection(from: TerminalNodeRef, to: TerminalNodeRef): boolean {
+  return from.product.productType === 'battery' &&
+    to.product.productType === 'battery' &&
+    from.terminal.kind === 'dc_power' &&
+    to.terminal.kind === 'dc_power' &&
+    from.terminal.polarity != null &&
+    to.terminal.polarity != null &&
+    from.terminal.polarity !== to.terminal.polarity;
+}
+
 class DisjointSet {
   private parent = new Map<string, string>();
 
@@ -238,6 +248,7 @@ export function buildElectricalNetlist(system: SystemDesign, products: Map<strin
   const protectionBoundaries = new Map<string, ProtectionBoundary>();
   const terminalProtectionBoundaries = new Map<string, ProtectionBoundary[]>();
   const solarSeriesConnectionIds = new Set<string>();
+  const batterySeriesConnectionIds = new Set<string>();
 
   for (const component of system.components) {
     const product = products.get(component.productId);
@@ -289,11 +300,21 @@ export function buildElectricalNetlist(system: SystemDesign, products: Map<strin
     }
 
     if (shouldInternallyJoin(product) && !PROTECTION_TYPES.has(product.productType)) {
-      const powerKeys = effectiveTerminals
-        .filter((terminal) => ['dc_power', 'pv_power', 'ac_power'].includes(terminal.kind))
-        .map((terminal) => terminalKey(component.id, terminal.id));
-      for (let i = 1; i < powerKeys.length; i += 1) {
-        dsu.union(powerKeys[0], powerKeys[i]);
+      const keysByBusType = new Map<BusType, string[]>();
+      for (const terminal of effectiveTerminals) {
+        if (!['dc_power', 'pv_power', 'ac_power'].includes(terminal.kind)) continue;
+        const busType = busTypeFromTerminal(terminal);
+        if (busType === 'unknown' || busType === 'signal') continue;
+        keysByBusType.set(busType, [
+          ...(keysByBusType.get(busType) ?? []),
+          terminalKey(component.id, terminal.id),
+        ]);
+      }
+
+      for (const powerKeys of keysByBusType.values()) {
+        for (let i = 1; i < powerKeys.length; i += 1) {
+          dsu.union(powerKeys[0], powerKeys[i]);
+        }
       }
     }
   }
@@ -307,6 +328,10 @@ export function buildElectricalNetlist(system: SystemDesign, products: Map<strin
 
     if (isSolarSeriesConnection(from, to)) {
       solarSeriesConnectionIds.add(connection.id);
+      continue;
+    }
+    if (isBatterySeriesConnection(from, to)) {
+      batterySeriesConnectionIds.add(connection.id);
       continue;
     }
 
@@ -394,7 +419,8 @@ export function buildElectricalNetlist(system: SystemDesign, products: Map<strin
     const fromNet = fromNetId ? netsById.get(fromNetId) : undefined;
     const toNet = toNetId ? netsById.get(toNetId) : undefined;
     const isSolarSeries = solarSeriesConnectionIds.has(connection.id);
-    const busType: BusType = isSolarSeries
+    const isBatterySeries = batterySeriesConnectionIds.has(connection.id);
+    const busType: BusType = isSolarSeries || isBatterySeries
       ? 'unknown'
       : fromNet && fromNet.busType !== 'unknown'
       ? fromNet.busType

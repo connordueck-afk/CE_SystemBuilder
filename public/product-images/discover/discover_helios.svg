@@ -1,0 +1,83 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="680" height="1288" viewBox="96 36 680 1288" role="img" aria-label="Discover Helios energy storage system simplified product asset">
+  <defs>
+    <linearGradient id="panel" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#d9d9d8"/>
+      <stop offset="100%" stop-color="#cfcfce"/>
+    </linearGradient>
+    <linearGradient id="edge" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ededec"/>
+      <stop offset="100%" stop-color="#bcbcbc"/>
+    </linearGradient>
+    <linearGradient id="foot" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#262626"/>
+      <stop offset="100%" stop-color="#000000"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="10" flood-color="#000" flood-opacity="0.16"/>
+    </filter>
+  </defs>
+  <g filter="url(#shadow)">
+    <!-- cabinet -->
+    <rect x="120" y="52" width="630" height="1220" rx="2" fill="url(#panel)" stroke="#b7b7b6" stroke-width="4"/>
+    <path d="M120 52 h630" stroke="url(#edge)" stroke-width="6" opacity="0.85"/>
+    <!-- side handles/brackets -->
+    <rect x="114" y="112" width="16" height="8" rx="2" fill="#606060"/>
+    <rect x="744" y="112" width="6" height="8" rx="2" fill="#7a7a7a"/>
+    <rect x="744" y="200" width="6" height="8" rx="2" fill="#7a7a7a"/>
+
+    <!-- screws/fasteners -->
+    <g fill="#666" stroke="#3f3f3f" stroke-width="2.5">
+      <!-- top row -->
+      <circle cx="210" cy="66" r="6"/>
+      <circle cx="480" cy="66" r="6"/>
+      <circle cx="668" cy="66" r="6"/>
+      <!-- left column -->
+      <circle cx="136" cy="112" r="6"/>
+      <circle cx="136" cy="302" r="6"/>
+      <circle cx="136" cy="486" r="6"/>
+      <circle cx="136" cy="670" r="6"/>
+      <circle cx="136" cy="854" r="6"/>
+      <circle cx="136" cy="1038" r="6"/>
+      <circle cx="136" cy="1212" r="6"/>
+      <!-- right column -->
+      <circle cx="734" cy="112" r="6"/>
+      <circle cx="734" cy="302" r="6"/>
+      <circle cx="734" cy="486" r="6"/>
+      <circle cx="734" cy="670" r="6"/>
+      <circle cx="734" cy="854" r="6"/>
+      <circle cx="734" cy="1038" r="6"/>
+      <circle cx="734" cy="1212" r="6"/>
+      <!-- bottom row -->
+      <circle cx="210" cy="1258" r="6"/>
+      <circle cx="480" cy="1258" r="6"/>
+      <circle cx="668" cy="1258" r="6"/>
+    </g>
+
+    <!-- top-left logo placeholder (no readable text) -->
+    <g opacity="0.95">
+      <path d="M190 106 q-16 -22 0 -40 q16 -18 34 0 q18 -18 34 0 q16 18 0 40 q-16 22 -34 0 q-18 22 -34 0z" fill="#f69a2c"/>
+      <path d="M206 106 q-16 -22 0 -40 q16 -18 34 0 q18 -18 34 0 q16 18 0 40 q-16 22 -34 0 q-18 22 -34 0z" fill="#62c4e8" opacity="0.9"/>
+      <rect x="276" y="78" width="128" height="14" rx="7" fill="#181818"/>
+      <rect x="276" y="102" width="96" height="10" rx="5" fill="#4e4e4e"/>
+    </g>
+
+    <!-- very subtle embossed mid-panel branding placeholder -->
+    <g opacity="0.13" fill="#bebebe">
+      <rect x="254" y="714" width="234" height="18" rx="9"/>
+      <rect x="254" y="746" width="176" height="14" rx="7"/>
+    </g>
+
+    <!-- bottom-right branding placeholder -->
+    <g>
+      <rect x="498" y="1142" width="176" height="18" rx="8" fill="#111"/>
+      <rect x="498" y="1168" width="132" height="10" rx="5" fill="#5a5a5a"/>
+    </g>
+
+    <!-- feet -->
+    <g>
+      <path d="M178 1272 h38 l8 24 q2 8 -6 10 h-42 q-8 -2 -6 -10z" fill="url(#foot)"/>
+      <path d="M470 1272 h38 l8 24 q2 8 -6 10 h-42 q-8 -2 -6 -10z" fill="url(#foot)"/>
+      <path d="M702 1272 h38 l8 24 q2 8 -6 10 h-42 q-8 -2 -6 -10z" fill="url(#foot)"/>
+    </g>
+  </g>
+</svg>

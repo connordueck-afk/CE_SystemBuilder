@@ -4,6 +4,8 @@ import { feetAndInchesToFeet, feetToFeetAndInches } from '../../utils/cableSumma
 import { getEffectiveTerminal } from '../../utils/effectiveTerminals';
 import { canProvidePower, terminalDirectionLabel } from '../../utils/terminalDirection';
 import type { ProtectionRecommendation } from '../../utils/protectionRecommendations';
+import { sharedBusLinkStandard } from '../../utils/busLinks';
+import { BUS_DEFAULT_COLOR, BUS_DEFAULT_TYPE } from '../../utils/cableDefaults';
 
 const CABLE_COLORS = ['Red', 'Black', 'Yellow', 'Orange', 'Blue', 'Green', 'White', 'Brown', 'Gray', 'Purple'];
 const CABLE_TYPES = ['THHN/THWN', 'RHH/RHW-2', 'Marine Grade', 'Welding Cable', 'Battery Cable', 'Chassis Wire (MTW)'];
@@ -18,27 +20,6 @@ export function cableColorSwatch(color: string): string | null {
   return COLOR_SWATCHES[color.toLowerCase()] ?? null;
 }
 
-const BUS_DEFAULT_COLOR: Partial<Record<InternalBusType, string>> = {
-  dc_pos: 'Red',
-  dc_neg: 'Black',
-  pv_pos: 'Red',
-  pv_neg: 'Black',
-  ac_line: 'Black',
-  ac_neutral: 'White',
-  ac_ground: 'Green',
-  chassis_ground: 'Green',
-};
-
-const BUS_DEFAULT_TYPE: Partial<Record<InternalBusType, string>> = {
-  dc_pos: 'Marine Grade',
-  dc_neg: 'Marine Grade',
-  pv_pos: 'RHH/RHW-2',
-  pv_neg: 'RHH/RHW-2',
-  ac_line: 'THHN/THWN',
-  ac_neutral: 'THHN/THWN',
-  ac_ground: 'THHN/THWN',
-  chassis_ground: 'THHN/THWN',
-};
 
 interface Props {
   connection: SystemConnection;
@@ -49,6 +30,7 @@ interface Props {
   systemVoltage: number;
   protectionRecommendations: ProtectionRecommendation[];
   onUpdateLength: (id: string, ft: number) => void;
+  onToggleBusLink: (id: string, busLink: boolean) => void;
   onUpdateDesignCurrent: (id: string, currentA: number | undefined) => void;
   onUpdateCableAwg: (id: string, awg: string) => void;
   onAutoCableAwg: (id: string) => void;
@@ -125,6 +107,7 @@ export function ConnectionInspector({
   systemVoltage,
   protectionRecommendations,
   onUpdateLength,
+  onToggleBusLink,
   onUpdateDesignCurrent,
   onUpdateCableAwg,
   onAutoCableAwg,
@@ -146,6 +129,10 @@ export function ConnectionInspector({
     ? getEffectiveTerminal(toProduct, connection.toTerminalId, toComponent)
     : undefined;
   const cableLength = feetToFeetAndInches(connection.cableLengthFt);
+  const busLinkCapable = sharedBusLinkStandard(
+    fromProduct, connection.fromTerminalId, toProduct, connection.toTerminalId
+  ) != null;
+  const isBusLink = connection.busLink === true;
   const maxSourceCapabilityA = Math.max(
     endpointSourceCapabilityA(fromComponent, fromProduct, connection.fromTerminalId, systemVoltage) ?? 0,
     endpointSourceCapabilityA(toComponent, toProduct, connection.toTerminalId, systemVoltage) ?? 0
@@ -167,12 +154,12 @@ export function ConnectionInspector({
     <div className="inspector-content">
       <div className="inspector-section">
         <div className="inspector-label">Connection</div>
-        <div style={{ color: '#46546a', fontSize: 12, fontWeight: 700 }}>
-          <span style={{ color: '#182235', fontWeight: 700 }}>{fromLabel}</span>
+        <div style={{ color: 'var(--ink-soft)', fontSize: 12, fontWeight: 700 }}>
+          <span style={{ color: 'var(--ink)', fontWeight: 700 }}>{fromLabel}</span>
           {' -> '}
-          <span style={{ color: '#182235', fontWeight: 700 }}>{toLabel}</span>
+          <span style={{ color: 'var(--ink)', fontWeight: 700 }}>{toLabel}</span>
         </div>
-        <div style={{ color: '#6d7b90', fontSize: 11, fontWeight: 700, marginTop: 2 }}>
+        <div style={{ color: 'var(--muted)', fontSize: 11, fontWeight: 700, marginTop: 2 }}>
           {connection.fromTerminalId}
           {' -> '}
           {connection.toTerminalId}
@@ -195,7 +182,7 @@ export function ConnectionInspector({
               onUpdateDesignCurrent(connection.id, isNaN(v) ? undefined : v);
             }}
           />
-          <span style={{ color: '#6d7b90', fontSize: 12, fontWeight: 600 }}>A</span>
+          <span style={{ color: 'var(--muted)', fontSize: 12, fontWeight: 600 }}>A</span>
         </div>
         <Row label="Branch Current" value={connection.calculatedCurrentA != null ? `${connection.calculatedCurrentA.toFixed(0)} A` : null} />
         {showSourceCapability && (
@@ -231,6 +218,31 @@ export function ConnectionInspector({
         </div>
       )}
 
+      {busLinkCapable && (
+        <div className="inspector-section">
+          <div className="inspector-label">Connection Type</div>
+          <label className="inspector-checkbox-row">
+            <input
+              type="checkbox"
+              checked={isBusLink}
+              onChange={(e) => onToggleBusLink(connection.id, e.target.checked)}
+            />
+            <span>Direct bus link (no cable)</span>
+          </label>
+          <div style={{ color: 'var(--muted)', fontSize: 11, fontWeight: 600, marginTop: 4 }}>
+            These modules bolt together on a shared busbar. Uncheck if they're mounted apart and joined by a cable.
+          </div>
+        </div>
+      )}
+
+      {isBusLink ? (
+        <div className="inspector-section">
+          <div className="inspector-label">Cable Run</div>
+          <div style={{ color: 'var(--muted)', fontSize: 12, fontWeight: 600 }}>
+            Direct bus link — no cable, excluded from the cable BOM.
+          </div>
+        </div>
+      ) : (
       <div className="inspector-section">
         <div className="inspector-label">Cable Run</div>
         <div className="cable-size-control">
@@ -272,7 +284,7 @@ export function ConnectionInspector({
               if (!isNaN(v)) updateCableLength({ feet: v });
             }}
           />
-          <span style={{ color: '#6d7b90', fontSize: 12, fontWeight: 600 }}>ft</span>
+          <span style={{ color: 'var(--muted)', fontSize: 12, fontWeight: 600 }}>ft</span>
           <input
             type="number"
             className="inspector-input"
@@ -286,7 +298,7 @@ export function ConnectionInspector({
               if (!isNaN(v)) updateCableLength({ inches: v });
             }}
           />
-          <span style={{ color: '#6d7b90', fontSize: 12, fontWeight: 600 }}>in</span>
+          <span style={{ color: 'var(--muted)', fontSize: 12, fontWeight: 600 }}>in</span>
         </div>
         <div style={{ marginBottom: 6 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
@@ -331,11 +343,12 @@ export function ConnectionInspector({
           warn={dropWarn}
         />
         {dropWarn && (
-          <div style={{ color: '#935f0d', fontSize: 11, fontWeight: 600, marginTop: 6 }}>
+          <div style={{ color: 'var(--amber)', fontSize: 11, fontWeight: 600, marginTop: 6 }}>
             Warning: voltage drop exceeds 3% - consider larger cable or shorter run
           </div>
         )}
       </div>
+      )}
 
       <div className="inspector-section">
         <div className="inspector-label">Routing</div>
@@ -357,7 +370,7 @@ export function ConnectionInspector({
       {(connection.warnings?.length ?? 0) > 0 && (
         <div className="inspector-section">
           {connection.warnings!.map((w, i) => (
-            <div key={i} style={{ color: '#935f0d', fontSize: 12, fontWeight: 600, padding: '3px 0' }}>Warning: {w}</div>
+            <div key={i} style={{ color: 'var(--amber)', fontSize: 12, fontWeight: 600, padding: '3px 0' }}>Warning: {w}</div>
           ))}
         </div>
       )}

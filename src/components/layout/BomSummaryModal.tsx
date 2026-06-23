@@ -17,6 +17,7 @@ interface Props {
   connectorSummary: ConnectorSummaryItem[];
   priceSummary: PriceSummary;
   electricalSummary: ElectricalSummary;
+  onToggleBusLink?: (connectionId: string, busLink: boolean) => void;
   onClose: () => void;
   onExportCsv: () => void;
 }
@@ -28,6 +29,7 @@ export function BomSummaryModal({
   connectorSummary,
   priceSummary,
   electricalSummary,
+  onToggleBusLink,
   onClose,
   onExportCsv,
 }: Props) {
@@ -90,6 +92,7 @@ export function BomSummaryModal({
               summary={cableSummary}
               cableRows={cableBomRows}
               connectorSummary={connectorSummary}
+              onToggleBusLink={onToggleBusLink}
             />
           )}
           {activeTab === 'price' && (

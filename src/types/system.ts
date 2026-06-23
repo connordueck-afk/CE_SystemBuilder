@@ -165,6 +165,13 @@ export interface TerminalDefinition {
   powerMaxW?: number;
   /** Default physical connector/termination at this node (overridable per placed component). */
   connector?: TerminalConnector;
+  /**
+   * Marks a terminal that bolts directly to another module's matching terminal with no
+   * cable (e.g. Victron Lynx modules share a busbar). When a connection joins two terminals
+   * that declare the same non-empty standard, it defaults to a cableless bus link.
+   * Brand-agnostic: any bolt-together busbar opts in by declaring the same string.
+   */
+  busLinkStandard?: string;
   /** Number of AC phases (1, 2, or 3). */
   phases?: 1 | 2 | 3;
   /** Total number of conductors at this terminal. */
@@ -296,6 +303,14 @@ export interface BatteryRatings {
   communicationInterfaces?: string[];
   /** Whether the battery has an internal BMS. */
   hasInternalBms?: boolean;
+  /** Whether matching batteries of this product may be wired in series. */
+  seriesAllowed?: boolean;
+  /** Maximum number of matching batteries allowed in one series string. */
+  maxSeriesCount?: number;
+  /** Whether matching battery strings may be wired in parallel. */
+  parallelAllowed?: boolean;
+  /** Maximum number of matching strings allowed in one parallel pack. */
+  maxParallelStrings?: number;
 }
 
 /** Ratings for DC-DC chargers / converters. */
@@ -594,6 +609,12 @@ export interface SystemConnection {
   manualCableAwg?: string;
   cableColor?: string;
   cableType?: string;
+  /**
+   * Direct bolted bus link with no cable (e.g. two adjacent Lynx modules). When true the
+   * connection still carries current and propagates bus type, but is excluded from the cable
+   * BOM, cable-length summary, and connector/lug counts, and gets no AWG/voltage-drop sizing.
+   */
+  busLink?: boolean;
   /** Derived from circuit analysis — not persisted, overwritten each enrichment pass. */
   busType?: InternalBusType;
   voltageDropV?: number;

@@ -16,6 +16,7 @@ import { busTypeFromTerminal, busTypeRequiresFuse, type BusType } from './electr
 import { buildInternalDistributionEdges, hasDistributionTopology } from './distributionTopology';
 import { resolveTerminalCurrentA } from './terminalElectrics';
 import { formatFeetAndInches } from './cableSummary';
+import { analyzeBatteryTopology } from './batteryTopology';
 
 const PROTECTION_TYPES = new Set(['fuse', 'breaker']);
 const CONDUCTIVE_PASS_THROUGH_TYPES = new Set([
@@ -153,6 +154,34 @@ function isConductivePassThroughProduct(product: Product): boolean {
   return CONDUCTIVE_PASS_THROUGH_TYPES.has(product.productType) || isDynamicSingleConductorProduct(product);
 }
 
+function normalizeConductorToken(value: string): string {
+  return value.replace(/[-_]/g, '');
+}
+
+function protectionConductorKey(terminalId: string, powerTerminalCount: number): string {
+  const id = terminalId.toLowerCase();
+  if (powerTerminalCount <= 2) return 'single';
+
+  const leadingPole = id.match(/^(l\d+|line\d+|p\d+|phase[-_]?[abc])_(?:in|out)$/);
+  if (leadingPole) return normalizeConductorToken(leadingPole[1]);
+
+  const trailingPole = id.match(/^(?:in|out)_(l\d+|line\d+|p\d+|phase[-_]?[abc])$/);
+  if (trailingPole) return normalizeConductorToken(trailingPole[1]);
+
+  const leadingGeneric = id.match(/^(.+)_(?:in|out)$/);
+  if (leadingGeneric) return normalizeConductorToken(leadingGeneric[1]);
+
+  const trailingGeneric = id.match(/^(?:in|out)_(.+)$/);
+  if (trailingGeneric) return normalizeConductorToken(trailingGeneric[1]);
+
+  return id;
+}
+
+function passThroughGroupKey(product: Product, node: TerminalNode, powerTerminalCount: number): string {
+  if (!isProtectionProduct(product)) return node.busType;
+  return `${node.busType}:${protectionConductorKey(node.terminal.id, powerTerminalCount)}`;
+}
+
 function positiveNumber(value: number | undefined): number | undefined {
   return value != null && Number.isFinite(value) && value > 0 ? value : undefined;
 }
@@ -281,6 +310,17 @@ function terminalCurrents(
       hasLoadFollowingSource: true,
       canReceiveCurrent: true,
       sourceCapabilityA: instanceOverrideA,
+    };
+  }
+
+  if (isProtectionProduct(product) || isConductivePassThroughProduct(product)) {
+    return {
+      normalLoadCurrentA: 0,
+      normalSourceCurrentA: 0,
+      hasNormalSource: false,
+      hasLoadFollowingSource: false,
+      canReceiveCurrent: true,
+      sourceCapabilityA: undefined,
     };
   }
 
@@ -629,13 +669,17 @@ function buildGraphEdges(system: SystemDesign, nodes: Map<string, TerminalNode>)
 
     if (!isConductivePassThroughProduct(product)) continue;
 
-    const groups = new Map<BusType, TerminalNode[]>();
-    for (const node of componentNodes) {
+    const powerNodes = componentNodes.filter((node) => ['dc_power', 'pv_power', 'ac_power'].includes(node.terminal.kind));
+    const groups = new Map<string, { busType: BusType; nodes: TerminalNode[] }>();
+    for (const node of powerNodes) {
       if (!isPowerBus(node.busType)) continue;
-      groups.set(node.busType, [...(groups.get(node.busType) ?? []), node]);
+      const groupKey = passThroughGroupKey(product, node, powerNodes.length);
+      const group = groups.get(groupKey) ?? { busType: node.busType, nodes: [] };
+      group.nodes.push(node);
+      groups.set(groupKey, group);
     }
 
-    for (const [busType, group] of groups) {
+    for (const { busType, nodes: group } of groups.values()) {
       if (group.length < 2) continue;
       const first = group[0];
       for (const node of group.slice(1)) {
@@ -962,15 +1006,20 @@ function buildParallelBankReturnCurrentOverrides(
     );
     if (fuseA == null) continue;
 
-    // Apply the pack fuse rating to dc_neg connections from either battery to non-batteries
+    // The positive interconnect itself carries the parallel battery's full
+    // contribution to the pack output, so size it for the pack fuse rating too.
+    // Without this it has no current source on either side (both ends are
+    // load-following batteries) and falls back to the table-minimum cable.
+    overrides.set(connection.id, Math.max(overrides.get(connection.id) ?? 0, fuseA));
+
+    // Apply the pack fuse rating to dc_neg connections from either battery. This
+    // covers both the negative return to the bank's collector/bus and the
+    // battery-to-battery negative interconnect, which carries the same current.
     for (const batteryId of [fromNode.component.id, toNode.component.id]) {
       for (const negConn of system.connections) {
         if (negConn.fromComponentId !== batteryId && negConn.toComponentId !== batteryId) continue;
         const [negFrom, negTo] = nodesForConnection(negConn, nodes);
         if (!negFrom || !negTo || negFrom.busType !== 'dc_neg' || negTo.busType !== 'dc_neg') continue;
-        const otherId = otherComponentId(negConn, batteryId);
-        const otherProduct = otherId ? productsByComponent.get(otherId) : undefined;
-        if (isBatteryProduct(otherProduct)) continue;
         overrides.set(negConn.id, Math.max(overrides.get(negConn.id) ?? 0, fuseA));
       }
     }
@@ -1245,14 +1294,15 @@ function analyzeConnection(
   system: SystemDesign,
   productsByComponent: Map<string, Product | undefined>,
   componentsById: Map<string, SystemComponent>,
-  inferredDesignCurrentA?: number
+  inferredDesignCurrentA?: number,
+  inferredVoltageV?: number
 ): ConnectionCircuitAnalysis {
   const fromKey = terminalKey(connection.fromComponentId, connection.fromTerminalId);
   const toKey = terminalKey(connection.toComponentId, connection.toTerminalId);
   const fromNode = nodes.get(fromKey);
   const toNode = nodes.get(toKey);
   const busType = edge?.busType ?? connectionBusType(fromNode, toNode);
-  const voltageV = voltageForConnection(connection, busType, nodes, system);
+  const voltageV = inferredVoltageV ?? voltageForConnection(connection, busType, nodes, system);
   const protectedBy = protectionDevicesForConnection(connection, productsByComponent, componentsById, adjacency);
   const selectedProtectionDevices = selectedProtectionDevicesForConnection(connection, nodes, adjacency);
   const selectedFuseA = minDefined(...selectedProtectionDevices.map((device) => device.ratingA));
@@ -1277,6 +1327,27 @@ function analyzeConnection(
     const fallbackLoad = maxDefined(fromNode?.behavior.normalLoadCurrentA, toNode?.behavior.normalLoadCurrentA) ?? 0;
     const fallbackSource = maxDefined(fromNode?.behavior.normalSourceCurrentA, toNode?.behavior.normalSourceCurrentA) ?? 0;
     designCurrentA = Math.max(fallbackLoad, fallbackSource);
+  }
+
+  // A direct bus link is a bolted, zero-impedance join — the two terminals are
+  // effectively the same node. It carries current and bus type but is never a
+  // protectable/sizeable conductor, so it gets no fuse, cable, or protection logic.
+  if (connection.busLink) {
+    return {
+      connectionId: connection.id,
+      busType,
+      designCurrentA,
+      voltageV,
+      protectionRequired: false,
+      protectedBy: [],
+      sourceProtection: [],
+      recommendedCableAwg: undefined,
+      selectedCableAwg: undefined,
+      voltageDropV: 0,
+      voltageDropPercent: 0,
+      errors: [],
+      warnings: [],
+    };
   }
 
   const sideRequiresProtection = Boolean(fromSide?.requiresOvercurrentProtection || toSide?.requiresOvercurrentProtection);
@@ -1466,6 +1537,13 @@ export function analyzeSystemCircuits(system: SystemDesign, products: Map<string
     productsByComponent,
     shortSourceLeadMaxFt
   );
+  const inferredVoltages = new Map<string, number>();
+  const batteryTopology = analyzeBatteryTopology(system, products);
+  for (const pack of batteryTopology.packs) {
+    for (const connectionId of pack.outputConnectionIds) {
+      inferredVoltages.set(connectionId, pack.voltageV);
+    }
+  }
 
   const connections = new Map<string, ConnectionCircuitAnalysis>();
   for (const connection of system.connections) {
@@ -1479,7 +1557,8 @@ export function analyzeSystemCircuits(system: SystemDesign, products: Map<string
         system,
         productsByComponent,
         componentsById,
-        inferredDesignCurrents.get(connection.id)
+        inferredDesignCurrents.get(connection.id),
+        inferredVoltages.get(connection.id)
       )
     );
   }
