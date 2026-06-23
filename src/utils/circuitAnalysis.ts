@@ -506,7 +506,69 @@ function buildTerminalNodes(system: SystemDesign, products: Map<string, Product>
     }
   }
 
+  resolvePassThroughBusTypes(nodes, system);
+
   return nodes;
+}
+
+/**
+ * Pass-through conductors (fuses, breakers, disconnects, bare busbars) are
+ * bus-agnostic: their polarity/bus is determined by whatever they are wired to,
+ * not by a fixed terminal type. The effective-terminal layer only stamps that
+ * bus type when a separate inference pass has populated `inferredPolarity` on the
+ * placed component. When it hasn't (e.g. a fuse wired between two un-polarized
+ * dynamic conductors), those terminals come back as `unknown`, which would drop
+ * the internal conductive edge and break current propagation across the device —
+ * producing different branch currents before and after a fuse.
+ *
+ * This resolves that at analysis time by letting an `unknown` pass-through node
+ * adopt the bus type of a connected neighbour (or a sibling power terminal on the
+ * same single-conductor device), propagated to a fixed point so it spans chains.
+ */
+function resolvePassThroughBusTypes(nodes: Map<string, TerminalNode>, system: SystemDesign): void {
+  const neighbors = new Map<string, string[]>();
+  const link = (a: string, b: string) => {
+    neighbors.set(a, [...(neighbors.get(a) ?? []), b]);
+    neighbors.set(b, [...(neighbors.get(b) ?? []), a]);
+  };
+
+  for (const connection of system.connections) {
+    const a = terminalKey(connection.fromComponentId, connection.fromTerminalId);
+    const b = terminalKey(connection.toComponentId, connection.toTerminalId);
+    if (nodes.has(a) && nodes.has(b)) link(a, b);
+  }
+
+  // Power terminals on a single-conductor device (fuse/breaker/bare busbar) all
+  // sit on the same bus, so they can seed each other's bus type.
+  const byComponent = new Map<string, TerminalNode[]>();
+  for (const node of nodes.values()) {
+    byComponent.set(node.component.id, [...(byComponent.get(node.component.id) ?? []), node]);
+  }
+  for (const group of byComponent.values()) {
+    if (!isDynamicSingleConductorProduct(group[0].product)) continue;
+    const powerKeys = group
+      .filter((node) => ['dc_power', 'pv_power', 'ac_power'].includes(node.terminal.kind))
+      .map((node) => node.key);
+    for (let i = 0; i < powerKeys.length; i += 1) {
+      for (let j = i + 1; j < powerKeys.length; j += 1) link(powerKeys[i], powerKeys[j]);
+    }
+  }
+
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const node of nodes.values()) {
+      if (node.busType !== 'unknown' || !isConductivePassThroughProduct(node.product)) continue;
+      for (const neighborKey of neighbors.get(node.key) ?? []) {
+        const neighborBusType = nodes.get(neighborKey)?.busType;
+        if (neighborBusType && neighborBusType !== 'unknown') {
+          node.busType = neighborBusType;
+          changed = true;
+          break;
+        }
+      }
+    }
+  }
 }
 
 function connectionBusType(from: TerminalNode | undefined, to: TerminalNode | undefined): BusType {
@@ -684,8 +746,15 @@ function summarizeSide(keys: Set<string>, nodes: Map<string, TerminalNode>): Sid
 }
 
 function edgeCurrentFromSides(from: SideSummary, to: SideSummary): number {
+  // A side only inherits a source's *full* rated output when it contains genuine
+  // load-following storage (a battery/bus that takes whatever the source produces).
+  // A side whose only sink is a fixed load must not pin the branch at the source
+  // rating: that load's real demand is already captured by `loadDriven` below as
+  // min(sourceCurrent, loadDemand). Treating a fixed load as a full absorber is the
+  // bug that made e.g. a 50A source feeding a 15A load read 50A across the branch
+  // (including on both sides of an in-line fuse).
   const canAbsorbNormalSourceCurrent = (side: SideSummary): boolean => {
-    return side.hasLoadFollowingSource || (side.canReceiveCurrent && side.normalLoadCurrentA > 0);
+    return side.hasLoadFollowingSource;
   };
 
   const currentAvailableToLoad = (sourceSide: SideSummary, loadDemandA: number): number => {
