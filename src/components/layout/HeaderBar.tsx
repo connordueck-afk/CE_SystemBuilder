@@ -7,36 +7,49 @@ import { fmt } from '../../utils/priceCalculations';
 
 interface Props {
   systemName: string;
-  nominalVoltage: NominalVoltage;
+  voltageFilter: NominalVoltage | 'all';
   totalMsrp: number;
   warnings: SystemWarning[];
   busColors: BusColorMap;
+  themeMode: 'light' | 'dark';
   onNameChange: (name: string) => void;
-  onVoltageChange: (v: NominalVoltage) => void;
+  onVoltageChange: (v: NominalVoltage | 'all') => void;
   onBusColorChange: (busType: BusType, color: string) => void;
   onResetBusColors: () => void;
+  onToggleTheme: () => void;
   onSave: () => void;
   onLoad: () => void;
   onReset: () => void;
+  onShare: () => Promise<void>;
   onOpenBom: () => void;
 }
 
 export function HeaderBar({
   systemName,
-  nominalVoltage,
+  voltageFilter,
   totalMsrp,
   warnings,
   busColors,
+  themeMode,
   onNameChange,
   onVoltageChange,
   onBusColorChange,
   onResetBusColors,
+  onToggleTheme,
   onSave,
   onLoad,
   onReset,
+  onShare,
   onOpenBom,
 }: Props) {
   const [busColorsOpen, setBusColorsOpen] = useState(false);
+  const [shareCopied, setShareCopied] = useState(false);
+
+  const handleShareClick = async () => {
+    await onShare();
+    setShareCopied(true);
+    setTimeout(() => setShareCopied(false), 2500);
+  };
   const busColorsMenuRef = useRef<HTMLDivElement>(null);
   const errorCount = warnings.filter((w) => w.severity === 'error').length;
   const warnCount = warnings.filter((w) => w.severity === 'warning').length;
@@ -82,10 +95,16 @@ export function HeaderBar({
       {/* Voltage selector */}
       <div className="header-voltage-group">
         <span className="header-field-label">System V</span>
+        <button
+          className={`voltage-btn ${voltageFilter === 'all' ? 'voltage-btn-active' : ''}`}
+          onClick={() => onVoltageChange('all')}
+        >
+          All
+        </button>
         {([12, 24, 48] as NominalVoltage[]).map((v) => (
           <button
             key={v}
-            className={`voltage-btn ${nominalVoltage === v ? 'voltage-btn-active' : ''}`}
+            className={`voltage-btn ${voltageFilter === v ? 'voltage-btn-active' : ''}`}
             onClick={() => onVoltageChange(v)}
           >
             {v}V
@@ -152,8 +171,28 @@ export function HeaderBar({
             </div>
           </div>
         )}
+        <button
+          className={`theme-toggle ${themeMode === 'dark' ? 'theme-toggle-dark' : ''}`}
+          type="button"
+          onClick={onToggleTheme}
+          title={`Switch to ${themeMode === 'dark' ? 'light' : 'dark'} theme`}
+          aria-label={`Switch to ${themeMode === 'dark' ? 'light' : 'dark'} theme`}
+          aria-pressed={themeMode === 'dark'}
+        >
+          <span className="theme-toggle-track" aria-hidden="true">
+            <span className="theme-toggle-thumb">{themeMode === 'dark' ? 'D' : 'L'}</span>
+          </span>
+          <span className="theme-toggle-label">{themeMode === 'dark' ? 'Dark' : 'Light'}</span>
+        </button>
         <button className="btn-header" onClick={onSave} title="Save system">Save</button>
         <button className="btn-header" onClick={onLoad} title="Load saved system">Load</button>
+        <button
+          className={`btn-header ${shareCopied ? 'btn-header-copied' : ''}`}
+          onClick={handleShareClick}
+          title="Copy a share link for this design to your clipboard"
+        >
+          {shareCopied ? 'Copied!' : 'Share'}
+        </button>
         <button className="btn-header btn-danger" onClick={onReset} title="Reset to default sample system">Reset</button>
       </div>
     </header>

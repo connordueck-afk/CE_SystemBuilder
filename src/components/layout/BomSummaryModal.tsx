@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { BomRow, CableLengthSummaryItem, PriceSummary } from '../../types/system';
+import type { CableBomRow, ConnectorSummaryItem } from '../../utils/cableSummary';
 import type { ElectricalSummary } from '../../utils/systemSummary';
 import { fmt } from '../../utils/priceCalculations';
 import { BomTable } from '../summary/BomTable';
@@ -12,8 +13,11 @@ type BomTab = 'bom' | 'cables' | 'price' | 'electrical';
 interface Props {
   bomRows: BomRow[];
   cableSummary: CableLengthSummaryItem[];
+  cableBomRows: CableBomRow[];
+  connectorSummary: ConnectorSummaryItem[];
   priceSummary: PriceSummary;
   electricalSummary: ElectricalSummary;
+  onToggleBusLink?: (connectionId: string, busLink: boolean) => void;
   onClose: () => void;
   onExportCsv: () => void;
 }
@@ -21,8 +25,11 @@ interface Props {
 export function BomSummaryModal({
   bomRows,
   cableSummary,
+  cableBomRows,
+  connectorSummary,
   priceSummary,
   electricalSummary,
+  onToggleBusLink,
   onClose,
   onExportCsv,
 }: Props) {
@@ -80,7 +87,14 @@ export function BomSummaryModal({
 
         <div className="bom-summary-content">
           {activeTab === 'bom' && <BomTable rows={bomRows} />}
-          {activeTab === 'cables' && <CableSummaryPanel summary={cableSummary} />}
+          {activeTab === 'cables' && (
+            <CableSummaryPanel
+              summary={cableSummary}
+              cableRows={cableBomRows}
+              connectorSummary={connectorSummary}
+              onToggleBusLink={onToggleBusLink}
+            />
+          )}
           {activeTab === 'price' && (
             <PriceSummaryPanel
               summary={priceSummary}

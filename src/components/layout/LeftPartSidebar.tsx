@@ -7,7 +7,7 @@ interface SourceLoadOptions {
 }
 
 interface Props {
-  systemVoltage: NominalVoltage;
+  systemVoltage: NominalVoltage | 'all';
   onAddProduct: (productId: string, options?: SourceLoadOptions) => void;
   onAddTextAnnotation: () => void;
   onAddShapeAnnotation: (shapeType: ShapeAnnotationType) => void;

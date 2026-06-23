@@ -10,7 +10,7 @@ interface SourceLoadOptions {
 }
 
 interface Props {
-  systemVoltage: NominalVoltage;
+  systemVoltage: NominalVoltage | 'all';
   onAdd: (productId: string, options?: SourceLoadOptions) => void;
   onAddTextAnnotation: () => void;
   onAddShapeAnnotation: (shapeType: ShapeAnnotationType) => void;
@@ -239,10 +239,18 @@ const SELECTOR_CATEGORIES: SelectorCategory[] = [
         productTypes: ['fuse'],
       },
       {
-        id: 'protection-breakers',
-        label: 'Breakers',
-        description: 'Resettable DC and AC circuit breakers.',
+        id: 'protection-ac-breakers',
+        label: 'AC Breakers',
+        description: 'Single-pole, dual-pole, and 3-pole DIN rail AC circuit breakers.',
         productTypes: ['breaker'],
+        match: (product) => product.protectionRatings?.acDcCompatibility === 'ac',
+      },
+      {
+        id: 'protection-breakers',
+        label: 'DC Breakers',
+        description: 'Resettable DC circuit breakers and battery protection devices.',
+        productTypes: ['breaker'],
+        match: (product) => product.protectionRatings?.acDcCompatibility !== 'ac',
       },
       {
         id: 'protection-disconnects',
@@ -296,13 +304,14 @@ const CATEGORY_COLORS: Record<string, string> = {
   shapes: '#33435a',
 };
 
-function voltageCompatible(product: Product, systemVoltage: NominalVoltage): boolean {
+function voltageCompatible(product: Product, systemVoltage: NominalVoltage | 'all'): boolean {
+  if (systemVoltage === 'all') return true;
   if (product.nominalVoltage == null) return true;
   const voltages = Array.isArray(product.nominalVoltage) ? product.nominalVoltage : [product.nominalVoltage];
   return voltages.includes(systemVoltage);
 }
 
-function productMatchesSelector(product: Product, selector: SelectorType, systemVoltage: NominalVoltage): boolean {
+function productMatchesSelector(product: Product, selector: SelectorType, systemVoltage: NominalVoltage | 'all'): boolean {
   if (!selector.productTypes) return false;
   if (!selector.productTypes.includes(product.productType)) return false;
   if (!voltageCompatible(product, systemVoltage)) return false;
@@ -313,11 +322,11 @@ function allSelectors(): SelectorType[] {
   return SELECTOR_CATEGORIES.flatMap((category) => category.types);
 }
 
-function getPrimarySelector(product: Product, systemVoltage: NominalVoltage): SelectorType | undefined {
+function getPrimarySelector(product: Product, systemVoltage: NominalVoltage | 'all'): SelectorType | undefined {
   return allSelectors().find((selector) => productMatchesSelector(product, selector, systemVoltage));
 }
 
-function productMatchesPrimarySelector(product: Product, selector: SelectorType, systemVoltage: NominalVoltage): boolean {
+function productMatchesPrimarySelector(product: Product, selector: SelectorType, systemVoltage: NominalVoltage | 'all'): boolean {
   return getPrimarySelector(product, systemVoltage)?.id === selector.id;
 }
 
@@ -445,7 +454,7 @@ export function PartLibrary({
     selectedProduct ? getProductDisplayImageUrl(selectedProduct) : undefined
   );
   const isFuseSelector = activeSelector?.id === 'protection-fuses';
-  const isBreakerSelector = activeSelector?.id === 'protection-breakers';
+  const isBreakerSelector = Boolean(activeSelector?.productTypes?.includes('breaker'));
 
   const fuseStyles = useMemo(() => {
     if (!isFuseSelector) return [];
@@ -497,12 +506,12 @@ export function PartLibrary({
     setSelectedProductId(firstProduct?.id ?? '');
     setSelectedStyle(
       selector.id === 'protection-fuses' && firstProduct ? getFuseStyle(firstProduct)
-      : selector.id === 'protection-breakers' && firstProduct ? getBreakerStyle(firstProduct)
+      : selector.productTypes?.includes('breaker') && firstProduct ? getBreakerStyle(firstProduct)
       : ''
     );
 
     if (SOURCE_LOAD_SELECTOR_IDS.has(selector.id)) {
-      const defaultV = isAcSelector(selector.id) ? 120 : systemVoltage;
+      const defaultV = isAcSelector(selector.id) ? 120 : (systemVoltage === 'all' ? 12 : systemVoltage);
       const defaultA = firstProduct?.maxCurrentA
         ?? (firstProduct?.continuousPowerW ? Math.round(firstProduct.continuousPowerW / defaultV) : undefined);
       setInstanceVoltageV(defaultV);
@@ -823,7 +832,7 @@ export function PartLibrary({
                           const v = parseFloat(e.target.value);
                           setInstanceVoltageV(isNaN(v) ? undefined : v);
                         }}
-                        placeholder={isAcSelector(activeSelector.id) ? '120' : String(systemVoltage)}
+                        placeholder={isAcSelector(activeSelector.id) ? '120' : String(systemVoltage === 'all' ? 12 : systemVoltage)}
                       />
                     </label>
                     <label className="selector-field">

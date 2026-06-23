@@ -45,7 +45,7 @@ export function ShapeAnnotationInspector({ annotation, onUpdate, onRemove }: Pro
     <div className="inspector-content">
       <div className="inspector-section">
         <div className="inspector-label">Shape</div>
-        <div style={{ color: '#182235', fontSize: 14, fontWeight: 700 }}>
+        <div style={{ color: 'var(--ink)', fontSize: 14, fontWeight: 700 }}>
           {shapeLabel(annotation.shapeType)}
         </div>
       </div>

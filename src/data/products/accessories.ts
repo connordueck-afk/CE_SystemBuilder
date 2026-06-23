@@ -320,6 +320,9 @@ export const accessories: Product[] = [
       capacityKwh: 1.2,
       chemistry: 'AGM',
       hasInternalBms: false,
+      seriesAllowed: true,
+      maxSeriesCount: 4,
+      parallelAllowed: true,
     },
   },
   {

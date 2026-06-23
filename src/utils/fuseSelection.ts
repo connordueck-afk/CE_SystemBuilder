@@ -98,3 +98,59 @@ export function selectBestFuseProduct(
 
   return sorted[0];
 }
+
+// ============================================================
+// Catalog-derived fuse menus, keyed by fuse style.
+//
+// Single source of truth for "which fuse ratings exist for a given style"
+// (MEGA, Class T, …) and "which catalog product matches a style + rating".
+// Used by integrated fuse-slot products (e.g. Lynx Distributor) so neither
+// the product data nor the UI hardcodes rating tables — they derive from
+// whatever fuse products of that style live in the catalog. Brand-agnostic:
+// adding a new fuse family or a new fused-distribution module composes with
+// no changes here.
+// ============================================================
+
+function fuseProductsOfStyle(products: Iterable<Product>, style: string): Product[] {
+  const result: Product[] = [];
+  for (const product of products) {
+    if (product.productType !== 'fuse') continue;
+    if (getFuseStyle(product) !== style) continue;
+    result.push(product);
+  }
+  return result;
+}
+
+/**
+ * Sorted, unique list of fuse ratings available in the catalog for a given
+ * style, optionally capped at maxA (e.g. a slot's maxFuseA).
+ */
+export function fuseRatingsForStyle(
+  products: Iterable<Product>,
+  style: string,
+  maxA?: number
+): number[] {
+  const ceiling = maxA != null && Number.isFinite(maxA) ? maxA : Infinity;
+  const ratings = new Set<number>();
+  for (const product of fuseProductsOfStyle(products, style)) {
+    const rating = getFuseRating(product);
+    if (rating > 0 && rating <= ceiling) ratings.add(rating);
+  }
+  return [...ratings].sort((a, b) => a - b);
+}
+
+/**
+ * Find the catalog fuse product matching a style + rating. Prefers an exact
+ * rating match; otherwise falls back to the best-fit product within that style.
+ */
+export function findFuseProductByStyleRating(
+  products: Iterable<Product>,
+  style: string,
+  ratingA: number
+): Product | undefined {
+  const pool = fuseProductsOfStyle(products, style);
+  if (pool.length === 0) return undefined;
+  const exact = pool.find((product) => getFuseRating(product) === ratingA);
+  if (exact) return exact;
+  return selectBestFuseProduct(pool, { targetA: ratingA });
+}

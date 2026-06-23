@@ -4,10 +4,15 @@
 
 import type { Product } from '../../types/system';
 
-// Terminal factory for batteries. maxCurrentA = max continuous discharge current,
-// used as the sourceCapabilityA ceiling for overcurrent protection sizing.
-// Current on attached wires is load-driven (not discharge-current-driven).
-function batteryTerminals(dischargeA: number): Product['terminals'] {
+// Terminal factories for batteries. maxCurrentA = max continuous discharge
+// current, used as the sourceCapabilityA ceiling for overcurrent protection
+// sizing. Current on attached wires is load-driven.
+function batteryTopPostTerminals(
+  dischargeA: number,
+  negativeOffsetX: number,
+  positiveOffsetX: number,
+  offsetY: number,
+): Product['terminals'] {
   return [
     {
       id: 'dc_pos',
@@ -19,8 +24,8 @@ function batteryTerminals(dischargeA: number): Product['terminals'] {
       direction: 'bidirectional',
       voltageClass: 'dc_low_voltage',
       side: 'top',
-      offsetX: 20,
-      offsetY: -50,
+      offsetX: positiveOffsetX,
+      offsetY,
       domain: 'dc',
       maxCurrentA: dischargeA,
       requiresOvercurrentProtection: true,
@@ -36,11 +41,65 @@ function batteryTerminals(dischargeA: number): Product['terminals'] {
       direction: 'bidirectional',
       voltageClass: 'dc_low_voltage',
       side: 'top',
-      offsetX: -20,
-      offsetY: -50,
+      offsetX: negativeOffsetX,
+      offsetY,
       domain: 'dc',
       maxCurrentA: dischargeA,
       notes: 'DC negative terminal.',
+    },
+  ];
+}
+
+function batteryTerminals(dischargeA: number): Product['terminals'] {
+  return batteryTopPostTerminals(dischargeA, -20, 20, -50);
+}
+
+function victronLithiumBatteryTerminals(dischargeA: number): Product['terminals'] {
+  return batteryTopPostTerminals(dischargeA, -41, 35, -45);
+}
+
+function discoverDlpBatteryTerminals(dischargeA: number): Product['terminals'] {
+  return batteryTopPostTerminals(dischargeA, -26, 22, -45);
+}
+
+function discoverAesBatteryTerminals(dischargeA: number): Product['terminals'] {
+  return batteryTopPostTerminals(dischargeA, -44, 44, -47);
+}
+
+function discoverHeliosTerminals(dischargeA: number): Product['terminals'] {
+  return [
+    {
+      id: 'dc_pos',
+      label: '+',
+      electricalType: 'dc_pos',
+      kind: 'dc_power',
+      polarity: 'positive',
+      role: 'bidirectional',
+      direction: 'bidirectional',
+      voltageClass: 'dc_low_voltage',
+      side: 'right',
+      offsetX: 38,
+      offsetY: -55,
+      domain: 'dc',
+      maxCurrentA: dischargeA,
+      requiresOvercurrentProtection: true,
+      notes: 'DC positive output. Confirm actual Helios field terminal location and protection requirements.',
+    },
+    {
+      id: 'dc_neg',
+      label: '-',
+      electricalType: 'dc_neg',
+      kind: 'dc_power',
+      polarity: 'negative',
+      role: 'bidirectional',
+      direction: 'bidirectional',
+      voltageClass: 'dc_low_voltage',
+      side: 'left',
+      offsetX: -38,
+      offsetY: -55,
+      domain: 'dc',
+      maxCurrentA: dischargeA,
+      notes: 'DC negative output. Confirm actual Helios field terminal location.',
     },
   ];
 }
@@ -65,9 +124,9 @@ export const batteries: Product[] = [
     productUrl: 'https://www.victronenergy.com/batteries/lithium-battery-12-8v',
     source: 'Victron 2024',
     dataQuality: 'partial',
-    width: 80,
-    height: 100,
-    terminals: batteryTerminals(200),
+    width: 128,
+    height: 98,
+    terminals: victronLithiumBatteryTerminals(200),
     batteryRatings: {
       nominalVoltageV: 12.8,
       capacityAh: 100,
@@ -81,6 +140,8 @@ export const batteries: Product[] = [
       chemistry: 'LiFePO4',
       communicationInterfaces: ['VE.Bus', 'CANbus'],
       hasInternalBms: true,
+      seriesAllowed: false,
+      parallelAllowed: true,
     },
   },
 
@@ -103,9 +164,9 @@ export const batteries: Product[] = [
     productUrl: 'https://www.victronenergy.com/batteries/lithium-battery-12-8v',
     source: 'Victron 2024',
     dataQuality: 'partial',
-    width: 80,
-    height: 100,
-    terminals: batteryTerminals(300),
+    width: 128,
+    height: 98,
+    terminals: victronLithiumBatteryTerminals(300),
     batteryRatings: {
       nominalVoltageV: 12.8,
       capacityAh: 200,
@@ -119,6 +180,8 @@ export const batteries: Product[] = [
       chemistry: 'LiFePO4',
       communicationInterfaces: ['VE.Bus', 'CANbus'],
       hasInternalBms: true,
+      seriesAllowed: false,
+      parallelAllowed: true,
     },
   },
 
@@ -141,9 +204,9 @@ export const batteries: Product[] = [
     productUrl: 'https://www.victronenergy.com/batteries/lithium-battery-25-6v',
     source: 'Victron 2024',
     dataQuality: 'partial',
-    width: 80,
-    height: 100,
-    terminals: batteryTerminals(200),
+    width: 128,
+    height: 98,
+    terminals: victronLithiumBatteryTerminals(200),
     batteryRatings: {
       nominalVoltageV: 25.6,
       capacityAh: 100,
@@ -157,6 +220,8 @@ export const batteries: Product[] = [
       chemistry: 'LiFePO4',
       communicationInterfaces: ['VE.Bus', 'CANbus'],
       hasInternalBms: true,
+      seriesAllowed: false,
+      parallelAllowed: true,
     },
   },
 
@@ -179,9 +244,9 @@ export const batteries: Product[] = [
     productUrl: 'https://www.victronenergy.com/batteries/lithium-battery-51-2v',
     source: 'Victron 2024',
     dataQuality: 'partial',
-    width: 80,
-    height: 100,
-    terminals: batteryTerminals(200),
+    width: 128,
+    height: 98,
+    terminals: victronLithiumBatteryTerminals(200),
     batteryRatings: {
       nominalVoltageV: 51.2,
       capacityAh: 100,
@@ -195,6 +260,8 @@ export const batteries: Product[] = [
       chemistry: 'LiFePO4',
       communicationInterfaces: ['VE.Bus', 'CANbus'],
       hasInternalBms: true,
+      seriesAllowed: false,
+      parallelAllowed: true,
     },
   },
 
@@ -217,9 +284,9 @@ export const batteries: Product[] = [
     source: 'Victron 2025',
     dataQuality: 'partial',
     notes: 'Placeholder pricing/specs.',
-    width: 80,
-    height: 100,
-    terminals: batteryTerminals(200),
+    width: 128,
+    height: 98,
+    terminals: victronLithiumBatteryTerminals(200),
     batteryRatings: {
       nominalVoltageV: 12.8,
       capacityAh: 100,
@@ -229,6 +296,8 @@ export const batteries: Product[] = [
       chemistry: 'LiFePO4',
       communicationInterfaces: ['VE.Bus BMS NG', 'Lynx Smart BMS NG'],
       hasInternalBms: true,
+      seriesAllowed: false,
+      parallelAllowed: true,
     },
   },
   {
@@ -246,9 +315,9 @@ export const batteries: Product[] = [
     source: 'Victron 2025',
     dataQuality: 'partial',
     notes: 'Placeholder pricing/specs.',
-    width: 80,
-    height: 100,
-    terminals: batteryTerminals(300),
+    width: 128,
+    height: 98,
+    terminals: victronLithiumBatteryTerminals(300),
     batteryRatings: {
       nominalVoltageV: 12.8,
       capacityAh: 200,
@@ -258,6 +327,8 @@ export const batteries: Product[] = [
       chemistry: 'LiFePO4',
       communicationInterfaces: ['VE.Bus BMS NG', 'Lynx Smart BMS NG'],
       hasInternalBms: true,
+      seriesAllowed: false,
+      parallelAllowed: true,
     },
   },
   {
@@ -275,9 +346,9 @@ export const batteries: Product[] = [
     source: 'Victron 2025',
     dataQuality: 'partial',
     notes: 'Placeholder pricing/specs.',
-    width: 80,
-    height: 100,
-    terminals: batteryTerminals(200),
+    width: 128,
+    height: 98,
+    terminals: victronLithiumBatteryTerminals(200),
     batteryRatings: {
       nominalVoltageV: 25.6,
       capacityAh: 100,
@@ -287,6 +358,8 @@ export const batteries: Product[] = [
       chemistry: 'LiFePO4',
       communicationInterfaces: ['VE.Bus BMS NG', 'Lynx Smart BMS NG'],
       hasInternalBms: true,
+      seriesAllowed: false,
+      parallelAllowed: true,
     },
   },
   {
@@ -304,9 +377,9 @@ export const batteries: Product[] = [
     source: 'Victron 2025',
     dataQuality: 'partial',
     notes: 'Placeholder pricing/specs.',
-    width: 80,
-    height: 100,
-    terminals: batteryTerminals(200),
+    width: 128,
+    height: 98,
+    terminals: victronLithiumBatteryTerminals(200),
     batteryRatings: {
       nominalVoltageV: 51.2,
       capacityAh: 100,
@@ -316,6 +389,8 @@ export const batteries: Product[] = [
       chemistry: 'LiFePO4',
       communicationInterfaces: ['VE.Bus BMS NG', 'Lynx Smart BMS NG'],
       hasInternalBms: true,
+      seriesAllowed: false,
+      parallelAllowed: true,
     },
   },
 
@@ -351,6 +426,52 @@ export const batteries: Product[] = [
       chemistry: 'LiFePO4',
       communicationInterfaces: ['CAN', 'RS485'],
       hasInternalBms: true,
+      seriesAllowed: false,
+      parallelAllowed: true,
+    },
+  },
+
+  // ==========================================================
+  // Discover Battery — Helios Energy Storage System
+  // ==========================================================
+
+  {
+    id: 'discover-helios-ess-52-48-16000',
+    manufacturer: 'Discover Battery',
+    name: 'HELIOS ESS 52-48-16000',
+    productType: 'battery',
+    category: 'Batteries',
+    nominalVoltage: 48,
+    capacityWh: 16080,
+    continuousPowerW: 10240,
+    peakPowerW: 19000,
+    maxCurrentA: 200,
+    msrpUsd: 3355,
+    productUrl: 'https://www.cdnrg.com/products/renewable-energy/renewable-energy-batteries/helios',
+    description: 'Discover HELIOS ESS DC-coupled lithium energy storage system for residential and light commercial applications, 51.2V/314Ah with 16.08 kWh usable capacity.',
+    partNumber: '52-48-16000',
+    sku: '900-0077',
+    source: 'Discover HELIOS ESS datasheet 808-0046 Rev G',
+    dataQuality: 'partial',
+    notes: 'Datasheet lists quick-connect plug and pull terminals, 200A breaker, 10.24 kW continuous discharge, 19 kW peak power for 10 seconds, IP65 enclosure, and closed-loop CAN communication. Confirm inverter compatibility and installation requirements.',
+    width: 76,
+    height: 144,
+    terminals: discoverHeliosTerminals(200),
+    batteryRatings: {
+      nominalVoltageV: 51.2,
+      capacityAh: 314,
+      capacityWh: 16080,
+      capacityKwh: 16.08,
+      maxChargeCurrentA: 200,
+      maxDischargeCurrentA: 200,
+      peakDischargeCurrentA: 300,
+      chargeVoltageV: 56.8,
+      cutoffVoltageV: 48,
+      chemistry: 'LiFePO4',
+      communicationInterfaces: ['CAN'],
+      hasInternalBms: true,
+      seriesAllowed: false,
+      parallelAllowed: true,
     },
   },
 
@@ -374,9 +495,9 @@ export const batteries: Product[] = [
     source: 'Discover Battery 2025',
     dataQuality: 'partial',
     notes: 'Placeholder pricing/specs.',
-    width: 80,
-    height: 100,
-    terminals: batteryTerminals(200),
+    width: 112,
+    height: 98,
+    terminals: discoverAesBatteryTerminals(200),
     batteryRatings: {
       nominalVoltageV: 12.8,
       capacityAh: 200,
@@ -385,6 +506,8 @@ export const batteries: Product[] = [
       maxDischargeCurrentA: 200,
       chemistry: 'LiFePO4',
       hasInternalBms: true,
+      seriesAllowed: false,
+      parallelAllowed: true,
     },
   },
   {
@@ -403,9 +526,9 @@ export const batteries: Product[] = [
     source: 'Discover Battery 2025',
     dataQuality: 'partial',
     notes: 'Placeholder pricing/specs.',
-    width: 80,
-    height: 100,
-    terminals: batteryTerminals(100),
+    width: 112,
+    height: 98,
+    terminals: discoverAesBatteryTerminals(100),
     batteryRatings: {
       nominalVoltageV: 25.6,
       capacityAh: 100,
@@ -414,6 +537,8 @@ export const batteries: Product[] = [
       maxDischargeCurrentA: 100,
       chemistry: 'LiFePO4',
       hasInternalBms: true,
+      seriesAllowed: false,
+      parallelAllowed: true,
     },
   },
 
@@ -437,9 +562,9 @@ export const batteries: Product[] = [
     source: 'Discover Battery 2025',
     dataQuality: 'partial',
     notes: 'Placeholder pricing/specs.',
-    width: 80,
-    height: 100,
-    terminals: batteryTerminals(120),
+    width: 92,
+    height: 98,
+    terminals: discoverDlpBatteryTerminals(120),
     batteryRatings: {
       nominalVoltageV: 12.8,
       capacityAh: 120,
@@ -449,6 +574,8 @@ export const batteries: Product[] = [
       chemistry: 'LiFePO4',
       communicationInterfaces: ['CAN'],
       hasInternalBms: true,
+      seriesAllowed: false,
+      parallelAllowed: true,
     },
   },
   {
@@ -467,9 +594,9 @@ export const batteries: Product[] = [
     source: 'Discover Battery 2025',
     dataQuality: 'partial',
     notes: 'Placeholder pricing/specs.',
-    width: 80,
-    height: 100,
-    terminals: batteryTerminals(60),
+    width: 92,
+    height: 98,
+    terminals: discoverDlpBatteryTerminals(60),
     batteryRatings: {
       nominalVoltageV: 25.6,
       capacityAh: 60,
@@ -479,6 +606,8 @@ export const batteries: Product[] = [
       chemistry: 'LiFePO4',
       communicationInterfaces: ['CAN'],
       hasInternalBms: true,
+      seriesAllowed: false,
+      parallelAllowed: true,
     },
   },
   {
@@ -497,9 +626,9 @@ export const batteries: Product[] = [
     source: 'Discover Battery 2025',
     dataQuality: 'partial',
     notes: 'Placeholder pricing/specs.',
-    width: 80,
-    height: 100,
-    terminals: batteryTerminals(30),
+    width: 92,
+    height: 98,
+    terminals: discoverDlpBatteryTerminals(30),
     batteryRatings: {
       nominalVoltageV: 51.2,
       capacityAh: 30,
@@ -509,6 +638,8 @@ export const batteries: Product[] = [
       chemistry: 'LiFePO4',
       communicationInterfaces: ['CAN'],
       hasInternalBms: true,
+      seriesAllowed: false,
+      parallelAllowed: true,
     },
   },
 ];

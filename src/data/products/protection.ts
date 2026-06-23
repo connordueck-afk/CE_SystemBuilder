@@ -206,9 +206,163 @@ const breakers: Product[] = breakerCatalog.flatMap(({ type, ratings, msrpBase, v
   })
 );
 
+// -----------------------------------------------------------
+// AC DIN rail miniature breakers
+// -----------------------------------------------------------
+
+type AcBreakerPoleCount = 1 | 2 | 3;
+
+const acBreakerRatings = [6, 10, 15, 16, 20, 25, 30, 32, 40, 50, 63] as const;
+
+const acBreakerCatalog: Array<{
+  poles: AcBreakerPoleCount;
+  type: string;
+  msrpBase: number;
+  voltageRatingV: number;
+  imageUrl: string;
+  width: number;
+  height: number;
+}> = [
+  {
+    poles: 1,
+    type: 'AC DIN 1P',
+    msrpBase: 12,
+    voltageRatingV: 277,
+    imageUrl: '/product-images/breaker-ac-din-1p.svg',
+    width: 48,
+    height: 120,
+  },
+  {
+    poles: 2,
+    type: 'AC DIN 2P',
+    msrpBase: 24,
+    voltageRatingV: 480,
+    imageUrl: '/product-images/breaker-ac-din-2p.svg',
+    width: 84,
+    height: 120,
+  },
+  {
+    poles: 3,
+    type: 'AC DIN 3P',
+    msrpBase: 36,
+    voltageRatingV: 480,
+    imageUrl: '/product-images/breaker-ac-din-3p.svg',
+    width: 120,
+    height: 120,
+  },
+];
+
+const acBreakerSvgGeometry: Record<AcBreakerPoleCount, {
+  viewBoxWidth: number;
+  viewBoxHeight: number;
+  topScrewY: number;
+  bottomScrewY: number;
+  screwCentersX: number[];
+}> = {
+  1: { viewBoxWidth: 160, viewBoxHeight: 360, topScrewY: 55, bottomScrewY: 306, screwCentersX: [80] },
+  2: { viewBoxWidth: 260, viewBoxHeight: 360, topScrewY: 55, bottomScrewY: 306, screwCentersX: [91, 169] },
+  3: { viewBoxWidth: 360, viewBoxHeight: 360, topScrewY: 58, bottomScrewY: 296, screwCentersX: [98, 180, 262] },
+};
+
+function svgPointToProductOffset(
+  svgX: number,
+  svgY: number,
+  geometry: { viewBoxWidth: number; viewBoxHeight: number },
+  width: number,
+  height: number
+): { offsetX: number; offsetY: number } {
+  return {
+    offsetX: (svgX / geometry.viewBoxWidth - 0.5) * width,
+    offsetY: (svgY / geometry.viewBoxHeight - 0.5) * height,
+  };
+}
+
+function acBreakerTerminals(poles: AcBreakerPoleCount, rating: number, width: number, height: number): Product['terminals'] {
+  const geometry = acBreakerSvgGeometry[poles];
+  const phases = poles as 1 | 2 | 3;
+
+  return Array.from({ length: poles }, (_, index) => {
+    const poleNumber = index + 1;
+    const x = geometry.screwCentersX[index];
+    const topOffset = svgPointToProductOffset(x, geometry.topScrewY, geometry, width, height);
+    const bottomOffset = svgPointToProductOffset(x, geometry.bottomScrewY, geometry, width, height);
+    const common = {
+      electricalType: 'ac' as const,
+      kind: 'ac_power' as const,
+      polarity: 'line' as const,
+      role: 'pass_through' as const,
+      voltageClass: 'ac_120v' as const,
+      domain: 'ac' as const,
+      phases,
+      conductorCount: poles,
+      maxCurrentA: rating,
+      connector: { kind: 'screw_terminal' as const },
+    };
+
+    return [
+      {
+        id: `l${poleNumber}_in`,
+        label: poles === 1 ? 'Line In' : `L${poleNumber} In`,
+        ...common,
+        direction: 'input' as const,
+        side: 'top' as const,
+        offsetX: topOffset.offsetX,
+        offsetY: topOffset.offsetY,
+        notes: `Line-side AC pole ${poleNumber} terminal.`,
+      },
+      {
+        id: `l${poleNumber}_out`,
+        label: poles === 1 ? 'Line Out' : `L${poleNumber} Out`,
+        ...common,
+        direction: 'output' as const,
+        side: 'bottom' as const,
+        offsetX: bottomOffset.offsetX,
+        offsetY: bottomOffset.offsetY,
+        notes: `Load-side AC pole ${poleNumber} terminal.`,
+      },
+    ];
+  }).flat();
+}
+
+function acBreakerPrice(poles: AcBreakerPoleCount, rating: number, base: number): number {
+  return Math.round(base + rating * (0.25 + poles * 0.08));
+}
+
+const acBreakers: Product[] = acBreakerCatalog.flatMap(({ poles, type, msrpBase, voltageRatingV, imageUrl, width, height }) =>
+  acBreakerRatings.map((rating) => {
+    const msrp = acBreakerPrice(poles, rating, msrpBase);
+    return {
+      id: breakerId(type, rating),
+      manufacturer: 'Generic',
+      name: `AC DIN Breaker ${poles}P ${rating}A`,
+      productType: 'breaker' as const,
+      category: type,
+      maxCurrentA: rating,
+      msrpUsd: msrp,
+      oemPriceUsd: Math.round(msrp * 0.7),
+      description: `Generic ${poles}-pole AC DIN rail miniature circuit breaker, ${rating}A.`,
+      source: 'Catalog estimate: AC DIN rail breakers',
+      dataQuality: 'placeholder' as const,
+      imageUrl,
+      width,
+      height,
+      terminals: acBreakerTerminals(poles, rating, width, height),
+      protectionRatings: {
+        currentRatingA: rating,
+        voltageRatingV,
+        interruptRatingA: 6000,
+        acDcCompatibility: 'ac' as const,
+        breakerStyle: type,
+        protectionType: 'breaker' as const,
+      },
+    };
+  })
+);
+
 export const protection: Product[] = [
   ...fuses,
   ...breakers,
+  ...acBreakers,
 
   // ==========================================================
   // Transfer switches and isolation transformers

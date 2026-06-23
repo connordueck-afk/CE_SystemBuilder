@@ -27,6 +27,7 @@ export function getProductImageUrl(productType: ProductType): string | undefined
 }
 
 const VICTRON_IMAGE_BASE = '/product-images/victron/';
+const DISCOVER_IMAGE_BASE = '/product-images/discover/';
 
 const VICTRON_PART_IMAGE_MAP: Record<string, string> = {
   ASS030537010: 'vebus_smart_dongle',
@@ -72,6 +73,10 @@ function victronImage(assetId: string): string {
   return `${VICTRON_IMAGE_BASE}${assetId}.svg`;
 }
 
+function discoverImage(assetId: string): string {
+  return `${DISCOVER_IMAGE_BASE}${assetId}.svg`;
+}
+
 function victronFallbackAssetId(product: Product): string | undefined {
   const name = product.name.toLowerCase();
 
@@ -83,6 +88,12 @@ function victronFallbackAssetId(product: Product): string | undefined {
     if (name.includes('150/60') || name.includes('150/70')) return 'smartsolar_mppt_large_tr';
     if (name.includes('150/85') || name.includes('150/100') || name.includes('250/70') || name.includes('250/100')) {
       return 'smartsolar_mppt_large_ve_can_tr';
+    }
+  }
+
+  if (product.productType === 'battery') {
+    if (name.includes('smartlithium') || name.includes('lithium battery ng')) {
+      return 'lithium_smart_battery_12v_200ah';
     }
   }
 
@@ -132,6 +143,36 @@ function victronFallbackAssetId(product: Product): string | undefined {
   return undefined;
 }
 
+function kisaeFamilyImageUrl(product: Product): string | undefined {
+  const partNumber = product.partNumber ?? '';
+  const name = product.name.toLowerCase();
+
+  if (/^DMT-?\d+/i.test(partNumber) || name.includes('dmt')) {
+    return '/product-images/kisae-dmt1250-no-wires.svg';
+  }
+
+  return undefined;
+}
+
+function discoverFamilyImageUrl(product: Product): string | undefined {
+  const partNumber = product.partNumber ?? '';
+  const name = product.name.toLowerCase();
+
+  if (/^DLP-GC2-/i.test(partNumber) || name.includes('dlp lifepo4')) {
+    return discoverImage('discover_dlp_gc2_xxv');
+  }
+
+  if (/^AES-B-GC2-/i.test(partNumber) || name.includes('aes lifepo4')) {
+    return discoverImage('discover_aes_b_gcxxxxx');
+  }
+
+  if (name.includes('helios')) {
+    return discoverImage('discover_helios');
+  }
+
+  return undefined;
+}
+
 export function getProductDisplayImageUrl(product: Product): string | undefined {
   if (product.manufacturer === 'Victron') {
     const assetId = product.partNumber ? VICTRON_PART_IMAGE_MAP[product.partNumber] : undefined;
@@ -139,6 +180,14 @@ export function getProductDisplayImageUrl(product: Product): string | undefined 
 
     const fallbackAssetId = victronFallbackAssetId(product);
     if (fallbackAssetId) return victronImage(fallbackAssetId);
+  }
+  if (product.manufacturer === 'KISAE') {
+    const imageUrl = kisaeFamilyImageUrl(product);
+    if (imageUrl) return imageUrl;
+  }
+  if (product.manufacturer === 'Discover Battery') {
+    const imageUrl = discoverFamilyImageUrl(product);
+    if (imageUrl) return imageUrl;
   }
   if (product.imageUrl) return product.imageUrl;
   return getProductImageUrl(product.productType);

@@ -1,4 +1,5 @@
 import type { BomRow, CableLengthSummaryItem } from '../types/system';
+import type { ConnectorSummaryItem } from './cableSummary';
 import { formatFeetAndInches } from './cableSummary';
 
 function esc(value: string | number | null | boolean): string {
@@ -13,7 +14,8 @@ function esc(value: string | number | null | boolean): string {
 export function exportBomCsv(
   rows: BomRow[],
   systemName: string,
-  cableSummary: CableLengthSummaryItem[] = []
+  cableSummary: CableLengthSummaryItem[] = [],
+  connectorSummary: ConnectorSummaryItem[] = []
 ): void {
   const headers = [
     'Section',
@@ -65,6 +67,24 @@ export function exportBomCsv(
         item.type || '',
         formatFeetAndInches(item.totalLengthFt),
         item.cableCount,
+      ]
+        .map(esc)
+        .join(',')
+    ));
+  }
+
+  if (connectorSummary.length > 0) {
+    csvRows.push('');
+    csvRows.push(['Lugs & Connectors'].map(esc).join(','));
+    csvRows.push(['Connector', 'Hole Size', 'Gauge', 'Qty', 'Est. Unit (USD)', 'Est. Extended (USD)'].map(esc).join(','));
+    csvRows.push(...connectorSummary.map((item) =>
+      [
+        item.label,
+        item.holeSize ?? '',
+        item.gauge ?? '',
+        item.count,
+        item.estUnitMsrpUsd,
+        item.estExtendedMsrpUsd,
       ]
         .map(esc)
         .join(',')

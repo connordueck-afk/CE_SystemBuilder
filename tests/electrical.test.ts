@@ -15,6 +15,9 @@ import { selectBestFuseProduct, getFuseRating } from '../src/utils/fuseSelection
 import { continuousFactorForBus, DEFAULT_ASSUMPTIONS } from '../src/data/electricalRules';
 import { voltageDropV, cableByAwg } from '../src/data/cableAmpacity';
 import { nextStandardFuse } from '../src/data/fuseRatings';
+import { selectLug, lugKey } from '../src/data/lugs';
+import { getEffectiveConnector } from '../src/utils/terminalConnectors';
+import { buildCableBomRows, buildConnectorSummary } from '../src/utils/cableSummary';
 import type { SystemDesign } from '../src/types/system';
 
 // ---- tiny test runner -------------------------------------------------------
@@ -452,6 +455,61 @@ function parallelBatteryBankWithSingleMainFuse(): SystemDesign {
   } as SystemDesign;
 }
 
+function daisyChainParallelBatteries(): SystemDesign {
+  const busDefaults = {
+    productId: 'dist-generic-busbar-5pt',
+    quantity: 1,
+    inferredConnectionKind: 'dc_power',
+    inferredVoltageClass: 'dc_low_voltage',
+  } as const;
+
+  return {
+    id: 'daisy-chain-parallel-batteries',
+    name: 'daisy-chain-parallel-batteries',
+    nominalVoltage: 12,
+    assumptions: { ...DEFAULT_ASSUMPTIONS },
+    createdAt: '',
+    updatedAt: '',
+    components: [
+      { id: 'bat-a', productId: 'bat-vic-smart-12-200', label: 'Battery A', quantity: 1, x: 0, y: -80 },
+      { id: 'bat-b', productId: 'bat-vic-smart-12-200', label: 'Battery B', quantity: 1, x: 0, y: 80 },
+      { id: 'fuse', productId: 'fuse-mega-300a', label: '300A Main Fuse', quantity: 1, x: 200, y: -80 },
+      {
+        ...busDefaults,
+        id: 'pos-main',
+        label: 'Positive Busbar',
+        x: 400,
+        y: -60,
+        busPolarity: 'positive',
+        inferredPolarity: 'positive',
+        inferredElectricalType: 'dc_pos',
+      },
+      {
+        ...busDefaults,
+        id: 'neg-main',
+        label: 'Negative Busbar',
+        x: 400,
+        y: 60,
+        busPolarity: 'negative',
+        inferredPolarity: 'negative',
+        inferredElectricalType: 'dc_neg',
+      },
+      { id: 'mppt', productId: 'mppt-100-50', label: 'MPPT Charge Controller', quantity: 1, x: 600, y: 0 },
+    ],
+    connections: [
+      // Batteries wired directly in parallel (no collector busbar).
+      { id: 'ab-pos', fromComponentId: 'bat-a', fromTerminalId: 'dc_pos', toComponentId: 'bat-b', toTerminalId: 'dc_pos', cableLengthFt: 2 },
+      { id: 'ab-neg', fromComponentId: 'bat-a', fromTerminalId: 'dc_neg', toComponentId: 'bat-b', toTerminalId: 'dc_neg', cableLengthFt: 2 },
+      // Diagonal takeoff: positive off Battery A through the main fuse, negative off Battery B.
+      { id: 'a-fuse', fromComponentId: 'bat-a', fromTerminalId: 'dc_pos', toComponentId: 'fuse', toTerminalId: 'in', cableLengthFt: 1 },
+      { id: 'fuse-main', fromComponentId: 'fuse', fromTerminalId: 'out', toComponentId: 'pos-main', toTerminalId: 'terminal_1', cableLengthFt: 2 },
+      { id: 'b-neg-main', fromComponentId: 'bat-b', fromTerminalId: 'dc_neg', toComponentId: 'neg-main', toTerminalId: 'terminal_1', cableLengthFt: 2 },
+      { id: 'mppt-pos', fromComponentId: 'mppt', fromTerminalId: 'bat_pos', toComponentId: 'pos-main', toTerminalId: 'terminal_2', cableLengthFt: 4 },
+      { id: 'mppt-neg', fromComponentId: 'mppt', fromTerminalId: 'bat_neg', toComponentId: 'neg-main', toTerminalId: 'terminal_2', cableLengthFt: 4 },
+    ],
+  } as SystemDesign;
+}
+
 function dcSourceFeedingSmallDcLoad(): SystemDesign {
   return {
     id: 'dc-source-small-load',
@@ -466,6 +524,26 @@ function dcSourceFeedingSmallDcLoad(): SystemDesign {
     ],
     connections: [
       { id: 'source-load-pos', fromComponentId: 'source', fromTerminalId: 'dc_pos', toComponentId: 'load', toTerminalId: 'dc_pos', cableLengthFt: 4 },
+    ],
+  } as SystemDesign;
+}
+
+function dcSourceFuseLoad(sourceA: number, loadA: number): SystemDesign {
+  return {
+    id: 'dc-source-fuse-load',
+    name: 'dc-source-fuse-load',
+    nominalVoltage: 12,
+    assumptions: { ...DEFAULT_ASSUMPTIONS },
+    createdAt: '',
+    updatedAt: '',
+    components: [
+      { id: 'source', productId: 'generic-alternator-source', label: 'DC Source', quantity: 1, x: 0, y: 0, instanceMaxCurrentA: sourceA },
+      { id: 'fuse', productId: 'fuse-midi-100a', label: 'Branch Fuse', quantity: 1, x: 120, y: 0 },
+      { id: 'load', productId: 'acc-dc-load-generic', label: 'DC Load', quantity: 1, x: 240, y: 0, instanceMaxCurrentA: loadA },
+    ],
+    connections: [
+      { id: 'src-fuse', fromComponentId: 'source', fromTerminalId: 'dc_pos', toComponentId: 'fuse', toTerminalId: 'in', cableLengthFt: 2 },
+      { id: 'fuse-load', fromComponentId: 'fuse', fromTerminalId: 'out', toComponentId: 'load', toTerminalId: 'dc_pos', cableLengthFt: 4 },
     ],
   } as SystemDesign;
 }
@@ -633,6 +711,23 @@ test('parallel bank negative output sizes from the shared positive main fuse', (
   assert.equal(c.recommendedCableAwg, '4/0');
 });
 
+test('daisy-chained parallel battery interconnects size for the pack fuse, not the table minimum', () => {
+  const analysis = analyzeSystemCircuits(daisyChainParallelBatteries(), PRODUCT_MAP);
+  const posInterconnect = analysis.connections.get('ab-pos')!;
+  const negInterconnect = analysis.connections.get('ab-neg')!;
+
+  assert.equal(posInterconnect.designCurrentA, 300);
+  assert.equal(posInterconnect.recommendedCableAwg, '4/0');
+  assert.equal(negInterconnect.designCurrentA, 300);
+  assert.equal(negInterconnect.recommendedCableAwg, '4/0');
+});
+
+test('daisy-chained parallel battery interconnects do not demand a separate source-side fuse', () => {
+  const system = daisyChainParallelBatteries();
+  assert.ok(!errorCodes(system, 'ab-pos').includes('SOURCE_SIDE_PROTECTION_MISSING'));
+  assert.ok(!errorCodes(system, 'ab-neg').includes('SOURCE_SIDE_PROTECTION_MISSING'));
+});
+
 test('battery source capability is not counted as busbar operating current', () => {
   const codes = warningCodes(parallelBatteryBankWithSingleMainFuse());
   assert.ok(!codes.includes('BUSBAR_OVERLOADED'));
@@ -641,6 +736,23 @@ test('battery source capability is not counted as busbar operating current', () 
 test('DC load instance current limits source-to-load branch current', () => {
   const c = analyzeSystemCircuits(dcSourceFeedingSmallDcLoad(), PRODUCT_MAP).connections.get('source-load-pos')!;
   assert.equal(c.designCurrentA, 15);
+});
+
+test('current-limited source feeding a smaller load is load-limited on both sides of an in-line fuse', () => {
+  const analysis = analyzeSystemCircuits(dcSourceFuseLoad(50, 15), PRODUCT_MAP);
+  const beforeFuse = analysis.connections.get('src-fuse')!;
+  const afterFuse = analysis.connections.get('fuse-load')!;
+  assert.equal(beforeFuse.designCurrentA, 15, 'source->fuse segment should carry the 15A load demand, not the 50A source rating');
+  assert.equal(afterFuse.designCurrentA, 15, 'fuse->load segment should carry the 15A load demand');
+  assert.equal(beforeFuse.designCurrentA, afterFuse.designCurrentA, 'branch current must match before and after the fuse');
+});
+
+test('current-limited source feeding an oversized load is clamped to source capability across a fuse', () => {
+  const analysis = analyzeSystemCircuits(dcSourceFuseLoad(50, 200), PRODUCT_MAP);
+  const beforeFuse = analysis.connections.get('src-fuse')!;
+  const afterFuse = analysis.connections.get('fuse-load')!;
+  assert.equal(beforeFuse.designCurrentA, 50, 'branch is capped at the 50A source when the load demands more');
+  assert.equal(afterFuse.designCurrentA, 50, 'branch is capped at the 50A source on both sides of the fuse');
 });
 
 test('DC positive branch without a negative return is a hard system error', () => {
@@ -656,6 +768,94 @@ test('DC negative return cable must support the protected branch current', () =>
 test('shunt current rating is enforced', () => {
   const codes = warningCodes(shuntOverRating());
   assert.ok(codes.includes('SHUNT_RATING_EXCEEDED'));
+});
+
+// ---- connectors, lugs & cable BOM -------------------------------------------
+
+function batteryBusLoadWithGauges(): SystemDesign {
+  return {
+    id: 'cable-bom',
+    name: 'cable-bom',
+    nominalVoltage: 12,
+    assumptions: { ...DEFAULT_ASSUMPTIONS },
+    createdAt: '',
+    updatedAt: '',
+    components: [
+      { id: 'bat', productId: 'bat-vic-smart-12-200', label: 'Battery', quantity: 1, x: 0, y: 0 },
+      {
+        id: 'bus',
+        productId: 'dist-generic-busbar-5pt',
+        label: 'Positive Bus',
+        quantity: 1,
+        x: 120,
+        y: 0,
+        busPolarity: 'positive',
+        inferredConnectionKind: 'dc_power',
+        inferredPolarity: 'positive',
+        inferredElectricalType: 'dc_pos',
+        inferredVoltageClass: 'dc_low_voltage',
+      },
+      { id: 'load', productId: 'acc-dc-load-generic', label: 'Load', quantity: 1, x: 240, y: 0, instanceMaxCurrentA: 30 },
+    ],
+    connections: [
+      { id: 'bat-bus', fromComponentId: 'bat', fromTerminalId: 'dc_pos', toComponentId: 'bus', toTerminalId: 'terminal_1', cableLengthFt: 2, manualCableAwg: '2/0' },
+      { id: 'bus-load', fromComponentId: 'bus', fromTerminalId: 'terminal_2', toComponentId: 'load', toTerminalId: 'dc_pos', cableLengthFt: 4, manualCableAwg: '8' },
+    ],
+  } as SystemDesign;
+}
+
+test('selectLug returns a generic lug for a known gauge + hole size', () => {
+  const lug = selectLug('2/0', '3/8');
+  assert.ok(lug, 'expected a lug');
+  assert.equal(lug!.awg, '2/0');
+  assert.equal(lug!.holeSize, '3/8');
+  assert.equal(lug!.id, lugKey('2/0', '3/8'));
+  assert.ok(lug!.estMsrpUsd > 0);
+});
+
+test('selectLug returns undefined when gauge or hole size is missing/unknown', () => {
+  assert.equal(selectLug(undefined, '3/8'), undefined);
+  assert.equal(selectLug('2/0', undefined), undefined);
+  assert.equal(selectLug('999', '3/8'), undefined);
+});
+
+test('getEffectiveConnector: battery stud -> lug, load -> screw, solar -> MC4', () => {
+  const bat = PRODUCT_MAP.get('bat-vic-smart-12-200')!;
+  const load = PRODUCT_MAP.get('acc-dc-load-generic')!;
+  const solar = PRODUCT_MAP.get('solar-array-400w')!;
+  assert.equal(getEffectiveConnector(bat, 'dc_pos')?.kind, 'lug');
+  assert.equal(getEffectiveConnector(load, 'dc_pos')?.kind, 'screw_terminal');
+  assert.equal(getEffectiveConnector(solar, 'pv_pos')?.kind, 'mc4_male');
+  assert.equal(getEffectiveConnector(solar, 'pv_neg')?.kind, 'mc4_female');
+});
+
+test('buildCableBomRows resolves a lug at the stud end and a screw terminal at the load end', () => {
+  const rows = buildCableBomRows(batteryBusLoadWithGauges(), PRODUCT_MAP);
+  assert.equal(rows.length, 2);
+
+  const batBus = rows.find((r) => r.connectionId === 'bat-bus')!;
+  assert.equal(batBus.gauge, '2/0');
+  assert.equal(batBus.fromEnd.connector?.kind, 'lug');
+  assert.ok(batBus.fromEnd.lug, 'battery stud end should have a lug');
+  assert.equal(batBus.fromEnd.lug!.awg, '2/0');
+
+  const busLoad = rows.find((r) => r.connectionId === 'bus-load')!;
+  assert.equal(busLoad.toEnd.connector?.kind, 'screw_terminal');
+  assert.equal(busLoad.toEnd.lug, undefined, 'screw terminal end should not produce a lug');
+});
+
+test('buildConnectorSummary aggregates lugs (priced) and screw terminals (unpriced)', () => {
+  const rows = buildCableBomRows(batteryBusLoadWithGauges(), PRODUCT_MAP);
+  const summary = buildConnectorSummary(rows);
+
+  const lug20 = summary.find((s) => s.gauge === '2/0');
+  assert.ok(lug20, 'expected an aggregated 2/0 lug line');
+  assert.ok(lug20!.estUnitMsrpUsd != null && lug20!.estUnitMsrpUsd > 0);
+  assert.equal(lug20!.estExtendedMsrpUsd, lug20!.estUnitMsrpUsd! * lug20!.count);
+
+  const screw = summary.find((s) => s.label === 'Screw terminal');
+  assert.ok(screw, 'expected a screw terminal line');
+  assert.equal(screw!.estUnitMsrpUsd, null);
 });
 
 // ---- summary ----------------------------------------------------------------

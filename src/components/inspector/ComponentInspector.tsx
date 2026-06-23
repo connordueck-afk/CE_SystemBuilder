@@ -9,6 +9,7 @@ import {
 } from '../../utils/solarCalculations';
 import { isDcBusProduct } from '../../utils/dcBusVoltage';
 import { getFuseHolderForProduct } from '../../utils/fuseHolders';
+import { fuseRatingsForStyle, findFuseProductByStyleRating } from '../../utils/fuseSelection';
 import {
   COMPONENT_SCALE_MAX,
   COMPONENT_SCALE_MIN,
@@ -32,6 +33,7 @@ function getSourceLoadKind(product: Product): SourceLoadKind | null {
 interface Props {
   component: SystemComponent;
   product: Product;
+  products: Map<string, Product>;
   systemVoltage: NominalVoltage;
   solarArray?: SolarArrayAggregation;
   availableFuseProducts?: Array<{ ratingA: number; productId: string }>;
@@ -64,6 +66,7 @@ function SpecRow({ label, value }: { label: string; value: string | number | nul
 export function ComponentInspector({
   component,
   product,
+  products,
   systemVoltage,
   solarArray,
   availableFuseProducts,
@@ -113,8 +116,8 @@ export function ComponentInspector({
 
       <div className="inspector-section">
         <div className="inspector-label">Product</div>
-        <div style={{ color: '#182235', fontSize: 14, fontWeight: 700 }}>{product.name}</div>
-        <div style={{ color: '#6d7b90', fontSize: 12, fontWeight: 700 }}>{product.manufacturer}</div>
+        <div style={{ color: 'var(--ink)', fontSize: 14, fontWeight: 700 }}>{product.name}</div>
+        <div style={{ color: 'var(--muted)', fontSize: 12, fontWeight: 700 }}>{product.manufacturer}</div>
       </div>
 
       <div className="inspector-section">
@@ -128,7 +131,7 @@ export function ComponentInspector({
             value={imageScale}
             onChange={(e) => onUpdateComponentImageScale(component.id, Number(e.target.value))}
           />
-          <div style={{ color: '#182235', fontSize: 12, fontWeight: 800, minWidth: 42, textAlign: 'right' }}>
+          <div style={{ color: 'var(--ink)', fontSize: 12, fontWeight: 800, minWidth: 42, textAlign: 'right' }}>
             {Math.round(imageScale * 100)}%
           </div>
         </div>
@@ -195,7 +198,7 @@ export function ComponentInspector({
           <div className="inspector-label">Solar String</div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 6 }}>
             <div>
-              <div style={{ color: '#6d7b90', fontSize: 11, fontWeight: 600, marginBottom: 3 }}>Panels in Series</div>
+              <div style={{ color: 'var(--muted)', fontSize: 11, fontWeight: 600, marginBottom: 3 }}>Panels in Series</div>
               <input
                 type="number"
                 className="inspector-input"
@@ -336,7 +339,7 @@ export function ComponentInspector({
           {arrayStats.iscA != null && <SpecRow label="Array Isc" value={`${arrayStats.iscA.toFixed(1)} A`} />}
           {arrayStats.impA != null && <SpecRow label="Array Imp" value={`${arrayStats.impA.toFixed(1)} A`} />}
           {(solarArray?.mismatches.length ?? 0) > 0 && (
-            <div style={{ color: '#b93232', fontSize: 12, fontWeight: 600, lineHeight: 1.4, marginTop: 6 }}>
+            <div style={{ color: 'var(--red)', fontSize: 12, fontWeight: 600, lineHeight: 1.4, marginTop: 6 }}>
               Parallel strings have mismatched open-circuit voltage.
             </div>
           )}
@@ -349,36 +352,43 @@ export function ComponentInspector({
           <div className="fuse-slot-list">
             {fuseSlots.map((slot) => {
               const state = component.fuseSlots?.[slot.id] ?? {};
-              const installed = state.installed ?? slot.defaultInstalled ?? true;
-              const ratingA = state.ratingA ?? slot.defaultFuseA ?? '';
+              const installed = state.installed ?? slot.defaultInstalled ?? false;
+              const ratingA = state.ratingA ?? slot.defaultFuseA;
+              const fuseStyle = slot.fuseStyle ?? slot.protectionType ?? 'Fuse';
+              // Ratings menu: explicit override if present, else derived from the catalog by style.
+              const ratings = slot.allowedFuseRatingsA && slot.allowedFuseRatingsA.length > 0
+                ? [...slot.allowedFuseRatingsA].sort((a, b) => a - b)
+                : fuseRatingsForStyle(products.values(), fuseStyle, slot.maxFuseA);
+              const selectValue = installed && ratingA != null ? String(ratingA) : '';
+              const fuseProduct = installed && ratingA != null
+                ? findFuseProductByStyleRating(products.values(), fuseStyle, ratingA)
+                : undefined;
+              const unitPrice = fuseProduct?.msrpUsd;
 
               return (
                 <div key={slot.id} className={`fuse-slot-row${installed ? '' : ' fuse-slot-row-empty'}`}>
-                  <label className="fuse-slot-enabled">
-                    <input
-                      type="checkbox"
-                      checked={installed}
-                      onChange={(e) => onUpdateFuseSlot(component.id, slot.id, { installed: e.target.checked })}
-                    />
-                    <span>{slot.label}</span>
-                  </label>
-                  <input
-                    type="number"
+                  <span className="fuse-slot-enabled"><span>{slot.label}</span></span>
+                  <select
                     className="inspector-input fuse-slot-rating"
-                    min={0}
-                    max={slot.maxFuseA}
-                    value={ratingA}
-                    placeholder={installed ? 'A' : 'Empty'}
-                    disabled={!installed}
+                    value={selectValue}
                     onChange={(e) => {
-                      const v = parseFloat(e.target.value);
-                      onUpdateFuseSlot(component.id, slot.id, {
-                        installed: true,
-                        ratingA: isNaN(v) ? undefined : v,
-                      });
+                      const v = e.target.value;
+                      if (v === '') {
+                        onUpdateFuseSlot(component.id, slot.id, { installed: false, ratingA: undefined });
+                      } else {
+                        onUpdateFuseSlot(component.id, slot.id, { installed: true, ratingA: Number(v) });
+                      }
                     }}
-                  />
-                  <span className="fuse-slot-style">{slot.fuseStyle ?? slot.protectionType ?? 'Fuse'}</span>
+                  >
+                    <option value="">Empty</option>
+                    {ratings.map((r) => (
+                      <option key={r} value={r}>{`${r}A`}</option>
+                    ))}
+                  </select>
+                  <span className="fuse-slot-style">
+                    {fuseStyle}
+                    {unitPrice != null ? ` · ${fmt(unitPrice)}` : ''}
+                  </span>
                 </div>
               );
             })}
@@ -415,7 +425,7 @@ export function ComponentInspector({
         <SpecRow label="MSRP" value={fmt(product.msrpUsd ?? null)} />
         <SpecRow label="OEM Est." value={fmt(product.oemPriceUsd ?? null)} />
         <div style={{ marginTop: 6 }}>
-          <div style={{ color: '#6d7b90', fontSize: 11, fontWeight: 600, marginBottom: 3 }}>Price override (unit)</div>
+          <div style={{ color: 'var(--muted)', fontSize: 11, fontWeight: 600, marginBottom: 3 }}>Price override (unit)</div>
           <input
             type="number"
             className="inspector-input"
@@ -432,7 +442,7 @@ export function ComponentInspector({
       {product.notes && (
         <div className="inspector-section">
           <div className="inspector-label">Notes</div>
-          <div style={{ color: '#46546a', fontSize: 12, lineHeight: 1.5 }}>{product.notes}</div>
+          <div style={{ color: 'var(--ink-soft)', fontSize: 12, lineHeight: 1.5 }}>{product.notes}</div>
         </div>
       )}
 

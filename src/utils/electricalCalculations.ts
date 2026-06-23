@@ -19,6 +19,8 @@ import { resolveTerminalCurrentA } from './terminalElectrics';
 import { getEffectiveTerminal } from './effectiveTerminals';
 import { getDcBusNominalVoltage, isDcBusTerminal } from './dcBusVoltage';
 import { formatFeetAndInches } from './cableSummary';
+import { analyzeBatteryTopology } from './batteryTopology';
+import { resolveFuseSlot } from './distributionTopology';
 
 const PASS_THROUGH_TYPES = new Set<string>(['fuse', 'breaker']);
 const PASSIVE_ELECTRICAL_TYPES = new Set<string>([
@@ -368,6 +370,7 @@ export function generateWarnings(
   const netlist = buildElectricalNetlist(system, products);
   const circuitAnalysis = analyzeSystemCircuits(system, products);
   const batteryInterconnects = buildBatteryInterconnectMap(system, products);
+  const batteryTopology = analyzeBatteryTopology(system, products);
   const componentById = new Map(system.components.map((component) => [component.id, component]));
   const productByComponent = new Map(
     system.components
@@ -375,6 +378,10 @@ export function generateWarnings(
       .filter((entry): entry is readonly [string, Product] => Boolean(entry[1]))
   );
   const netById = new Map(netlist.nets.map((net) => [net.id, net]));
+
+  for (const issue of batteryTopology.issues) {
+    warn(issue.severity, issue.message, issue.code, issue.componentId, issue.connectionId);
+  }
 
   const connectionBusType = (connection: SystemConnection): BusType => (
     circuitAnalysis.connections.get(connection.id)?.busType ??
@@ -520,6 +527,22 @@ export function generateWarnings(
           'error',
           `"${productLabel(comp, product)}" ${slot.label} is rated for a maximum ${slot.maxFuseA}A fuse but branch load is ${slotCurrentA.toFixed(0)}A`,
           'DISTRIBUTION_SLOT_OVERLOADED',
+          comp.id
+        );
+      }
+
+      // An empty fuse position with something wired to its tap is an open (unprotected,
+      // non-conducting) branch — flag it so the user knows to insert a fuse.
+      const { installed } = resolveFuseSlot(comp, slot);
+      const tapConnected = system.connections.some((connection) => (
+        (connection.fromComponentId === comp.id && connection.fromTerminalId === slot.downstreamTerminalId) ||
+        (connection.toComponentId === comp.id && connection.toTerminalId === slot.downstreamTerminalId)
+      ));
+      if (!installed && tapConnected) {
+        warn(
+          'warning',
+          `"${productLabel(comp, product)}" ${slot.label} has a branch wired to it but no fuse is installed — the tap is open and unprotected.`,
+          'DISTRIBUTION_SLOT_EMPTY',
           comp.id
         );
       }
@@ -926,6 +949,7 @@ export function generateWarnings(
       ? getEffectiveTerminal(toProduct, conn.toTerminalId, toComp)
       : undefined;
     if (
+      !conn.busLink &&
       fromComp &&
       toComp &&
       fromProduct &&

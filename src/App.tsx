@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
+import { useState, useMemo, useCallback, useEffect, useRef, type ChangeEvent } from 'react';
 import type {
   FuseSlotState,
   SystemDesign,
@@ -20,7 +20,15 @@ import { buildElectricalSummary } from './utils/systemSummary';
 import { generateWarnings } from './utils/electricalCalculations';
 import { validateSystemConnection } from './utils/connectionRules';
 import { exportBomCsv } from './utils/csvExport';
-import { saveCurrentSystem, loadCurrentSystem, loadSavedSystems } from './utils/storage';
+import {
+  createSystemSaveFile,
+  loadCurrentSystem,
+  loadSavedSystems,
+  parseSystemSaveFile,
+  saveCurrentSystem,
+  systemSaveFilename,
+} from './utils/storage';
+import { buildShareUrl, decodeShareParam, getInitialShareParam } from './utils/shareUrl';
 import { genId } from './utils/ids';
 import { getSolarPanelCount } from './utils/solarCalculations';
 import { getEffectiveTerminal, isDynamicSingleConductorProduct } from './utils/effectiveTerminals';
@@ -28,7 +36,8 @@ import type { BusType } from './utils/electricalNetlist';
 import { buildProtectionRecommendations } from './utils/protectionRecommendations';
 import type { ProtectionRecommendation } from './utils/protectionRecommendations';
 import { analyzeSystemCircuits } from './utils/circuitAnalysis';
-import { buildCableLengthSummary } from './utils/cableSummary';
+import { buildCableLengthSummary, buildCableBomRows, buildConnectorSummary } from './utils/cableSummary';
+import { sharedBusLinkStandard } from './utils/busLinks';
 import { DEFAULT_BUS_COLORS, type BusColorMap } from './utils/busColors';
 import { isVerticalOrientation } from './utils/componentOrientation';
 import { clampComponentScale, componentScale, scaledProductSize } from './utils/componentScale';
@@ -37,6 +46,7 @@ import { LeftPartSidebar } from './components/layout/LeftPartSidebar';
 import { RightInspector } from './components/layout/RightInspector';
 import { BomSummaryModal } from './components/layout/BomSummaryModal';
 import { NewSystemModal } from './components/layout/NewSystemModal';
+import { StartupModal } from './components/layout/StartupModal';
 import { SchematicCanvas } from './components/schematic/SchematicCanvas';
 import { InlineFuseInsertModal } from './components/parts/InlineFuseInsertModal';
 import {
@@ -48,6 +58,7 @@ import {
 import './styles/app.css';
 
 const PRODUCT_MAP = new Map(ALL_PRODUCTS.map((p) => [p.id, p]));
+const INITIAL_SHARE_PARAM = getInitialShareParam();
 const CANVAS_WORLD_X = -10000;
 const CANVAS_WORLD_Y = -10000;
 const CANVAS_WORLD_W = 30000;
@@ -55,6 +66,14 @@ const CANVAS_WORLD_H = 30000;
 const PLACEMENT_GRID = 20;
 const PASTE_OFFSET = 40;
 const HISTORY_LIMIT = 50;
+const THEME_STORAGE_KEY = 'system-builder-theme';
+
+type ThemeMode = 'light' | 'dark';
+
+function loadThemeMode(): ThemeMode {
+  if (typeof window === 'undefined') return 'light';
+  return window.localStorage.getItem(THEME_STORAGE_KEY) === 'dark' ? 'dark' : 'light';
+}
 
 interface PendingProtectionInsert {
   recommendation: ProtectionRecommendation;
@@ -107,8 +126,24 @@ function numberedLabel(baseLabel: string, components: SystemComponent[]): string
 
 function defaultComponentLabel(product: Product, components: SystemComponent[]): string {
   if (product.productType === 'fuse') return numberedLabel('Fuse', components);
-  if (product.productType === 'breaker') return numberedLabel('Breaker', components);
+  if (product.productType === 'breaker') {
+    return numberedLabel(product.protectionRatings?.acDcCompatibility === 'ac' ? 'AC Breaker' : 'Breaker', components);
+  }
   return product.name;
+}
+
+function inlineProtectionTerminalIds(product: Product): { inId: string; outId: string } | null {
+  const powerTerminals = product.terminals.filter((terminal) => ['dc_power', 'pv_power', 'ac_power'].includes(terminal.kind));
+  if (powerTerminals.length < 2) return null;
+
+  const isInput = (id: string) => id === 'in' || id.endsWith('_in') || id.startsWith('in_');
+  const isOutput = (id: string) => id === 'out' || id.endsWith('_out') || id.startsWith('out_');
+  const input = powerTerminals.find((terminal) => terminal.direction === 'input') ??
+    powerTerminals.find((terminal) => isInput(terminal.id));
+  const output = powerTerminals.find((terminal) => terminal.direction === 'output') ??
+    powerTerminals.find((terminal) => isOutput(terminal.id));
+
+  return input && output ? { inId: input.id, outId: output.id } : null;
 }
 
 function normalizeCardinalRotation(value: number): 0 | 90 | 180 | 270 {
@@ -228,6 +263,22 @@ function enrichConnections(system: SystemDesign): SystemDesign {
       const connectionAnalysis = analysis.connections.get(conn.id);
       if (!connectionAnalysis) return conn;
 
+      // Bus links carry current but have no cable — keep bus type / current for display,
+      // but clear all cable sizing so nothing tries to size or warn on a bolted link.
+      if (conn.busLink) {
+        return {
+          ...conn,
+          cableLengthFt: 0,
+          busType: connectionAnalysis.busType,
+          calculatedCurrentA: connectionAnalysis.designCurrentA,
+          recommendedFuseA: undefined,
+          recommendedCableAwg: undefined,
+          voltageDropV: undefined,
+          voltageDropPercent: undefined,
+          warnings: connectionAnalysis.warnings,
+        };
+      }
+
       return {
         ...conn,
         busType: connectionAnalysis.busType,
@@ -251,6 +302,7 @@ export function App() {
   const undoStackRef = useRef<SystemDesign[]>([]);
   const redoStackRef = useRef<SystemDesign[]>([]);
   const copiedComponentRef = useRef<SystemComponent | null>(null);
+  const loadFileInputRef = useRef<HTMLInputElement>(null);
   const [selectedComponentId, setSelectedComponentId] = useState<string | null>(null);
   const [selectedConnectionId, setSelectedConnectionId] = useState<string | null>(null);
   const [selectedAnnotationId, setSelectedAnnotationId] = useState<string | null>(null);
@@ -268,20 +320,50 @@ export function App() {
   const [pendingProtectionInsert, setPendingProtectionInsert] = useState<PendingProtectionInsert | null>(null);
   const [showLoadModal, setShowLoadModal] = useState(false);
   const [savedSystems, setSavedSystems] = useState(() => loadSavedSystems());
+  const [themeMode, setThemeMode] = useState<ThemeMode>(loadThemeMode);
+  const [voltageFilter, setVoltageFilter] = useState<NominalVoltage | 'all'>(system.nominalVoltage);
+  const [startupModalOpen, setStartupModalOpen] = useState(() => INITIAL_SHARE_PARAM === null);
+  const [hasCachedSystem] = useState(() => loadCurrentSystem() !== null);
+  const [shareToast, setShareToast] = useState<string | null>(null);
 
   // Derived
   const bomRows = useMemo(() => buildBom(system, PRODUCT_MAP), [system]);
   const cableSummary = useMemo(() => buildCableLengthSummary(system.connections), [system.connections]);
+  const cableBomRows = useMemo(() => buildCableBomRows(system, PRODUCT_MAP), [system]);
+  const connectorSummary = useMemo(() => buildConnectorSummary(cableBomRows), [cableBomRows]);
   const priceSummary = useMemo(() => buildPriceSummary(bomRows), [bomRows]);
   const electricalSummary = useMemo(() => buildElectricalSummary(system, PRODUCT_MAP), [system]);
   const warnings = useMemo(() => generateWarnings(system, PRODUCT_MAP), [system]);
   const protectionRecommendations = useMemo(() => buildProtectionRecommendations(system, PRODUCT_MAP), [system]);
 
-  // Auto-save whenever system changes
+  // Auto-save whenever system changes (not while startup modal is open)
   useEffect(() => {
+    if (startupModalOpen) return;
     const timer = setTimeout(() => saveCurrentSystem(system), 800);
     return () => clearTimeout(timer);
-  }, [system]);
+  }, [system, startupModalOpen]);
+
+  useEffect(() => {
+    window.localStorage.setItem(THEME_STORAGE_KEY, themeMode);
+  }, [themeMode]);
+
+  // Load shared design from URL param on first mount
+  useEffect(() => {
+    if (!INITIAL_SHARE_PARAM) return;
+    decodeShareParam(INITIAL_SHARE_PARAM).then((loaded) => {
+      handleLoadSystem(loaded);
+      const url = new URL(window.location.href);
+      url.searchParams.delete('d');
+      window.history.replaceState({}, '', url.toString());
+      setShareToast('Shared design loaded — you\'re viewing a snapshot. Use Save to keep a copy.');
+      setTimeout(() => setShareToast(null), 6000);
+    }).catch(() => {
+      setStartupModalOpen(true);
+      setShareToast('Could not load the shared design — the link may be expired or invalid.');
+      setTimeout(() => setShareToast(null), 5000);
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ---- System mutation helpers ----
 
@@ -320,8 +402,11 @@ export function App() {
     updateSystem((s) => ({ ...s, name }));
   }, [updateSystem]);
 
-  const handleVoltageChange = useCallback((v: NominalVoltage) => {
-    updateSystem((s) => ({ ...s, nominalVoltage: v }));
+  const handleVoltageChange = useCallback((v: NominalVoltage | 'all') => {
+    setVoltageFilter(v);
+    if (v !== 'all') {
+      updateSystem((s) => ({ ...s, nominalVoltage: v }));
+    }
   }, [updateSystem]);
 
   const handleBusColorChange = useCallback((busType: BusType, color: string) => {
@@ -335,7 +420,7 @@ export function App() {
   const handleAddProduct = useCallback((productId: string, options?: { voltageV?: number; maxCurrentA?: number }) => {
     const product = getProduct(productId);
     if (!product) return;
-    if (!voltageCompatible(productId, system.nominalVoltage)) return;
+    if (voltageFilter !== 'all' && !voltageCompatible(productId, system.nominalVoltage)) return;
 
     const occupied = new Set(system.components.map((c) => `${c.x},${c.y}`));
     let x = snapPlacement(canvasViewportCenter.x);
@@ -642,13 +727,20 @@ export function App() {
         return;
       }
 
+      // Bolt-together busbar terminals (e.g. adjacent Lynx modules) default to a
+      // cableless bus link — no cable, but still electrically continuous.
+      const fromProduct = PRODUCT_MAP.get(system.components.find((c) => c.id === fromComp)?.productId ?? '');
+      const toProduct = PRODUCT_MAP.get(system.components.find((c) => c.id === toComp)?.productId ?? '');
+      const isBusLink = sharedBusLinkStandard(fromProduct, fromTerm, toProduct, toTerm) != null;
+
       const conn: SystemConnection = {
         id: genId('conn'),
         fromComponentId: fromComp,
         fromTerminalId: fromTerm,
         toComponentId: toComp,
         toTerminalId: toTerm,
-        cableLengthFt: system.assumptions.defaultCableLengthFt,
+        cableLengthFt: isBusLink ? 0 : system.assumptions.defaultCableLengthFt,
+        busLink: isBusLink || undefined,
       };
 
       updateSystem((s) => ({ ...s, connections: [...s.connections, conn] }));
@@ -670,6 +762,22 @@ export function App() {
       ...s,
       connections: s.connections.map((c) =>
         c.id === id ? { ...c, cableLengthFt: ft } : c
+      ),
+    }));
+  }, [updateSystem]);
+
+  const handleToggleBusLink = useCallback((id: string, busLink: boolean) => {
+    updateSystem((s) => ({
+      ...s,
+      connections: s.connections.map((c) =>
+        c.id === id
+          ? {
+              ...c,
+              busLink: busLink || undefined,
+              // Bus link → no cable; reverting → restore a default cable length.
+              cableLengthFt: busLink ? 0 : Math.max(c.cableLengthFt, s.assumptions.defaultCableLengthFt),
+            }
+          : c
       ),
     }));
   }, [updateSystem]);
@@ -720,17 +828,19 @@ export function App() {
   }, [updateSystem]);
 
   const handleInsertProtection = useCallback((recommendation: ProtectionRecommendation, marker: PathMarker) => {
-    if (recommendation.busType !== 'dc_pos') {
-      alert('Inline fuse insertion is currently available for DC positive conductors.');
+    if (recommendation.busType !== 'dc_pos' && recommendation.busType !== 'ac_line') {
+      alert('Inline protection insertion is currently available for DC positive and AC line conductors.');
       return;
     }
     setPendingProtectionInsert({ recommendation, marker });
   }, []);
 
-  const handleConfirmInlineFuse = useCallback((productId: string) => {
+  const handleConfirmInlineProtection = useCallback((productId: string) => {
     const pending = pendingProtectionInsert;
     const product = getProduct(productId);
-    if (!pending || !product || product.productType !== 'fuse') return;
+    if (!pending || !product || !['fuse', 'breaker'].includes(product.productType)) return;
+    const terminalIds = inlineProtectionTerminalIds(product);
+    if (!terminalIds) return;
 
     const original = system.connections.find((connection) => connection.id === pending.recommendation.connectionId);
     if (!original) {
@@ -789,7 +899,7 @@ export function App() {
         fromComponentId: original.fromComponentId,
         fromTerminalId: original.fromTerminalId,
         toComponentId: protectionComponent.id,
-        toTerminalId: mapping === 'forward' ? 'in' : 'out',
+        toTerminalId: mapping === 'forward' ? terminalIds.inId : terminalIds.outId,
         cableLengthFt: firstLength,
         routePoints: routeBefore,
       };
@@ -797,7 +907,7 @@ export function App() {
         ...commonConnectionFields,
         id: genId('conn'),
         fromComponentId: protectionComponent.id,
-        fromTerminalId: mapping === 'forward' ? 'out' : 'in',
+        fromTerminalId: mapping === 'forward' ? terminalIds.outId : terminalIds.inId,
         toComponentId: original.toComponentId,
         toTerminalId: original.toTerminalId,
         cableLengthFt: secondLength,
@@ -819,7 +929,7 @@ export function App() {
       validateSystemConnection(selected.after, selectedComponents, PRODUCT_MAP).valid;
 
     if (!selectedValid) {
-      alert('That fuse cannot be inserted into this connection with the current terminal rules.');
+      alert('That protection device cannot be inserted into this connection with the current terminal rules.');
       return;
     }
 
@@ -1009,24 +1119,55 @@ export function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleCopySelectedComponent, handlePasteComponent, redo, selectedComponentId, undo]);
 
-  const handleSave = useCallback(() => {
-    alert('Save Is Not Implemented Yet');
-  }, []);
-
-  const handleLoad = useCallback(() => {
-    alert('Load Is Not Implemented Yet');
-  }, []);
-
-  const handleLoadSystem = useCallback((s: SystemDesign) => {
-    setSystem(enrichConnections(withInferredConductors(withSingleComponentQuantities(s))));
+  const handleLoadSystem = useCallback((loadedSystem: SystemDesign) => {
+    const normalized = enrichConnections(withInferredConductors(withSingleComponentQuantities(loadedSystem)));
+    setSystem(normalized);
+    setVoltageFilter(normalized.nominalVoltage);
+    saveCurrentSystem(normalized);
+    setSavedSystems(loadSavedSystems());
     undoStackRef.current = [];
     redoStackRef.current = [];
     copiedComponentRef.current = null;
     setShowLoadModal(false);
+    setStartupModalOpen(false);
     setSelectedComponentId(null);
     setSelectedConnectionId(null);
     setSelectedAnnotationId(null);
   }, []);
+
+  const handleSave = useCallback(() => {
+    saveCurrentSystem(system);
+    setSavedSystems(loadSavedSystems());
+
+    const saveFile = createSystemSaveFile(system);
+    const blob = new Blob([`${JSON.stringify(saveFile, null, 2)}\n`], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = systemSaveFilename(system);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  }, [system]);
+
+  const handleLoad = useCallback(() => {
+    loadFileInputRef.current?.click();
+  }, []);
+
+  const handleLoadFileChange = useCallback(async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+
+    try {
+      const loadedSystem = parseSystemSaveFile(await file.text());
+      handleLoadSystem(loadedSystem);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unable to load that save file.';
+      alert(message);
+    }
+  }, [handleLoadSystem]);
 
   const handleReset = useCallback(() => {
     setNewSystemModalOpen(true);
@@ -1034,9 +1175,12 @@ export function App() {
 
   const handleNewSystemSelect = useCallback((template: SystemDesign | null) => {
     setNewSystemModalOpen(false);
+    setStartupModalOpen(false);
     const base = template ?? { ...DEFAULT_SYSTEM, components: [], connections: [], annotations: [] };
     const fresh = { ...base, id: genId('sys'), createdAt: new Date().toISOString() };
-    setSystem(enrichConnections(withInferredConductors(withSingleComponentQuantities(fresh))));
+    const normalized = enrichConnections(withInferredConductors(withSingleComponentQuantities(fresh)));
+    setSystem(normalized);
+    setVoltageFilter(normalized.nominalVoltage);
     undoStackRef.current = [];
     redoStackRef.current = [];
     copiedComponentRef.current = null;
@@ -1046,8 +1190,46 @@ export function App() {
   }, []);
 
   const handleExportCsv = useCallback(() => {
-    exportBomCsv(bomRows, system.name, cableSummary);
-  }, [bomRows, cableSummary, system.name]);
+    exportBomCsv(bomRows, system.name, cableSummary, connectorSummary);
+  }, [bomRows, cableSummary, connectorSummary, system.name]);
+
+  const handleShare = useCallback(async () => {
+    try {
+      const url = await buildShareUrl(system);
+
+      // navigator.clipboard requires HTTPS or localhost — fall back to execCommand on plain HTTP
+      let copied = false;
+      if (navigator.clipboard) {
+        try {
+          await navigator.clipboard.writeText(url);
+          copied = true;
+        } catch {
+          // fall through to execCommand
+        }
+      }
+      if (!copied) {
+        const el = document.createElement('textarea');
+        el.value = url;
+        el.style.cssText = 'position:fixed;opacity:0;pointer-events:none';
+        document.body.appendChild(el);
+        el.focus();
+        el.select();
+        copied = document.execCommand('copy');
+        document.body.removeChild(el);
+      }
+
+      if (copied) {
+        setShareToast('Link copied to clipboard — paste it anywhere to share this design. Anyone with the link can open it in their browser.');
+      } else {
+        // Last resort: show the URL so the user can copy it manually
+        prompt('Copy this link to share your design:', url);
+      }
+      setTimeout(() => setShareToast(null), 6000);
+    } catch {
+      setShareToast('Could not generate share link. Try the Save button to export a file instead.');
+      setTimeout(() => setShareToast(null), 5000);
+    }
+  }, [system]);
 
   const handleSelectComponent = useCallback((id: string | null) => {
     setSelectedComponentId(id);
@@ -1092,29 +1274,40 @@ export function App() {
 
   return (
     <div
-      className="app-grid"
+      className={`app-grid theme-${themeMode}`}
       style={{
         gridTemplateColumns: `${leftCollapsed ? '58px' : leftDetailOpen ? '460px' : '300px'} minmax(0, 1fr) ${rightCollapsed ? '58px' : '280px'}`,
       }}
     >
       <HeaderBar
         systemName={system.name}
-        nominalVoltage={system.nominalVoltage}
+        voltageFilter={voltageFilter}
         totalMsrp={priceSummary.totalMsrp}
         warnings={warnings}
         busColors={busColors}
+        themeMode={themeMode}
         onNameChange={handleNameChange}
         onVoltageChange={handleVoltageChange}
         onBusColorChange={handleBusColorChange}
         onResetBusColors={handleResetBusColors}
+        onToggleTheme={() => setThemeMode((mode) => mode === 'dark' ? 'light' : 'dark')}
         onSave={handleSave}
         onLoad={handleLoad}
         onReset={handleReset}
+        onShare={handleShare}
         onOpenBom={() => setBomModalOpen(true)}
+      />
+      <input
+        ref={loadFileInputRef}
+        type="file"
+        accept="application/json,.json,.system-builder.json"
+        onChange={handleLoadFileChange}
+        style={{ display: 'none' }}
+        aria-hidden="true"
       />
 
       <LeftPartSidebar
-        systemVoltage={system.nominalVoltage}
+        systemVoltage={voltageFilter}
         onAddProduct={handleAddProduct}
         onAddTextAnnotation={handleAddTextAnnotation}
         onAddShapeAnnotation={handleAddShapeAnnotation}
@@ -1194,6 +1387,7 @@ export function App() {
         onUpdateSolarWiringMode={handleUpdateSolarWiringMode}
         onUpdateSolarConfiguration={handleUpdateSolarConfiguration}
         onUpdateConnectionLength={handleUpdateConnectionLength}
+        onToggleConnectionBusLink={handleToggleBusLink}
         onUpdateConnectionDesignCurrent={handleUpdateConnectionDesignCurrent}
         onUpdateConnectionCableAwg={handleUpdateConnectionCableAwg}
         onAutoConnectionCableAwg={handleAutoConnectionCableAwg}
@@ -1209,6 +1403,28 @@ export function App() {
         onSelectConnection={handleFocusConnection}
       />
 
+      {shareToast && (
+        <div className="share-toast" role="status">
+          {shareToast}
+        </div>
+      )}
+
+      {startupModalOpen && (
+        <StartupModal
+          hasCachedSystem={hasCachedSystem}
+          onResume={() => setStartupModalOpen(false)}
+          onNewSystem={() => handleNewSystemSelect(null)}
+          onLoadFromFile={() => {
+            setStartupModalOpen(false);
+            loadFileInputRef.current?.click();
+          }}
+          onLoadPreset={() => {
+            setStartupModalOpen(false);
+            setNewSystemModalOpen(true);
+          }}
+        />
+      )}
+
       {newSystemModalOpen && (
         <NewSystemModal
           onSelect={handleNewSystemSelect}
@@ -1220,8 +1436,11 @@ export function App() {
         <BomSummaryModal
           bomRows={bomRows}
           cableSummary={cableSummary}
+          cableBomRows={cableBomRows}
+          connectorSummary={connectorSummary}
           priceSummary={priceSummary}
           electricalSummary={electricalSummary}
+          onToggleBusLink={handleToggleBusLink}
           onClose={() => setBomModalOpen(false)}
           onExportCsv={handleExportCsv}
         />
@@ -1233,7 +1452,7 @@ export function App() {
           products={PRODUCT_MAP}
           systemVoltage={system.nominalVoltage}
           onCancel={() => setPendingProtectionInsert(null)}
-          onConfirm={handleConfirmInlineFuse}
+          onConfirm={handleConfirmInlineProtection}
         />
       )}
 

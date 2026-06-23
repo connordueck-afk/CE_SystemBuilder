@@ -52,6 +52,18 @@ function isSolarSeriesLink(from: TerminalRef, to: TerminalRef): boolean {
   );
 }
 
+function isBatterySeriesLink(from: TerminalRef, to: TerminalRef): boolean {
+  return (
+    from.product.productType === 'battery' &&
+    to.product.productType === 'battery' &&
+    from.terminal.kind === 'dc_power' &&
+    to.terminal.kind === 'dc_power' &&
+    from.terminal.polarity != null &&
+    to.terminal.polarity != null &&
+    from.terminal.polarity !== to.terminal.polarity
+  );
+}
+
 function isUnassignedDynamicConductor(ref: TerminalRef): boolean {
   return isDynamicSingleConductorProduct(ref.product) &&
     ref.component.inferredConnectionKind == null &&
@@ -114,8 +126,9 @@ export function validateConnectionPair(from: TerminalRef, to: TerminalRef): Conn
   }
 
   const solarSeriesLink = isSolarSeriesLink(from, to);
+  const batterySeriesLink = isBatterySeriesLink(from, to);
 
-  if (from.terminal.polarity !== to.terminal.polarity && !solarSeriesLink && !inferredDynamicConductor) {
+  if (from.terminal.polarity !== to.terminal.polarity && !solarSeriesLink && !batterySeriesLink && !inferredDynamicConductor) {
     const left = from.terminal.polarity ?? 'unpolarized';
     const right = to.terminal.polarity ?? 'unpolarized';
     return {
@@ -132,14 +145,14 @@ export function validateConnectionPair(from: TerminalRef, to: TerminalRef): Conn
     return { valid: false, message: `${terminalName(from)} is missing a conductor polarity.` };
   }
 
-  if (!solarSeriesLink && !roleCompatible(from.terminal.role, to.terminal.role)) {
+  if (!solarSeriesLink && !batterySeriesLink && !roleCompatible(from.terminal.role, to.terminal.role)) {
     return {
       valid: false,
       message: `${terminalName(from)} is ${from.terminal.role}; ${terminalName(to)} is ${to.terminal.role}.`,
     };
   }
 
-  if (POWER_KINDS.includes(from.terminal.kind) && !solarSeriesLink && !directionCompatible(from.terminal, to.terminal)) {
+  if (POWER_KINDS.includes(from.terminal.kind) && !solarSeriesLink && !batterySeriesLink && !directionCompatible(from.terminal, to.terminal)) {
     return {
       valid: false,
       message: `${terminalName(from)} is ${terminalDirectionLabel(from.terminal).toLowerCase()}; ${terminalName(to)} is ${terminalDirectionLabel(to.terminal).toLowerCase()}.`,

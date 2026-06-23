@@ -30,6 +30,10 @@ export function ElectricalSummaryPanel({ summary }: Props) {
       <div className="inspector-section">
         <div className="inspector-label">Battery</div>
         <Row label="Batteries" value={`${battery.batteryCount}`} />
+        <Row label="Strings" value={`${battery.stringCount}`} />
+        <Row label="Packs" value={`${battery.packCount}`} />
+        {battery.primaryPackLabel && <Row label="Primary Pack" value={battery.primaryPackLabel} />}
+        {battery.packVoltageV != null && <Row label="Pack Voltage" value={`${fmtNumber(battery.packVoltageV, 1)} V`} />}
         <Row label="Pack Capacity" value={`${(battery.capacityWh / 1000).toFixed(2)} kWh`} />
         {battery.capacityAh != null && <Row label="Capacity" value={`${fmtNumber(battery.capacityAh)} Ah`} />}
         {battery.maxChargeCurrentA != null && <Row label="Max Charge" value={`${fmtNumber(battery.maxChargeCurrentA)} A`} />}
@@ -43,7 +47,7 @@ export function ElectricalSummaryPanel({ summary }: Props) {
         ) : (
           summary.solar.map((array) => (
             <div key={array.mpptComponentId} style={{ marginBottom: 10 }}>
-              <div style={{ color: '#182235', fontSize: 13, fontWeight: 700, marginBottom: 4 }}>
+              <div style={{ color: 'var(--ink)', fontSize: 13, fontWeight: 700, marginBottom: 4 }}>
                 {array.mpptLabel}
               </div>
               <Row label="Array Size" value={`${fmtNumber(array.powerW)} W`} />
@@ -65,7 +69,7 @@ export function ElectricalSummaryPanel({ summary }: Props) {
         ) : (
           summary.powerNodes.map((node) => (
             <div key={node.componentId} style={{ marginBottom: 10 }}>
-              <div style={{ color: '#182235', fontSize: 13, fontWeight: 700, marginBottom: 4 }}>
+              <div style={{ color: 'var(--ink)', fontSize: 13, fontWeight: 700, marginBottom: 4 }}>
                 {node.label}
               </div>
               <Row label="Net" value={node.netId} />

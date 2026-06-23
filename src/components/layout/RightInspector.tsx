@@ -47,6 +47,7 @@ interface Props {
   onUpdateSolarWiringMode: (id: string, mode: SolarWiringMode) => void;
   onUpdateSolarConfiguration: (id: string, seriesCount: number, parallelCount: number) => void;
   onUpdateConnectionLength: (id: string, ft: number) => void;
+  onToggleConnectionBusLink: (id: string, busLink: boolean) => void;
   onUpdateConnectionDesignCurrent: (id: string, currentA: number | undefined) => void;
   onUpdateConnectionCableAwg: (id: string, awg: string) => void;
   onAutoConnectionCableAwg: (id: string) => void;
@@ -90,6 +91,7 @@ export function RightInspector({
   onUpdateSolarWiringMode,
   onUpdateSolarConfiguration,
   onUpdateConnectionLength,
+  onToggleConnectionBusLink,
   onUpdateConnectionDesignCurrent,
   onUpdateConnectionCableAwg,
   onAutoConnectionCableAwg,
@@ -263,6 +265,7 @@ export function RightInspector({
           <ComponentInspector
             component={selectedComponent}
             product={selectedProduct}
+            products={products}
             systemVoltage={systemVoltage}
             solarArray={selectedSolarArray}
             availableFuseProducts={availableFuseProducts}
@@ -301,6 +304,7 @@ export function RightInspector({
             systemVoltage={systemVoltage}
             protectionRecommendations={connectionProtectionRecommendations}
             onUpdateLength={onUpdateConnectionLength}
+            onToggleBusLink={onToggleConnectionBusLink}
             onUpdateDesignCurrent={onUpdateConnectionDesignCurrent}
             onUpdateCableAwg={onUpdateConnectionCableAwg}
             onAutoCableAwg={onAutoConnectionCableAwg}
