@@ -8,10 +8,12 @@ export const DEFAULT_BUS_COLORS: BusColorMap = {
   pv_pos: '#c98518',
   pv_neg: '#7a5a3a',
   ac_line: '#d8752b',
+  ac_line2: '#c45f10',
   ac_neutral: '#617089',
   ac_ground: '#2f9461',
   chassis_ground: '#46546a',
   signal: '#7c61c7',
+  communication: '#3975c5',
   unknown: '#617089',
 };
 
@@ -20,10 +22,12 @@ export const BUS_COLOR_OPTIONS: Array<{ key: BusType; label: string }> = [
   { key: 'dc_neg', label: 'DC-' },
   { key: 'pv_pos', label: 'PV+' },
   { key: 'pv_neg', label: 'PV-' },
-  { key: 'ac_line', label: 'AC Line' },
+  { key: 'ac_line', label: 'AC Line (L1)' },
+  { key: 'ac_line2', label: 'AC Line (L2)' },
   { key: 'ac_neutral', label: 'AC Neutral' },
   { key: 'ac_ground', label: 'AC Ground' },
   { key: 'chassis_ground', label: 'Chassis Ground' },
   { key: 'signal', label: 'Signal' },
+  { key: 'communication', label: 'Communication' },
   { key: 'unknown', label: 'Unknown' },
 ];

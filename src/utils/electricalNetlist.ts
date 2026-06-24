@@ -17,10 +17,12 @@ export type BusType =
   | 'pv_pos'
   | 'pv_neg'
   | 'ac_line'
+  | 'ac_line2'
   | 'ac_neutral'
   | 'ac_ground'
   | 'chassis_ground'
   | 'signal'
+  | 'communication'
   | 'unknown';
 
 export interface TerminalNodeRef {
@@ -116,18 +118,20 @@ export function busTypeFromTerminal(terminal: TerminalDefinition): BusType {
 
   if (terminal.kind === 'ac_power') {
     if (terminal.polarity === 'line') return 'ac_line';
+    if (terminal.polarity === 'line2') return 'ac_line2';
     if (terminal.polarity === 'neutral') return 'ac_neutral';
     if (terminal.polarity === 'ground') return 'ac_ground';
     if (terminal.electricalType === 'ac') return 'ac_line';
   }
 
   if (terminal.kind === 'chassis_ground') return 'chassis_ground';
-  if (terminal.kind === 'signal' || terminal.kind === 'network') return 'signal';
+  if (terminal.kind === 'signal') return 'signal';
+  if (terminal.kind === 'network') return 'communication';
   return 'unknown';
 }
 
 export function busTypeRequiresFuse(busType: BusType): boolean {
-  return busType === 'dc_pos' || busType === 'ac_line';
+  return busType === 'dc_pos' || busType === 'ac_line' || busType === 'ac_line2';
 }
 
 export function isReturnOrGroundBus(busType: BusType): boolean {

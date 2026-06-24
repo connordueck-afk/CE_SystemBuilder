@@ -9,6 +9,7 @@ import type {
   SystemDiagramAnnotation,
   SystemTextAnnotation,
   SystemShapeAnnotation,
+  CableMode,
 } from '../../types/system';
 import { ComponentInspector } from '../inspector/ComponentInspector';
 import { ConnectionInspector } from '../inspector/ConnectionInspector';
@@ -53,6 +54,9 @@ interface Props {
   onAutoConnectionCableAwg: (id: string) => void;
   onUpdateConnectionCableColor: (id: string, color: string) => void;
   onUpdateConnectionCableType: (id: string, type: string) => void;
+  onUpdateConnectionCableMode: (id: string, mode: CableMode) => void;
+  onUpdateConnectionPremanufacturedCable: (id: string, cableId: string | undefined) => void;
+  onUpdateConfiguredProtocol: (componentId: string, portId: string, protocol: import('../../types/system').CommunicationProtocol | undefined) => void;
   onResetConnectionRoute: (id: string) => void;
   onUpdateTextAnnotation: (id: string, patch: Partial<SystemTextAnnotation>) => void;
   onUpdateShapeAnnotation: (id: string, patch: Partial<SystemShapeAnnotation>) => void;
@@ -97,6 +101,9 @@ export function RightInspector({
   onAutoConnectionCableAwg,
   onUpdateConnectionCableColor,
   onUpdateConnectionCableType,
+  onUpdateConnectionCableMode,
+  onUpdateConnectionPremanufacturedCable,
+  onUpdateConfiguredProtocol,
   onResetConnectionRoute,
   onUpdateTextAnnotation,
   onUpdateShapeAnnotation,
@@ -283,6 +290,7 @@ export function RightInspector({
             onUpdateBusPolarity={onUpdateBusPolarity}
             onUpdateFuseSlot={onUpdateFuseSlot}
             onUpdateSolarConfiguration={onUpdateSolarConfiguration}
+            onUpdateConfiguredProtocol={onUpdateConfiguredProtocol}
             onRemove={onRemoveComponent}
           />
         </>
@@ -310,6 +318,8 @@ export function RightInspector({
             onAutoCableAwg={onAutoConnectionCableAwg}
             onUpdateCableColor={onUpdateConnectionCableColor}
             onUpdateCableType={onUpdateConnectionCableType}
+            onUpdateCableMode={onUpdateConnectionCableMode}
+            onUpdatePremanufacturedCable={onUpdateConnectionPremanufacturedCable}
             onResetRoute={onResetConnectionRoute}
             onRemove={onRemoveConnection}
           />

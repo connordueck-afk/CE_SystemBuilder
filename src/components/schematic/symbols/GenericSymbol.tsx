@@ -14,6 +14,8 @@ const TYPE_COLORS: Record<string, string> = {
   ac_load:       '#d8752b',
   accessory:     '#617089',
   busbar:        '#3975c5',
+  commAccessory: '#3975c5',
+  commGateway:   '#7c61c7',
 };
 
 export function GenericSymbol({ product, selected }: Props) {

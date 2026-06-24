@@ -1,4 +1,4 @@
-import type { FuseSlotState, SystemComponent, Product, NominalVoltage } from '../../types/system';
+import type { FuseSlotState, SystemComponent, Product, NominalVoltage, CommunicationProtocol } from '../../types/system';
 import { CABLE_TABLE } from '../../data/cableAmpacity';
 import { fmt } from '../../utils/priceCalculations';
 import type { SolarArrayAggregation } from '../../utils/solarCalculations';
@@ -51,6 +51,7 @@ interface Props {
   onUpdateBusPolarity: (id: string, busPolarity: SystemComponent['busPolarity']) => void;
   onUpdateFuseSlot: (id: string, slotId: string, patch: FuseSlotState) => void;
   onUpdateSolarConfiguration: (id: string, seriesCount: number, parallelCount: number) => void;
+  onUpdateConfiguredProtocol?: (id: string, portId: string, protocol: CommunicationProtocol | undefined) => void;
   onRemove: (id: string) => void;
 }
 
@@ -84,6 +85,7 @@ export function ComponentInspector({
   onUpdateBusPolarity,
   onUpdateFuseSlot,
   onUpdateSolarConfiguration,
+  onUpdateConfiguredProtocol,
   onRemove,
 }: Props) {
   const sourceLoadKind = getSourceLoadKind(product);
@@ -461,6 +463,52 @@ export function ComponentInspector({
         >
           Open Supplier Page
         </a>
+      )}
+
+      {/* Communication Ports section */}
+      {(product.communicationPorts?.length ?? 0) > 0 && (
+        <div className="inspector-section">
+          <div className="inspector-label">Communication Ports</div>
+          {product.communicationPorts!.map((port) => {
+            const currentProtocol = component.configuredProtocols?.[port.id] ?? port.configuredProtocol;
+            return (
+              <div key={port.id} style={{ marginBottom: 10 }}>
+                <div style={{ fontWeight: 700, fontSize: 11, color: 'var(--ink)', marginBottom: 3 }}>
+                  {port.name}
+                  <span style={{ fontWeight: 400, color: 'var(--muted)', marginLeft: 6, fontSize: 10 }}>
+                    {port.connectorType}
+                  </span>
+                </div>
+                {port.isConfigurable && onUpdateConfiguredProtocol ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span className="spec-row-label" style={{ flex: 1 }}>Protocol</span>
+                    <select
+                      className="inspector-input"
+                      style={{ width: 130 }}
+                      value={currentProtocol ?? ''}
+                      onChange={(e) => {
+                        const val = e.target.value as CommunicationProtocol | '';
+                        onUpdateConfiguredProtocol(component.id, port.id, val || undefined);
+                      }}
+                    >
+                      <option value="">Not configured</option>
+                      {port.supportedProtocols.map((proto) => (
+                        <option key={proto} value={proto}>{proto}</option>
+                      ))}
+                    </select>
+                  </div>
+                ) : (
+                  <div style={{ fontSize: 11, color: 'var(--muted)' }}>
+                    {port.supportedProtocols.join(', ')}
+                  </div>
+                )}
+                {port.notes && (
+                  <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 2 }}>{port.notes}</div>
+                )}
+              </div>
+            );
+          })}
+        </div>
       )}
 
       <button

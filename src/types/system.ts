@@ -42,7 +42,12 @@ export type ProductType =
   | 'contactor'
   | 'converter'
   | 'batteryMonitor'
-  | 'shorePowerInlet';
+  | 'shorePowerInlet'
+  // Grounding / connection point symbols (virtual, no BOM cost)
+  | 'connection_point'
+  // Communication accessories and gateways
+  | 'commAccessory'
+  | 'commGateway';
 
 // -----------------------------------------------------------
 // Electrical Domains
@@ -71,7 +76,7 @@ export type ConnectionPointKind =
   | 'signal'
   | 'network'
   | 'generic';
-export type ConnectionPolarity = 'positive' | 'negative' | 'line' | 'neutral' | 'ground';
+export type ConnectionPolarity = 'positive' | 'negative' | 'line' | 'line2' | 'neutral' | 'ground';
 export type ConnectionRole =
   | 'source'
   | 'sink'
@@ -116,6 +121,7 @@ export type ProductCapability =
   | 'ac-charger'
   | 'inverter'
   | 'inverter-charger'
+  | 'hybrid-inverter'
   | 'dc-dc-converter'
   | 'mppt'
   | 'pv-input'
@@ -275,6 +281,14 @@ export interface InverterChargerRatings {
   transferSwitchA?: number;
   /** Peak conversion efficiency (%). */
   efficiencyPct?: number;
+  /** Number of independent MPPT solar trackers (hybrid inverters). */
+  mpptTrackerCount?: number;
+  /** Maximum PV open-circuit voltage per MPPT tracker (V). */
+  maxPvVoltageV?: number;
+  /** Maximum PV input current per MPPT tracker (A). */
+  maxPvCurrentA?: number;
+  /** Total maximum PV input power across all trackers (W). */
+  maxPvPowerW?: number;
 }
 
 /** Ratings for batteries. */
@@ -367,10 +381,12 @@ export type InternalBusType =
   | 'pv_pos'
   | 'pv_neg'
   | 'ac_line'
+  | 'ac_line2'
   | 'ac_neutral'
   | 'ac_ground'
   | 'chassis_ground'
   | 'signal'
+  | 'communication'
   | 'unknown';
 
 export interface DistributionBusDefinition {
@@ -439,6 +455,105 @@ export interface SolarCombinerRatings {
   maxCurrentA?: number;
   /** Description of included protection devices. */
   includedProtection?: string;
+}
+
+// -----------------------------------------------------------
+// Communication System Types
+// -----------------------------------------------------------
+
+export type CommunicationProtocol =
+  | 'CANopen'
+  | 'J1939'
+  | 'VE.Bus'
+  | 'VE.Direct'
+  | 'VE.Can'
+  | 'BMS-Can'
+  | 'AEbus'
+  | 'RS485'
+  | 'Ethernet'
+  | 'Other';
+
+export type CommunicationConnectorType =
+  | 'RJ45'
+  | 'M12'
+  | 'Deutsch'
+  | 'TerminalBlock'
+  | 'JST'
+  | 'VE.Direct'
+  | 'Other';
+
+export type CommunicationTopologyType =
+  | 'bus'
+  | 'point-to-point'
+  | 'daisy-chain'
+  | 'star'
+  | 'configurable';
+
+export type CommunicationAccessoryBehavior =
+  | 'passive'
+  | 'terminator'
+  | 'active-gateway'
+  | 'active-interface';
+
+export interface CommunicationProtocolBridge {
+  fromProtocol: CommunicationProtocol;
+  toProtocol: CommunicationProtocol;
+}
+
+export interface ProductCommunicationPort {
+  id: string;
+  name: string;
+  connectorType: CommunicationConnectorType;
+  supportedProtocols: CommunicationProtocol[];
+  configuredProtocol?: CommunicationProtocol;
+  topology?: CommunicationTopologyType;
+  isConfigurable?: boolean;
+  notes?: string;
+}
+
+export interface CommunicationNetworkError {
+  code: string;
+  message: string;
+}
+
+export interface CommunicationNetworkWarning {
+  code: string;
+  message: string;
+}
+
+export interface CommunicationNetwork {
+  id: string;
+  portRefs: Array<{ componentId: string; portId: string }>;
+  wireIds: string[];
+  protocols: CommunicationProtocol[];
+  connectorTypes: CommunicationConnectorType[];
+  errors: CommunicationNetworkError[];
+  warnings: CommunicationNetworkWarning[];
+}
+
+/** Wire kind — distinguishes power cables from communication links. */
+export type WireKind = 'dc-power' | 'ac-power' | 'communication';
+
+// -----------------------------------------------------------
+// Pre-manufactured Cable Types
+// -----------------------------------------------------------
+
+export type CableMode = 'dynamic' | 'premanufactured';
+
+export interface PremanufacturedCable {
+  id: string;
+  supplier?: string;
+  name: string;
+  gauge: string;
+  length: number;
+  lengthUnit: 'ft' | 'm';
+  connectorA?: string;
+  connectorB?: string;
+  polarityCompatibility?: string[];
+  voltageTypeCompatibility?: ('DC' | 'AC')[];
+  currentRatingA?: number;
+  price?: number | null;
+  partNumber?: string;
 }
 
 /** Ratings for DC and AC loads. */
@@ -537,6 +652,33 @@ export interface Product {
   solarPanelRatings?: SolarPanelRatings;
   solarCombinerRatings?: SolarCombinerRatings;
   loadRatings?: LoadRatings;
+
+  /**
+   * When true, this product is a virtual schematic symbol (e.g. AC Earth, DC Chassis).
+   * Virtual products are excluded from BOM cost calculations.
+   */
+  isVirtual?: boolean;
+  /**
+   * When false, this product is excluded from BOM line items even if placed on the canvas.
+   * Defaults to true for normal products.
+   */
+  isBOMItem?: boolean;
+
+  /**
+   * Communication ports available on this product for permanent installed network connections.
+   */
+  communicationPorts?: ProductCommunicationPort[];
+
+  /**
+   * For communication accessories: declares whether this component is passive (merges networks)
+   * or an active gateway (bridges/isolates protocols).
+   */
+  commAccessoryBehavior?: CommunicationAccessoryBehavior;
+
+  /**
+   * For active gateways: which protocol bridges this component supports.
+   */
+  commProtocolBridges?: CommunicationProtocolBridge[];
 }
 
 // -----------------------------------------------------------
@@ -584,6 +726,8 @@ export interface SystemComponent {
   inferredConnectionKind?: ConnectionPointKind;
   inferredPolarity?: ConnectionPolarity;
   inferredVoltageClass?: VoltageClass;
+  /** Per-instance configured protocol for each configurable communication port. Key = portId. */
+  configuredProtocols?: Record<string, CommunicationProtocol>;
 }
 
 // -----------------------------------------------------------
@@ -621,6 +765,23 @@ export interface SystemConnection {
   voltageDropPercent?: number;
   autoGenerated?: boolean;
   warnings?: string[];
+
+  // --- Wire kind (power vs communication) ---
+  /** Distinguishes power cables from communication links. Defaults to power wiring when absent. */
+  wireKind?: WireKind;
+
+  // --- Communication wire fields (only relevant when wireKind = 'communication') ---
+  // A communication wire has no protocol of its own; its network type is always
+  // derived from the devices it connects (see deriveCommProtocol). Devices with
+  // configurable ports set the protocol via SystemComponent.configuredProtocols.
+  /** ID of the communication network this wire belongs to (computed, not persisted). */
+  networkId?: string;
+
+  // --- Pre-manufactured cable fields ---
+  /** Whether this cable run uses a fixed pre-manufactured assembly or a dynamic/custom run. */
+  cableMode?: CableMode;
+  /** ID of the selected pre-manufactured cable assembly when cableMode = 'premanufactured'. */
+  premanufacturedCableId?: string;
 }
 
 // -----------------------------------------------------------

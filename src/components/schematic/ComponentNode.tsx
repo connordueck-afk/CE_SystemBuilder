@@ -6,6 +6,7 @@ import { InverterChargerSymbol } from './symbols/InverterChargerSymbol';
 import { LynxDistributionSymbol } from './symbols/LynxDistributionSymbol';
 import { FuseSymbol } from './symbols/FuseSymbol';
 import { GenericSymbol } from './symbols/GenericSymbol';
+import { ConnectionPointSymbol } from './symbols/ConnectionPointSymbol';
 import { Terminal } from './Terminal';
 import { getEffectiveTerminals } from '../../utils/effectiveTerminals';
 import { getProductDisplayImageUrl, resolveProductImageUrl } from '../../utils/productImages';
@@ -91,6 +92,8 @@ function Symbol({
     case 'fuse':
     case 'breaker':
       return <FuseSymbol product={scaledProduct} component={component} selected={selected} />;
+    case 'connection_point':
+      return <ConnectionPointSymbol product={scaledProduct} selected={selected} />;
     default:
       return <GenericSymbol product={scaledProduct} selected={selected} />;
   }

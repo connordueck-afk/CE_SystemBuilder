@@ -1,4 +1,5 @@
 import type { SystemDesign, SystemComponent, SystemConnection, SystemWarning, Product, TerminalDefinition } from '../types/system';
+import { buildCommunicationNetworks, communicationNetworkWarnings } from './communicationNetworks';
 import { nextStandardFuse } from '../data/fuseRatings';
 import { cableForCurrent, cableByAwg, voltageDropV } from '../data/cableAmpacity';
 import { CONTINUOUS_LOAD_FACTOR } from '../data/electricalRules';
@@ -986,6 +987,11 @@ export function generateWarnings(
       if (connectionWarning.toLowerCase().includes('voltage drop')) continue;
       warn('warning', connectionWarning, 'CONNECTION_SIZING_WARNING', undefined, conn.id);
     }
+  }
+
+  const commNetworks = buildCommunicationNetworks(system, products);
+  for (const commWarning of communicationNetworkWarnings(commNetworks)) {
+    warnings.push(commWarning as SystemWarning);
   }
 
   return warnings;

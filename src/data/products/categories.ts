@@ -85,6 +85,18 @@ export const CATEGORIES: CategoryDefinition[] = [
     description: 'Miscellaneous accessories, adapters, and generic placeholders.',
     sortOrder: 11,
   },
+  {
+    id: 'Connection Points',
+    label: 'Connection Points',
+    description: 'Grounding symbols and chassis bonding reference points for schematic clarity.',
+    sortOrder: 12,
+  },
+  {
+    id: 'Communication',
+    label: 'Communication',
+    description: 'Communication accessories, gateways, splitters, terminators, and network cables.',
+    sortOrder: 13,
+  },
 ];
 
 /** Look up a category definition by its ID. */

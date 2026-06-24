@@ -56,6 +56,8 @@ export function buildCableLengthSummary(connections: SystemConnection[]): CableL
 
   for (const connection of connections) {
     if (connection.busLink) continue;
+    if (connection.cableMode === 'premanufactured') continue;
+    if (connection.wireKind === 'communication') continue;
     const totalLengthFt = connection.cableLengthFt;
     if (totalLengthFt <= 0) continue;
 

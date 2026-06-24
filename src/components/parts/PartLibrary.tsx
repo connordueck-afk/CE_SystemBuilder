@@ -292,6 +292,54 @@ const SELECTOR_CATEGORIES: SelectorCategory[] = [
       },
     ],
   },
+  {
+    id: 'connection-points',
+    label: 'Grounding',
+    icon: 'dc',
+    types: [
+      {
+        id: 'connection-point-earth',
+        label: 'AC Earth',
+        description: 'AC protective earth reference symbol for schematic clarity.',
+        productTypes: ['connection_point'],
+        match: (product) => product.id === 'system-ac-earth',
+      },
+      {
+        id: 'connection-point-chassis',
+        label: 'DC Chassis',
+        description: 'DC chassis bonding reference symbol for schematic clarity.',
+        productTypes: ['connection_point'],
+        match: (product) => product.id === 'system-dc-chassis',
+      },
+    ],
+  },
+  {
+    id: 'communication',
+    label: 'Communication',
+    icon: 'dc',
+    types: [
+      {
+        id: 'comm-passive',
+        label: 'Splitters / T-connectors',
+        description: 'Passive communication splitters, T-connectors, and couplers.',
+        productTypes: ['commAccessory'],
+        match: (product) => product.commAccessoryBehavior === 'passive',
+      },
+      {
+        id: 'comm-terminators',
+        label: 'Terminators',
+        description: 'Bus termination resistors for CAN, AEbus, and other bus networks.',
+        productTypes: ['commAccessory'],
+        match: (product) => product.commAccessoryBehavior === 'terminator',
+      },
+      {
+        id: 'comm-gateways',
+        label: 'Gateways',
+        description: 'Active protocol gateways and converters.',
+        productTypes: ['commGateway'],
+      },
+    ],
+  },
 ];
 
 const CATEGORY_COLORS: Record<string, string> = {

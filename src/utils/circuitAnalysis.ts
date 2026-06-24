@@ -1313,6 +1313,27 @@ function analyzeConnection(
     errors.push({ code, message });
   };
 
+  // A communication wire carries no power. It is never a current-carrying,
+  // protectable, or sizeable conductor, so it gets no design current, fuse,
+  // cable, or protection logic.
+  if (connection.wireKind === 'communication') {
+    return {
+      connectionId: connection.id,
+      busType,
+      designCurrentA: 0,
+      voltageV,
+      protectionRequired: false,
+      protectedBy: [],
+      sourceProtection: [],
+      recommendedCableAwg: undefined,
+      selectedCableAwg: undefined,
+      voltageDropV: 0,
+      voltageDropPercent: 0,
+      errors: [],
+      warnings: [],
+    };
+  }
+
   let designCurrentA = positiveNumber(connection.designCurrentOverrideA) ?? positiveNumber(inferredDesignCurrentA) ?? 0;
   let fromSide: SideSummary | undefined;
   let toSide: SideSummary | undefined;

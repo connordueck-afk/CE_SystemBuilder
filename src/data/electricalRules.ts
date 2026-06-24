@@ -55,4 +55,7 @@ export const SECTION_FOR_TYPE: Record<string, string> = {
   batteryMonitor:   'Monitoring & Control',
   shorePowerInlet:  'AC Distribution',
   accessory:        'Accessories',
+  connection_point: 'Accessories',
+  commAccessory:    'Accessories',
+  commGateway:      'Accessories',
 };

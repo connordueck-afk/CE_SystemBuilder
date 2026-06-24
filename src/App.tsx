@@ -733,6 +733,17 @@ export function App() {
       const toProduct = PRODUCT_MAP.get(system.components.find((c) => c.id === toComp)?.productId ?? '');
       const isBusLink = sharedBusLinkStandard(fromProduct, fromTerm, toProduct, toTerm) != null;
 
+      // Detect communication wires — connections between 'network' kind terminals
+      const fromComponent = system.components.find((c) => c.id === fromComp);
+      const toComponent = system.components.find((c) => c.id === toComp);
+      const fromTermDef = fromProduct && fromComponent
+        ? getEffectiveTerminal(fromProduct, fromTerm, fromComponent)
+        : undefined;
+      const toTermDef = toProduct && toComponent
+        ? getEffectiveTerminal(toProduct, toTerm, toComponent)
+        : undefined;
+      const isCommWire = fromTermDef?.kind === 'network' && toTermDef?.kind === 'network';
+
       const conn: SystemConnection = {
         id: genId('conn'),
         fromComponentId: fromComp,
@@ -741,6 +752,7 @@ export function App() {
         toTerminalId: toTerm,
         cableLengthFt: isBusLink ? 0 : system.assumptions.defaultCableLengthFt,
         busLink: isBusLink || undefined,
+        ...(isCommWire ? { wireKind: 'communication' as const } : {}),
       };
 
       updateSystem((s) => ({ ...s, connections: [...s.connections, conn] }));
@@ -824,6 +836,40 @@ export function App() {
       connections: s.connections.map((c) =>
         c.id === id ? { ...c, cableType: type || undefined } : c
       ),
+    }));
+  }, [updateSystem]);
+
+  const handleUpdateConnectionCableMode = useCallback((id: string, mode: import('./types/system').CableMode) => {
+    updateSystem((s) => ({
+      ...s,
+      connections: s.connections.map((c) =>
+        c.id === id ? { ...c, cableMode: mode } : c
+      ),
+    }));
+  }, [updateSystem]);
+
+  const handleUpdateConnectionPremanufacturedCable = useCallback((id: string, cableId: string | undefined) => {
+    updateSystem((s) => ({
+      ...s,
+      connections: s.connections.map((c) =>
+        c.id === id ? { ...c, premanufacturedCableId: cableId } : c
+      ),
+    }));
+  }, [updateSystem]);
+
+  const handleUpdateConfiguredProtocol = useCallback((componentId: string, portId: string, protocol: import('./types/system').CommunicationProtocol | undefined) => {
+    updateSystem((s) => ({
+      ...s,
+      components: s.components.map((c) => {
+        if (c.id !== componentId) return c;
+        const next = { ...c.configuredProtocols };
+        if (protocol === undefined) {
+          delete next[portId];
+        } else {
+          next[portId] = protocol;
+        }
+        return { ...c, configuredProtocols: next };
+      }),
     }));
   }, [updateSystem]);
 
@@ -1393,6 +1439,9 @@ export function App() {
         onAutoConnectionCableAwg={handleAutoConnectionCableAwg}
         onUpdateConnectionCableColor={handleUpdateConnectionCableColor}
         onUpdateConnectionCableType={handleUpdateConnectionCableType}
+        onUpdateConnectionCableMode={handleUpdateConnectionCableMode}
+        onUpdateConnectionPremanufacturedCable={handleUpdateConnectionPremanufacturedCable}
+        onUpdateConfiguredProtocol={handleUpdateConfiguredProtocol}
         onResetConnectionRoute={handleResetConnectionRoute}
         onUpdateTextAnnotation={handleUpdateTextAnnotation}
         onUpdateShapeAnnotation={handleUpdateShapeAnnotation}

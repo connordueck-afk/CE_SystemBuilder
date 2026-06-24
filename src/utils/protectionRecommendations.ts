@@ -22,11 +22,11 @@ function busLabel(busType: BusType): string {
 }
 
 function protectionName(busType: BusType): string {
-  return busType === 'ac_line' ? 'breaker' : 'fuse/breaker';
+  return (busType === 'ac_line' || busType === 'ac_line2') ? 'breaker' : 'fuse/breaker';
 }
 
 function canRecommendInlineProtection(busType: BusType): boolean {
-  return busType === 'dc_pos' || busType === 'ac_line';
+  return busType === 'dc_pos' || busType === 'ac_line' || busType === 'ac_line2';
 }
 
 export function buildProtectionRecommendations(

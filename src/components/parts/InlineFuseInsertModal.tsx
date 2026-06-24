@@ -26,7 +26,7 @@ function voltageCompatible(product: Product, systemVoltage: NominalVoltage): boo
 }
 
 function protectionKind(recommendation: ProtectionRecommendation): 'Fuse' | 'Breaker' {
-  return recommendation.busType === 'ac_line' ? 'Breaker' : 'Fuse';
+  return (recommendation.busType === 'ac_line' || recommendation.busType === 'ac_line2') ? 'Breaker' : 'Fuse';
 }
 
 function productMatchesRecommendation(
@@ -36,7 +36,7 @@ function productMatchesRecommendation(
 ): boolean {
   if (!voltageCompatible(product, systemVoltage)) return false;
 
-  if (recommendation.busType === 'ac_line') {
+  if (recommendation.busType === 'ac_line' || recommendation.busType === 'ac_line2') {
     const acPowerTerminals = product.terminals.filter((terminal) => terminal.kind === 'ac_power');
     return product.productType === 'breaker' &&
       product.protectionRatings?.acDcCompatibility === 'ac' &&

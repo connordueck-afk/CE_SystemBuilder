@@ -3,6 +3,7 @@ import type {
   ConnectionPolarity,
   ConnectionRole,
   Product,
+  ProductCommunicationPort,
   SystemComponent,
   SystemConnection,
   TerminalDefinition,
@@ -40,6 +41,32 @@ function roleCompatible(a: ConnectionRole, b: ConnectionRole): boolean {
 
 function directionCompatible(a: TerminalDefinition, b: TerminalDefinition): boolean {
   return (canProvidePower(a) && canReceivePower(b)) || (canProvidePower(b) && canReceivePower(a));
+}
+
+function commPortFor(ref: TerminalRef): ProductCommunicationPort | undefined {
+  return ref.product.communicationPorts?.find((p) => p.id === ref.terminal.id);
+}
+
+/**
+ * Two communication ports can only be wired together if they can carry a common
+ * protocol. A port locked to a single protocol (e.g. VE.Bus) cannot join a
+ * different network (e.g. VE.Can / BMS-Can). Configurable ports overlap as long
+ * as their supported protocol sets intersect.
+ */
+function communicationConflict(from: TerminalRef, to: TerminalRef): ConnectionValidationResult | null {
+  if (from.terminal.kind !== 'network' || to.terminal.kind !== 'network') return null;
+
+  const fromPort = commPortFor(from);
+  const toPort = commPortFor(to);
+  if (!fromPort || !toPort) return null;
+
+  const shared = fromPort.supportedProtocols.some((p) => toPort.supportedProtocols.includes(p));
+  if (shared) return null;
+
+  return {
+    valid: false,
+    message: `${terminalName(from)} (${fromPort.supportedProtocols.join('/')}) and ${terminalName(to)} (${toPort.supportedProtocols.join('/')}) are different communication networks and cannot be connected.`,
+  };
 }
 
 function isSolarSeriesLink(from: TerminalRef, to: TerminalRef): boolean {
@@ -140,6 +167,9 @@ export function validateConnectionPair(from: TerminalRef, to: TerminalRef): Conn
   if (from.terminal.kind === 'generic' || to.terminal.kind === 'generic') {
     return { valid: false, message: 'Generic terminals need a defined connection point type first.' };
   }
+
+  const commConflict = communicationConflict(from, to);
+  if (commConflict) return commConflict;
 
   if (POWER_KINDS.includes(from.terminal.kind) && !from.terminal.polarity && !inferredDynamicConductor) {
     return { valid: false, message: `${terminalName(from)} is missing a conductor polarity.` };

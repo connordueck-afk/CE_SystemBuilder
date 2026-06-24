@@ -1,5 +1,5 @@
 // ============================================================
-// inverterChargers.ts — Inverter/charger product definitions
+// inverterChargers.ts ï¿½ Inverter/charger product definitions
 // ============================================================
 // All existing product IDs, pricing, and terminal layouts are
 // preserved exactly. New fields (inverterChargerRatings,
@@ -9,7 +9,7 @@
 import type { Product } from '../../types/system';
 
 // Terminal factory for MultiPlus-II / Quattro units.
-// DC terminals are left without maxCurrentA — the DC side has asymmetric
+// DC terminals are left without maxCurrentA ï¿½ the DC side has asymmetric
 // load/source currents (inverter draw ? charger output) that the terminal-first
 // bidirectional path cannot express. The productType switch handles DC correctly.
 // AC terminals use maxCurrentA since they are clean source/sink.
@@ -109,6 +109,49 @@ function multiPlusTerminals(acInputCurrentA?: number, acOutputCurrentA?: number)
       domain: 'ac',
       maxCurrentA: acOutputCurrentA,
       notes: 'AC output Neutral conductor.',
+    },
+  ];
+}
+
+// Terminal factory for Quattro / Quattro-II units (dual AC input).
+// Extends multiPlusTerminals with a second AC input pair (ac_in2_l / ac_in2_n)
+// placed on the top side to visually distinguish it from the primary AC input.
+// Both AC inputs share the same current rating on all Quattro models.
+function quattroTerminals(acInputCurrentA?: number, acOutputCurrentA?: number): Product['terminals'] {
+  return [
+    ...multiPlusTerminals(acInputCurrentA, acOutputCurrentA),
+    {
+      id: 'ac_in2_l',
+      label: 'AC In 2 L',
+      electricalType: 'ac',
+      kind: 'ac_power',
+      polarity: 'line',
+      role: 'sink',
+      direction: 'input',
+      voltageClass: 'ac_120v',
+      side: 'top',
+      offsetX: -4,
+      offsetY: -48,
+      domain: 'ac',
+      phases: 1,
+      maxCurrentA: acInputCurrentA,
+      notes: 'AC input 2 Line conductor (generator or second grid supply).',
+    },
+    {
+      id: 'ac_in2_n',
+      label: 'AC In 2 N',
+      electricalType: 'ac',
+      kind: 'ac_power',
+      polarity: 'neutral',
+      role: 'sink',
+      direction: 'input',
+      voltageClass: 'ac_120v',
+      side: 'top',
+      offsetX: 3,
+      offsetY: -48,
+      domain: 'ac',
+      maxCurrentA: acInputCurrentA,
+      notes: 'AC input 2 Neutral conductor.',
     },
   ];
 }
@@ -250,7 +293,7 @@ export const inverterChargers: Product[] = [
     dataQuality: 'partial',
     width: 90,
     height: 130,
-    terminals: multiPlusTerminals(100, 41),
+    terminals: quattroTerminals(100, 41),
     inverterChargerRatings: {
       dcVoltageV: 12,
       maxDcCurrentA: 420,
@@ -279,7 +322,7 @@ export const inverterChargers: Product[] = [
     nominalVoltage: 12,
     continuousPowerW: 1200,
     msrpUsd: 327,
-    description: 'Victron Phoenix Inverter Smart 12V/1200VA — inverter only (no charger), Bluetooth/VE.Direct',
+    description: 'Victron Phoenix Inverter Smart 12V/1200VA ï¿½ inverter only (no charger), Bluetooth/VE.Direct',
     partNumber: 'PIN122122500',
     productUrl: 'https://www.cdnrg.com/products/vepin122122500',
     source: 'Victron 2025',
@@ -309,7 +352,7 @@ export const inverterChargers: Product[] = [
     continuousPowerW: 2000,
     maxCurrentA: 160,
     msrpUsd: 1054,
-    description: 'Victron MultiPlus 12V/2000VA/80A inverter/charger — VE.Bus',
+    description: 'Victron MultiPlus 12V/2000VA/80A inverter/charger ï¿½ VE.Bus',
     partNumber: 'PMP122200102',
     source: 'Victron 2025',
     dataQuality: 'partial',
@@ -327,7 +370,7 @@ export const inverterChargers: Product[] = [
   },
 
   // ==========================================================
-  // MultiPlus-II 12V — 230V and split-phase variants
+  // MultiPlus-II 12V ï¿½ 230V and split-phase variants
   // ==========================================================
 
   {
@@ -340,7 +383,7 @@ export const inverterChargers: Product[] = [
     continuousPowerW: 3000,
     maxCurrentA: 250,
     msrpUsd: 1348,
-    description: 'Victron MultiPlus-II 12V/3000VA/120A charger — 230V AC output, VE.Bus',
+    description: 'Victron MultiPlus-II 12V/3000VA/120A charger ï¿½ 230V AC output, VE.Bus',
     partNumber: 'PMP122305010',
     source: 'Victron 2025',
     dataQuality: 'partial',
@@ -365,7 +408,7 @@ export const inverterChargers: Product[] = [
     continuousPowerW: 4000,
     maxCurrentA: 330,
     msrpUsd: 1419,
-    description: 'Victron MultiPlus-II 12V/4000VA/160A charger — split-phase 120/240V, VE.Bus',
+    description: 'Victron MultiPlus-II 12V/4000VA/160A charger ï¿½ split-phase 120/240V, VE.Bus',
     partNumber: 'PMP122405200',
     source: 'Victron 2025',
     dataQuality: 'partial',
@@ -395,7 +438,7 @@ export const inverterChargers: Product[] = [
     continuousPowerW: 3000,
     maxCurrentA: 130,
     msrpUsd: 1025,
-    description: 'Victron MultiPlus-II 24V/3000VA/70A charger — 230V AC output, VE.Bus',
+    description: 'Victron MultiPlus-II 24V/3000VA/70A charger ï¿½ 230V AC output, VE.Bus',
     partNumber: 'PMP242305010',
     source: 'Victron 2025',
     dataQuality: 'partial',
@@ -420,7 +463,7 @@ export const inverterChargers: Product[] = [
     continuousPowerW: 3000,
     maxCurrentA: 130,
     msrpUsd: 1401,
-    description: 'Victron MultiPlus-II 24V/3000VA/70A charger — split-phase 120/240V, VE.Bus',
+    description: 'Victron MultiPlus-II 24V/3000VA/70A charger ï¿½ split-phase 120/240V, VE.Bus',
     partNumber: 'PMP242305132',
     source: 'Victron 2025',
     dataQuality: 'partial',
@@ -445,7 +488,7 @@ export const inverterChargers: Product[] = [
     continuousPowerW: 5000,
     maxCurrentA: 215,
     msrpUsd: 1927,
-    description: 'Victron MultiPlus-II 24V/5000VA/120A charger — 230V AC output, VE.Bus',
+    description: 'Victron MultiPlus-II 24V/5000VA/120A charger ï¿½ 230V AC output, VE.Bus',
     partNumber: 'PMP242505010',
     source: 'Victron 2025',
     dataQuality: 'partial',
@@ -475,7 +518,7 @@ export const inverterChargers: Product[] = [
     continuousPowerW: 3000,
     maxCurrentA: 65,
     msrpUsd: 1164,
-    description: 'Victron MultiPlus-II 48V/3000VA/35A charger — 120V AC output, VE.Bus',
+    description: 'Victron MultiPlus-II 48V/3000VA/35A charger ï¿½ 120V AC output, VE.Bus',
     partNumber: 'PMP482305102',
     source: 'Victron 2025',
     dataQuality: 'partial',
@@ -501,7 +544,7 @@ export const inverterChargers: Product[] = [
     continuousPowerW: 3000,
     maxCurrentA: 65,
     msrpUsd: 715,
-    description: 'Victron MultiPlus-II 48V/3000VA/35A charger — 230V AC output, VE.Bus',
+    description: 'Victron MultiPlus-II 48V/3000VA/35A charger ï¿½ 230V AC output, VE.Bus',
     partNumber: 'PMP482305010',
     source: 'Victron 2025',
     dataQuality: 'partial',
@@ -526,7 +569,7 @@ export const inverterChargers: Product[] = [
     continuousPowerW: 8000,
     maxCurrentA: 175,
     msrpUsd: 1778,
-    description: 'Victron MultiPlus-II 48V/8000VA/110A charger — 230V AC output, VE.Bus',
+    description: 'Victron MultiPlus-II 48V/8000VA/110A charger ï¿½ 230V AC output, VE.Bus',
     partNumber: 'PMP482805000',
     source: 'Victron 2025',
     dataQuality: 'partial',
@@ -551,7 +594,7 @@ export const inverterChargers: Product[] = [
     continuousPowerW: 10000,
     maxCurrentA: 215,
     msrpUsd: 2124,
-    description: 'Victron MultiPlus-II 48V/10000VA/140A charger — 230V AC output, VE.Bus',
+    description: 'Victron MultiPlus-II 48V/10000VA/140A charger ï¿½ 230V AC output, VE.Bus',
     partNumber: 'PMP483105000',
     source: 'Victron 2025',
     dataQuality: 'partial',
@@ -576,7 +619,7 @@ export const inverterChargers: Product[] = [
     continuousPowerW: 15000,
     maxCurrentA: 325,
     msrpUsd: 2963,
-    description: 'Victron MultiPlus-II 48V/15000VA/200A charger — 230V AC output, VE.Bus',
+    description: 'Victron MultiPlus-II 48V/15000VA/200A charger ï¿½ 230V AC output, VE.Bus',
     partNumber: 'PMP483150000',
     source: 'Victron 2025',
     dataQuality: 'partial',
@@ -601,7 +644,7 @@ export const inverterChargers: Product[] = [
     continuousPowerW: 5000,
     maxCurrentA: 110,
     msrpUsd: 1453,
-    description: 'Victron MultiPlus-II 48V/5000VA/70A charger — 120V AC output, VE.Bus',
+    description: 'Victron MultiPlus-II 48V/5000VA/70A charger ï¿½ 120V AC output, VE.Bus',
     partNumber: 'PMP482505110',
     source: 'Victron 2025',
     dataQuality: 'partial',
@@ -632,13 +675,13 @@ export const inverterChargers: Product[] = [
     continuousPowerW: 3000,
     maxCurrentA: 250,
     msrpUsd: 1444,
-    description: 'Victron Quattro-II 12V/3000VA — dual AC input, split-phase 120/240V, VE.Bus',
+    description: 'Victron Quattro-II 12V/3000VA ï¿½ dual AC input, split-phase 120/240V, VE.Bus',
     partNumber: 'QUA122305130',
     source: 'Victron 2025',
     dataQuality: 'partial',
     width: 90,
     height: 130,
-    terminals: multiPlusTerminals(50, 25),
+    terminals: quattroTerminals(50, 25),
     inverterChargerRatings: {
       dcVoltageV: 12,
       continuousInverterW: 3000,
@@ -658,7 +701,7 @@ export const inverterChargers: Product[] = [
     continuousPowerW: 5000,
     maxCurrentA: 220,
     msrpUsd: 2358,
-    description: 'Victron Quattro 24V/5000VA/120A charger — dual AC input, 120V, VE.Bus',
+    description: 'Victron Quattro 24V/5000VA/120A charger ï¿½ dual AC input, 120V, VE.Bus',
     partNumber: 'QUA245021010',
     productUrl: 'https://www.cdnrg.com/products/vequa245023110',
     source: 'Victron 2025',
@@ -666,7 +709,7 @@ export const inverterChargers: Product[] = [
     notes: 'Placeholder pricing/specs.',
     width: 90,
     height: 130,
-    terminals: multiPlusTerminals(100, 42),
+    terminals: quattroTerminals(100, 42),
     inverterChargerRatings: {
       dcVoltageV: 24,
       continuousInverterW: 5000,
@@ -686,13 +729,13 @@ export const inverterChargers: Product[] = [
     continuousPowerW: 3000,
     maxCurrentA: 130,
     msrpUsd: 1372,
-    description: 'Victron Quattro-II 24V/3000VA — dual AC input, split-phase 120/240V, VE.Bus',
+    description: 'Victron Quattro-II 24V/3000VA ï¿½ dual AC input, split-phase 120/240V, VE.Bus',
     partNumber: 'QUA242305130',
     source: 'Victron 2025',
     dataQuality: 'partial',
     width: 90,
     height: 130,
-    terminals: multiPlusTerminals(50, 25),
+    terminals: quattroTerminals(50, 25),
     inverterChargerRatings: {
       dcVoltageV: 24,
       continuousInverterW: 3000,
@@ -712,13 +755,13 @@ export const inverterChargers: Product[] = [
     continuousPowerW: 5000,
     maxCurrentA: 215,
     msrpUsd: 2087,
-    description: 'Victron Quattro-II 24V/5000VA/120A charger — dual AC input, 230V output, VE.Bus',
+    description: 'Victron Quattro-II 24V/5000VA/120A charger ï¿½ dual AC input, 230V output, VE.Bus',
     partNumber: 'QUA242505010',
     source: 'Victron 2025',
     dataQuality: 'partial',
     width: 90,
     height: 130,
-    terminals: multiPlusTerminals(50, 22),
+    terminals: quattroTerminals(50, 22),
     inverterChargerRatings: {
       dcVoltageV: 24,
       continuousInverterW: 5000,
@@ -738,13 +781,13 @@ export const inverterChargers: Product[] = [
     continuousPowerW: 5000,
     maxCurrentA: 110,
     msrpUsd: 1365,
-    description: 'Victron Quattro-II 48V/5000VA/70A charger — dual AC input, 230V output, VE.Bus',
+    description: 'Victron Quattro-II 48V/5000VA/70A charger ï¿½ dual AC input, 230V output, VE.Bus',
     partNumber: 'QUA482504010',
     source: 'Victron 2025',
     dataQuality: 'partial',
     width: 90,
     height: 130,
-    terminals: multiPlusTerminals(50, 22),
+    terminals: quattroTerminals(50, 22),
     inverterChargerRatings: {
       dcVoltageV: 48,
       continuousInverterW: 5000,
@@ -764,14 +807,14 @@ export const inverterChargers: Product[] = [
     continuousPowerW: 10000,
     maxCurrentA: 215,
     msrpUsd: 2733,
-    description: 'Victron Quattro 48V/10000VA/140A charger — dual AC input, split-phase 120/240V, VE.Bus',
+    description: 'Victron Quattro 48V/10000VA/140A charger ï¿½ dual AC input, split-phase 120/240V, VE.Bus',
     partNumber: 'QUA481030010',
     source: 'Victron 2025',
     dataQuality: 'partial',
     notes: 'Placeholder pricing/specs.',
     width: 90,
     height: 130,
-    terminals: multiPlusTerminals(100, 83),
+    terminals: quattroTerminals(100, 83),
     inverterChargerRatings: {
       dcVoltageV: 48,
       continuousInverterW: 10000,
@@ -791,14 +834,14 @@ export const inverterChargers: Product[] = [
     continuousPowerW: 15000,
     maxCurrentA: 325,
     msrpUsd: 3591,
-    description: 'Victron Quattro 48V/15000VA/200A charger — dual AC input, split-phase 120/240V, VE.Bus',
+    description: 'Victron Quattro 48V/15000VA/200A charger ï¿½ dual AC input, split-phase 120/240V, VE.Bus',
     partNumber: 'QUA483150100',
     source: 'Victron 2025',
     dataQuality: 'partial',
     notes: 'Placeholder pricing/specs.',
     width: 90,
     height: 130,
-    terminals: multiPlusTerminals(100, 125),
+    terminals: quattroTerminals(100, 125),
     inverterChargerRatings: {
       dcVoltageV: 48,
       continuousInverterW: 15000,

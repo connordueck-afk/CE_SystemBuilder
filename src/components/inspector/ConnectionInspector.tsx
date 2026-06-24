@@ -1,4 +1,5 @@
-import type { InternalBusType, SystemConnection, SystemComponent, Product } from '../../types/system';
+import { useState } from 'react';
+import type { InternalBusType, SystemConnection, SystemComponent, Product, CableMode } from '../../types/system';
 import { CABLE_TABLE } from '../../data/cableAmpacity';
 import { feetAndInchesToFeet, feetToFeetAndInches } from '../../utils/cableSummary';
 import { getEffectiveTerminal } from '../../utils/effectiveTerminals';
@@ -6,6 +7,9 @@ import { canProvidePower, terminalDirectionLabel } from '../../utils/terminalDir
 import type { ProtectionRecommendation } from '../../utils/protectionRecommendations';
 import { sharedBusLinkStandard } from '../../utils/busLinks';
 import { BUS_DEFAULT_COLOR, BUS_DEFAULT_TYPE } from '../../utils/cableDefaults';
+import { getPremanufacturedCable } from '../../data/products/cableAssemblies';
+import { PremanufacturedCableSelector } from '../parts/PremanufacturedCableSelector';
+import { deriveCommProtocol } from '../../utils/communicationNetworks';
 
 const CABLE_COLORS = ['Red', 'Black', 'Yellow', 'Orange', 'Blue', 'Green', 'White', 'Brown', 'Gray', 'Purple'];
 const CABLE_TYPES = ['THHN/THWN', 'RHH/RHW-2', 'Marine Grade', 'Welding Cable', 'Battery Cable', 'Chassis Wire (MTW)'];
@@ -36,6 +40,8 @@ interface Props {
   onAutoCableAwg: (id: string) => void;
   onUpdateCableColor: (id: string, color: string) => void;
   onUpdateCableType: (id: string, type: string) => void;
+  onUpdateCableMode: (id: string, mode: CableMode) => void;
+  onUpdatePremanufacturedCable: (id: string, cableId: string | undefined) => void;
   onResetRoute: (id: string) => void;
   onRemove: (id: string) => void;
 }
@@ -113,9 +119,12 @@ export function ConnectionInspector({
   onAutoCableAwg,
   onUpdateCableColor,
   onUpdateCableType,
+  onUpdateCableMode,
+  onUpdatePremanufacturedCable,
   onResetRoute,
   onRemove,
 }: Props) {
+  const [showCableSelector, setShowCableSelector] = useState(false);
   const fromLabel = fromComponent?.label ?? fromProduct?.name ?? 'Unknown';
   const toLabel = toComponent?.label ?? toProduct?.name ?? 'Unknown';
   const dropWarn = (connection.voltageDropPercent ?? 0) > 3;
@@ -133,6 +142,16 @@ export function ConnectionInspector({
     fromProduct, connection.fromTerminalId, toProduct, connection.toTerminalId
   ) != null;
   const isBusLink = connection.busLink === true;
+  const isCommWire = connection.wireKind === 'communication';
+  const fromCommPort = fromProduct?.communicationPorts?.find((p) => p.id === connection.fromTerminalId);
+  const toCommPort = toProduct?.communicationPorts?.find((p) => p.id === connection.toTerminalId);
+  const fromConfiguredProtocol = fromComponent?.configuredProtocols?.[connection.fromTerminalId] ?? fromCommPort?.configuredProtocol;
+  const toConfiguredProtocol = toComponent?.configuredProtocols?.[connection.toTerminalId] ?? toCommPort?.configuredProtocol;
+  const derivedProtocol = deriveCommProtocol(fromCommPort, fromConfiguredProtocol, toCommPort, toConfiguredProtocol);
+  const cableMode = connection.cableMode ?? 'dynamic';
+  const selectedAssembly = connection.premanufacturedCableId
+    ? getPremanufacturedCable(connection.premanufacturedCableId)
+    : undefined;
   const maxSourceCapabilityA = Math.max(
     endpointSourceCapabilityA(fromComponent, fromProduct, connection.fromTerminalId, systemVoltage) ?? 0,
     endpointSourceCapabilityA(toComponent, toProduct, connection.toTerminalId, systemVoltage) ?? 0
@@ -166,6 +185,7 @@ export function ConnectionInspector({
         </div>
       </div>
 
+      {!isCommWire && (
       <div className="inspector-section">
         <div className="inspector-label">Electrical</div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
@@ -198,8 +218,9 @@ export function ConnectionInspector({
         <Row label="Recommended Cable" value={connection.recommendedCableAwg != null ? `${connection.recommendedCableAwg} AWG` : null} />
         <Row label="System Voltage" value={`${systemVoltage} V`} />
       </div>
+      )}
 
-      {protectionRecommendations.length > 0 && (
+      {!isCommWire && protectionRecommendations.length > 0 && (
         <div className="inspector-section">
           <div className="inspector-label">Required Protection</div>
           {protectionRecommendations.map((recommendation) => (
@@ -235,6 +256,18 @@ export function ConnectionInspector({
         </div>
       )}
 
+      {/* Communication wire network type section */}
+      {isCommWire && (
+        <div className="inspector-section">
+          <div className="inspector-label">Communication Wire</div>
+          <Row label="Network Type" value={derivedProtocol ?? 'Unknown'} />
+          <div style={{ color: 'var(--muted)', fontSize: 11, marginTop: 4 }}>
+            Determined by the connected devices. Configure a device's protocol on its component panel.
+            Communication wires have no current rating and do not affect cable/fuse sizing.
+          </div>
+        </div>
+      )}
+
       {isBusLink ? (
         <div className="inspector-section">
           <div className="inspector-label">Cable Run</div>
@@ -242,112 +275,167 @@ export function ConnectionInspector({
             Direct bus link — no cable, excluded from the cable BOM.
           </div>
         </div>
-      ) : (
+      ) : isCommWire ? null : (
       <div className="inspector-section">
         <div className="inspector-label">Cable Run</div>
-        <div className="cable-size-control">
+
+        {/* Cable mode toggle */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+          <span className="connection-row-label" style={{ flex: 1 }}>Cable Type</span>
           <select
             className="inspector-input"
-            value={connection.manualCableAwg ?? connection.recommendedCableAwg ?? ''}
-            onChange={(e) => onUpdateCableAwg(connection.id, e.target.value)}
+            style={{ width: 145 }}
+            value={cableMode}
+            onChange={(e) => {
+              onUpdateCableMode(connection.id, e.target.value as CableMode);
+              if (e.target.value === 'dynamic') {
+                onUpdatePremanufacturedCable(connection.id, undefined);
+              }
+            }}
           >
-            {!connection.manualCableAwg && !connection.recommendedCableAwg && (
-              <option value="" disabled>
-                Select size
-              </option>
-            )}
-            {CABLE_TABLE.map((cable) => (
-              <option key={cable.awg} value={cable.awg}>
-                {cable.label}
-              </option>
-            ))}
+            <option value="dynamic">Dynamic (custom run)</option>
+            <option value="premanufactured">Pre-manufactured</option>
           </select>
-          <button
-            className="btn-secondary-inline"
-            disabled={!connection.manualCableAwg}
-            onClick={() => onAutoCableAwg(connection.id)}
-          >
-            Auto
-          </button>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-          <span className="connection-row-label" style={{ flex: 1 }}>Length</span>
-          <input
-            type="number"
-            className="inspector-input"
-            style={{ width: 58 }}
-            value={cableLength.feet}
-            min={0}
-            step={1}
-            onChange={(e) => {
-              const v = parseInt(e.target.value, 10);
-              if (!isNaN(v)) updateCableLength({ feet: v });
-            }}
-          />
-          <span style={{ color: 'var(--muted)', fontSize: 12, fontWeight: 600 }}>ft</span>
-          <input
-            type="number"
-            className="inspector-input"
-            style={{ width: 58 }}
-            value={cableLength.inches}
-            min={0}
-            max={11}
-            step={1}
-            onChange={(e) => {
-              const v = parseInt(e.target.value, 10);
-              if (!isNaN(v)) updateCableLength({ inches: v });
-            }}
-          />
-          <span style={{ color: 'var(--muted)', fontSize: 12, fontWeight: 600 }}>in</span>
-        </div>
-        <div style={{ marginBottom: 6 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
-            <span className="connection-row-label" style={{ flex: 1 }}>Color</span>
-            <select
-              className="inspector-input"
-              style={{ width: 110 }}
-              value={connection.cableColor ?? ''}
-              onChange={(e) => onUpdateCableColor(connection.id, e.target.value)}
+
+        {/* Pre-manufactured cable UI */}
+        {cableMode === 'premanufactured' && (
+          <div style={{ marginBottom: 10 }}>
+            {selectedAssembly ? (
+              <div style={{ background: 'var(--surface-alt, #f4f7fb)', borderRadius: 6, padding: '8px 10px', marginBottom: 6 }}>
+                <div style={{ fontWeight: 700, fontSize: 12 }}>{selectedAssembly.name}</div>
+                <div style={{ color: 'var(--muted)', fontSize: 11, marginTop: 2 }}>
+                  {selectedAssembly.gauge} · {selectedAssembly.length} {selectedAssembly.lengthUnit}
+                  {selectedAssembly.price != null && ` · $${selectedAssembly.price.toFixed(2)}`}
+                </div>
+              </div>
+            ) : (
+              <div style={{ color: 'var(--muted)', fontSize: 12, marginBottom: 6 }}>No cable assembly selected.</div>
+            )}
+            <button
+              className="btn-secondary-wide"
+              onClick={() => setShowCableSelector(true)}
             >
-              <option value="">{suggestedColor ? `Default (${suggestedColor})` : 'Select...'}</option>
-              {CABLE_COLORS.map((c) => (
-                <option key={c} value={c}>{c}</option>
-              ))}
-            </select>
-          </div>
-        </div>
-        <div style={{ marginBottom: 6 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
-            <span className="connection-row-label" style={{ flex: 1 }}>Type</span>
-            <select
-              className="inspector-input"
-              style={{ width: 110 }}
-              value={connection.cableType ?? ''}
-              onChange={(e) => onUpdateCableType(connection.id, e.target.value)}
-            >
-              <option value="">{suggestedType ? `Default (${suggestedType})` : 'Select...'}</option>
-              {CABLE_TYPES.map((t) => (
-                <option key={t} value={t}>{t}</option>
-              ))}
-            </select>
-          </div>
-        </div>
-        <Row
-          label="Voltage Drop"
-          value={connection.voltageDropV != null ? `${connection.voltageDropV.toFixed(3)} V` : null}
-          warn={dropWarn}
-        />
-        <Row
-          label="Drop %"
-          value={connection.voltageDropPercent != null ? `${connection.voltageDropPercent.toFixed(2)}%` : null}
-          warn={dropWarn}
-        />
-        {dropWarn && (
-          <div style={{ color: 'var(--amber)', fontSize: 11, fontWeight: 600, marginTop: 6 }}>
-            Warning: voltage drop exceeds 3% - consider larger cable or shorter run
+              {selectedAssembly ? 'Change Cable Assembly' : 'Select Cable Assembly'}
+            </button>
           </div>
         )}
+
+        {cableMode === 'dynamic' && (
+          <>
+            <div className="cable-size-control">
+              <select
+                className="inspector-input"
+                value={connection.manualCableAwg ?? connection.recommendedCableAwg ?? ''}
+                onChange={(e) => onUpdateCableAwg(connection.id, e.target.value)}
+              >
+                {!connection.manualCableAwg && !connection.recommendedCableAwg && (
+                  <option value="" disabled>
+                    Select size
+                  </option>
+                )}
+                {CABLE_TABLE.map((cable) => (
+                  <option key={cable.awg} value={cable.awg}>
+                    {cable.label}
+                  </option>
+                ))}
+              </select>
+              <button
+                className="btn-secondary-inline"
+                disabled={!connection.manualCableAwg}
+                onClick={() => onAutoCableAwg(connection.id)}
+              >
+                Auto
+              </button>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+              <span className="connection-row-label" style={{ flex: 1 }}>Length</span>
+              <input
+                type="number"
+                className="inspector-input"
+                style={{ width: 58 }}
+                value={cableLength.feet}
+                min={0}
+                step={1}
+                onChange={(e) => {
+                  const v = parseInt(e.target.value, 10);
+                  if (!isNaN(v)) updateCableLength({ feet: v });
+                }}
+              />
+              <span style={{ color: 'var(--muted)', fontSize: 12, fontWeight: 600 }}>ft</span>
+              <input
+                type="number"
+                className="inspector-input"
+                style={{ width: 58 }}
+                value={cableLength.inches}
+                min={0}
+                max={11}
+                step={1}
+                onChange={(e) => {
+                  const v = parseInt(e.target.value, 10);
+                  if (!isNaN(v)) updateCableLength({ inches: v });
+                }}
+              />
+              <span style={{ color: 'var(--muted)', fontSize: 12, fontWeight: 600 }}>in</span>
+            </div>
+            <div style={{ marginBottom: 6 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
+                <span className="connection-row-label" style={{ flex: 1 }}>Color</span>
+                <select
+                  className="inspector-input"
+                  style={{ width: 110 }}
+                  value={connection.cableColor ?? ''}
+                  onChange={(e) => onUpdateCableColor(connection.id, e.target.value)}
+                >
+                  <option value="">{suggestedColor ? `Default (${suggestedColor})` : 'Select...'}</option>
+                  {CABLE_COLORS.map((c) => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <div style={{ marginBottom: 6 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
+                <span className="connection-row-label" style={{ flex: 1 }}>Type</span>
+                <select
+                  className="inspector-input"
+                  style={{ width: 110 }}
+                  value={connection.cableType ?? ''}
+                  onChange={(e) => onUpdateCableType(connection.id, e.target.value)}
+                >
+                  <option value="">{suggestedType ? `Default (${suggestedType})` : 'Select...'}</option>
+                  {CABLE_TYPES.map((t) => (
+                    <option key={t} value={t}>{t}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <Row
+              label="Voltage Drop"
+              value={connection.voltageDropV != null ? `${connection.voltageDropV.toFixed(3)} V` : null}
+              warn={dropWarn}
+            />
+            <Row
+              label="Drop %"
+              value={connection.voltageDropPercent != null ? `${connection.voltageDropPercent.toFixed(2)}%` : null}
+              warn={dropWarn}
+            />
+            {dropWarn && (
+              <div style={{ color: 'var(--amber)', fontSize: 11, fontWeight: 600, marginTop: 6 }}>
+                Warning: voltage drop exceeds 3% - consider larger cable or shorter run
+              </div>
+            )}
+          </>
+        )}
       </div>
+      )}
+
+      {showCableSelector && (
+        <PremanufacturedCableSelector
+          connection={connection}
+          onSelect={(cableId) => onUpdatePremanufacturedCable(connection.id, cableId)}
+          onClose={() => setShowCableSelector(false)}
+        />
       )}
 
       <div className="inspector-section">

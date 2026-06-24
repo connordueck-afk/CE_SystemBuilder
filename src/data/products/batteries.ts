@@ -476,20 +476,20 @@ export const batteries: Product[] = [
   },
 
   // ==========================================================
-  // Discover Battery — AES LiFePO4 Series
+  // Discover Battery — AES-B LiFePO4 Series
   // ==========================================================
 
   {
     id: 'discover-aes-lithium-12-200',
     manufacturer: 'Discover Battery',
-    name: 'AES LiFePO4 12.8V/200Ah',
+    name: 'AES-B LiFePO4 12.8V/200Ah',
     productType: 'battery',
     category: 'Batteries',
     nominalVoltage: 12,
     capacityWh: 2560,
     maxCurrentA: 200,
     msrpUsd: 1495,
-    description: 'Discover AES LiFePO4 battery 12.8V/200Ah',
+    description: 'Discover AES-B LiFePO4 battery 12.8V/200Ah',
     partNumber: 'AES-B-GC2-12V-H',
     productUrl: 'https://www.cdnrg.com/products/aes-b-gc12-12v-h',
     source: 'Discover Battery 2025',
@@ -513,14 +513,14 @@ export const batteries: Product[] = [
   {
     id: 'discover-aes-lithium-24-100',
     manufacturer: 'Discover Battery',
-    name: 'AES LiFePO4 25.6V/100Ah',
+    name: 'AES-B LiFePO4 25.6V/100Ah',
     productType: 'battery',
     category: 'Batteries',
     nominalVoltage: 24,
     capacityWh: 2560,
     maxCurrentA: 100,
     msrpUsd: 1495,
-    description: 'Discover AES LiFePO4 battery 25.6V/100Ah',
+    description: 'Discover AES-B LiFePO4 battery 25.6V/100Ah',
     partNumber: 'AES-B-GC2-24V',
     productUrl: 'https://www.cdnrg.com/products/aes-b-gc12-24v',
     source: 'Discover Battery 2025',
@@ -543,20 +543,20 @@ export const batteries: Product[] = [
   },
 
   // ==========================================================
-  // Discover Battery — DLP LiFePO4 Series
+  // Discover Battery — DLP-GC2 Series
   // ==========================================================
 
   {
     id: 'discover-dlp-lithium-12-120',
     manufacturer: 'Discover Battery',
-    name: 'DLP LiFePO4 12.8V/120Ah',
+    name: 'DLP-GC2 12.8V/120Ah',
     productType: 'battery',
     category: 'Batteries',
     nominalVoltage: 12,
     capacityWh: 1536,
     maxCurrentA: 120,
     msrpUsd: 1250,
-    description: 'Discover DLP LiFePO4 battery 12.8V/120Ah with CAN communication',
+    description: 'Discover DLP-GC2 battery 12.8V/120Ah with CAN communication',
     partNumber: 'DLP-GC2-12V',
     productUrl: 'https://www.cdnrg.com/products/dlp-gc2-12v',
     source: 'Discover Battery 2025',
@@ -581,14 +581,14 @@ export const batteries: Product[] = [
   {
     id: 'discover-dlp-lithium-24-60',
     manufacturer: 'Discover Battery',
-    name: 'DLP LiFePO4 25.6V/60Ah',
+    name: 'DLP-GC2 25.6V/60Ah',
     productType: 'battery',
     category: 'Batteries',
     nominalVoltage: 24,
     capacityWh: 1536,
     maxCurrentA: 60,
     msrpUsd: 1250,
-    description: 'Discover DLP LiFePO4 battery 25.6V/60Ah with CAN communication',
+    description: 'Discover DLP-GC2 battery 25.6V/60Ah with CAN communication',
     partNumber: 'DLP-GC2-24V',
     productUrl: 'https://www.cdnrg.com/products/dlp-gc2-24v',
     source: 'Discover Battery 2025',
@@ -613,14 +613,14 @@ export const batteries: Product[] = [
   {
     id: 'discover-dlp-lithium-48-30',
     manufacturer: 'Discover Battery',
-    name: 'DLP LiFePO4 51.2V/30Ah',
+    name: 'DLP-GC2 51.2V/30Ah',
     productType: 'battery',
     category: 'Batteries',
     nominalVoltage: 48,
     capacityWh: 1536,
     maxCurrentA: 30,
     msrpUsd: 1250,
-    description: 'Discover DLP LiFePO4 battery 51.2V/30Ah with CAN communication',
+    description: 'Discover DLP-GC2 battery 51.2V/30Ah with CAN communication',
     partNumber: 'DLP-GC2-48V',
     productUrl: 'https://www.cdnrg.com/products/dlp-gc2-48v',
     source: 'Discover Battery 2025',

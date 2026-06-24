@@ -1073,7 +1073,7 @@ export function SchematicCanvas({
         })}
 
         {fusePrompt && (() => {
-          const label = fusePrompt.recommendation.busType === 'ac_line' ? 'Add Breaker' : 'Add Fuse';
+          const label = (fusePrompt.recommendation.busType === 'ac_line' || fusePrompt.recommendation.busType === 'ac_line2') ? 'Add Breaker' : 'Add Fuse';
 
           return (
             <g
