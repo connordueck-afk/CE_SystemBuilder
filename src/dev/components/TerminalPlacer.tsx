@@ -1,6 +1,9 @@
 import { useRef, useCallback } from 'react';
 import type { TerminalDefinition, ConnectionPointKind } from '../../types/system';
 
+// Scale product canvas units up to a comfortable display size
+const TARGET_DISPLAY_WIDTH = 400;
+
 interface Props {
   width: number;
   height: number;
@@ -35,18 +38,23 @@ export function TerminalPlacer({
   const containerRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<{ id: string; startX: number; startY: number; origX: number; origY: number } | null>(null);
 
+  // Scale up from product canvas units to a comfortable display size
+  const displayScale = Math.max(2, TARGET_DISPLAY_WIDTH / Math.max(width, 1));
+  const displayW = Math.round(Math.max(width, 60) * displayScale);
+  const displayH = Math.round(Math.max(height, 60) * displayScale);
+
   const toOffset = useCallback((clientX: number, clientY: number) => {
     const rect = containerRef.current!.getBoundingClientRect();
     const relX = clientX - rect.left;
     const relY = clientY - rect.top;
     return {
-      offsetX: Math.round(relX - width / 2),
-      offsetY: Math.round(relY - height / 2),
+      offsetX: Math.round((relX - displayW / 2) / displayScale),
+      offsetY: Math.round((relY - displayH / 2) / displayScale),
     };
-  }, [width, height]);
+  }, [displayW, displayH, displayScale]);
 
   const handleCanvasClick = useCallback((e: React.MouseEvent) => {
-    if (dragRef.current) return; // was a drag, not a click
+    if (dragRef.current) return;
     const { offsetX, offsetY } = toOffset(e.clientX, e.clientY);
     onPlaceTerminal(offsetX, offsetY);
   }, [toOffset, onPlaceTerminal]);
@@ -60,12 +68,11 @@ export function TerminalPlacer({
       if (!dragRef.current) return;
       const dx = me.clientX - dragRef.current.startX;
       const dy = me.clientY - dragRef.current.startY;
-      // Only commit if moved > 3px to distinguish click from drag
       if (Math.abs(dx) > 3 || Math.abs(dy) > 3) {
         onMoveTerminal(
           dragRef.current.id,
-          Math.round(dragRef.current.origX + dx),
-          Math.round(dragRef.current.origY + dy),
+          Math.round(dragRef.current.origX + dx / displayScale),
+          Math.round(dragRef.current.origY + dy / displayScale),
         );
       }
     };
@@ -78,16 +85,13 @@ export function TerminalPlacer({
 
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseup', onUp);
-  }, [onSelectTerminal, onMoveTerminal]);
-
-  const scaledW = Math.max(width, 60);
-  const scaledH = Math.max(height, 60);
+  }, [onSelectTerminal, onMoveTerminal, displayScale]);
 
   return (
     <div
       ref={containerRef}
       className="pb-placer-wrap"
-      style={{ width: scaledW, height: scaledH }}
+      style={{ width: displayW, height: displayH }}
       onClick={handleCanvasClick}
       title="Click to place a terminal"
     >
@@ -95,26 +99,26 @@ export function TerminalPlacer({
         <img
           className="pb-placer-img"
           src={imageUrl}
-          width={scaledW}
-          height={scaledH}
+          width={displayW}
+          height={displayH}
           alt="product"
           draggable={false}
         />
       ) : (
         <div
           style={{
-            width: scaledW, height: scaledH,
+            width: displayW, height: displayH,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             color: 'var(--muted)', fontSize: 11,
           }}
         >
-          No image — set width/height and pick an SVG
+          No image — set width/height then pick an SVG
         </div>
       )}
 
       {terminals.map(t => {
-        const dotX = scaledW / 2 + t.offsetX;
-        const dotY = scaledH / 2 + t.offsetY;
+        const dotX = displayW / 2 + t.offsetX * displayScale;
+        const dotY = displayH / 2 + t.offsetY * displayScale;
         const color = terminalColor(t);
         return (
           <div

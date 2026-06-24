@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import type { Product, ProductType, TerminalDefinition } from '../types/system';
+import { getProductDisplayImageUrl } from '../utils/productImages';
 import { Sidebar } from './components/Sidebar';
 import { CoreFieldsForm } from './components/CoreFieldsForm';
 import { RatingsForm } from './components/RatingsForm';
@@ -252,6 +253,14 @@ export function ProductBuilderApp() {
   const width = Number(product.width) || 120;
   const height = Number(product.height) || 80;
 
+  // Resolve display image: explicit imageUrl first, then auto-detect by manufacturer/type
+  const displayImageUrl = useMemo(() => {
+    if (product.id && product.productType) {
+      return getProductDisplayImageUrl(product as Product);
+    }
+    return product.imageUrl;
+  }, [product]);
+
   const statusLabel = saveStatus === 'saving' ? 'Saving…'
     : saveStatus === 'saved' ? 'Saved'
     : saveStatus === 'error' ? 'Error'
@@ -334,7 +343,7 @@ export function ProductBuilderApp() {
               <TerminalPlacer
                 width={width}
                 height={height}
-                imageUrl={product.imageUrl}
+                imageUrl={displayImageUrl}
                 terminals={terminals}
                 selectedId={selectedTerminalId}
                 onPlaceTerminal={addTerminal}
