@@ -44,7 +44,7 @@ export function getConnectionTerminalPos(
   };
 }
 
-function offsetFromSide(pos: TerminalPos, dist = STUB_DISTANCE): Point {
+export function offsetFromSide(pos: TerminalPos, dist = STUB_DISTANCE): Point {
   switch (pos.side) {
     case 'left':   return { x: pos.x - dist, y: pos.y };
     case 'right':  return { x: pos.x + dist, y: pos.y };

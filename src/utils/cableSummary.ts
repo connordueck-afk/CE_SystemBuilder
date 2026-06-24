@@ -58,6 +58,7 @@ export function buildCableLengthSummary(connections: SystemConnection[]): CableL
     if (connection.busLink) continue;
     if (connection.cableMode === 'premanufactured') continue;
     if (connection.wireKind === 'communication') continue;
+    if (connection.includeInBOM === false) continue;
     const totalLengthFt = connection.cableLengthFt;
     if (totalLengthFt <= 0) continue;
 
@@ -114,6 +115,8 @@ export interface CableBomRow {
   toEnd: CableEndTermination;
   /** Direct bolted bus link — no cable, no terminations, excluded from totals/connectors. */
   busLink?: boolean;
+  /** Whether this cable is counted in BOM totals and cable length summaries. Defaults true. */
+  includeInBOM: boolean;
 }
 
 /** Aggregated lug/connector line item across all cable ends. */
@@ -177,6 +180,7 @@ export function buildCableBomRows(
         fromEnd: { label: '—' },
         toEnd: { label: '—' },
         busLink: true,
+        includeInBOM: false,
       });
       continue;
     }
@@ -199,6 +203,7 @@ export function buildCableBomRows(
       lengthFt: connection.cableLengthFt,
       fromEnd: resolveTermination(fromProduct, connection.fromTerminalId, fromComponent, gauge),
       toEnd: resolveTermination(toProduct, connection.toTerminalId, toComponent, gauge),
+      includeInBOM: connection.includeInBOM !== false,
     });
   }
 
@@ -251,6 +256,7 @@ export function buildConnectorSummary(rows: CableBomRow[]): ConnectorSummaryItem
   };
 
   for (const row of rows) {
+    if (!row.includeInBOM) continue;
     addEnd(row.fromEnd);
     addEnd(row.toEnd);
   }

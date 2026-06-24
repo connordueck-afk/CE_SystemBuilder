@@ -13,10 +13,12 @@ interface Props {
   connectorSummary: ConnectorSummaryItem[];
   /** Toggle a connection between a real cable (in BOM) and a cableless bus link. */
   onToggleBusLink?: (connectionId: string, busLink: boolean) => void;
+  /** Toggle whether a cable is counted in the BOM (does not affect the schematic or connectivity). */
+  onToggleIncludeInBOM?: (connectionId: string, include: boolean) => void;
 }
 
 function ColorCell({ color }: { color: string }) {
-  if (!color) return <span style={{ color: '#9aa5b4' }}>—</span>;
+  if (!color) return <span style={{ color: 'var(--muted)' }}>—</span>;
   const swatch = cableColorSwatch(color);
   return (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
@@ -37,12 +39,12 @@ function ColorCell({ color }: { color: string }) {
 }
 
 function EndCell({ end }: { end: CableEndTermination }) {
-  if (!end.connector) return <span style={{ color: '#9aa5b4' }}>—</span>;
+  if (!end.connector) return <span style={{ color: 'var(--muted)' }}>—</span>;
   return (
     <span>
       {end.label}
       {end.lug && (
-        <span style={{ display: 'block', color: '#6d7b90', fontSize: 11, fontWeight: 600 }}>
+        <span style={{ display: 'block', color: 'var(--muted)', fontSize: 11, fontWeight: 600 }}>
           {end.lug.label}
         </span>
       )}
@@ -272,7 +274,7 @@ function CableVisualRow({ row }: { row: CableBomRow }) {
   );
 }
 
-export function CableSummaryPanel({ summary, cableRows, connectorSummary, onToggleBusLink }: Props) {
+export function CableSummaryPanel({ summary, cableRows, connectorSummary, onToggleBusLink, onToggleIncludeInBOM }: Props) {
   const [view, setView] = useState<CableView>('cables');
 
   if (summary.length === 0 && cableRows.length === 0) {
@@ -310,14 +312,26 @@ export function CableSummaryPanel({ summary, cableRows, connectorSummary, onTogg
           </div>
           {cableRows.map((row) => (
             <Fragment key={row.connectionId}>
-              <div style={{ display: 'flex', gap: 12, alignItems: 'center', borderBottom: '1px solid var(--line)', padding: '7px 0', opacity: row.busLink ? 0.6 : 1 }}>
+              <div style={{ display: 'flex', gap: 12, alignItems: 'center', borderBottom: '1px solid var(--line)', padding: '7px 0', opacity: (!row.includeInBOM && !row.busLink) ? 0.5 : row.busLink ? 0.6 : 1 }}>
                 <div style={{ width: 36, flexShrink: 0, display: 'flex', justifyContent: 'center' }}>
                   <input
                     type="checkbox"
-                    checked={!row.busLink}
-                    disabled={!onToggleBusLink}
-                    title={row.busLink ? 'Bus link (no cable) — check to include a cable in the BOM' : 'Uncheck to mark as a direct bus link (no cable)'}
-                    onChange={(e) => onToggleBusLink?.(row.connectionId, !e.target.checked)}
+                    checked={row.busLink ? false : row.includeInBOM}
+                    disabled={row.busLink ? !onToggleBusLink : !onToggleIncludeInBOM}
+                    title={
+                      row.busLink
+                        ? 'Bus link (no cable) — check to include a cable in the BOM'
+                        : row.includeInBOM
+                        ? 'Uncheck to exclude this cable from BOM totals (does not remove it from the diagram)'
+                        : 'Check to include this cable in BOM totals'
+                    }
+                    onChange={(e) => {
+                      if (row.busLink) {
+                        onToggleBusLink?.(row.connectionId, !e.target.checked);
+                      } else {
+                        onToggleIncludeInBOM?.(row.connectionId, e.target.checked);
+                      }
+                    }}
                   />
                 </div>
                 <div style={{ width: 200, flexShrink: 0, fontSize: 12, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -353,10 +367,10 @@ export function CableSummaryPanel({ summary, cableRows, connectorSummary, onTogg
             </thead>
             <tbody>
               {summary.map((item, i) => (
-                <tr key={i}>
+                <tr key={i} className="bom-row">
                   <td>{item.gauge}</td>
                   <td><ColorCell color={item.color} /></td>
-                  <td>{item.type || <span style={{ color: '#9aa5b4' }}>—</span>}</td>
+                  <td>{item.type || <span style={{ color: 'var(--muted)' }}>—</span>}</td>
                   <td>{formatFeetAndInches(item.totalLengthFt)}</td>
                   <td>{item.cableCount}</td>
                 </tr>
@@ -379,11 +393,11 @@ export function CableSummaryPanel({ summary, cableRows, connectorSummary, onTogg
               </thead>
               <tbody>
                 {connectorSummary.map((item) => (
-                  <tr key={item.key}>
+                  <tr key={item.key} className="bom-row">
                     <td>{item.label}</td>
                     <td>{item.count}</td>
-                    <td>{item.estUnitMsrpUsd != null ? fmt(item.estUnitMsrpUsd) : <span style={{ color: '#9aa5b4' }}>—</span>}</td>
-                    <td>{item.estExtendedMsrpUsd != null ? fmt(item.estExtendedMsrpUsd) : <span style={{ color: '#9aa5b4' }}>—</span>}</td>
+                    <td>{item.estUnitMsrpUsd != null ? fmt(item.estUnitMsrpUsd) : <span style={{ color: 'var(--muted)' }}>—</span>}</td>
+                    <td>{item.estExtendedMsrpUsd != null ? fmt(item.estExtendedMsrpUsd) : <span style={{ color: 'var(--muted)' }}>—</span>}</td>
                   </tr>
                 ))}
               </tbody>

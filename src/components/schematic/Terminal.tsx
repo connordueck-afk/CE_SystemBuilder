@@ -5,6 +5,7 @@ import type { BusColorMap } from '../../utils/busColors';
 interface Props {
   terminal: TerminalDefinition;
   componentId: string;
+  componentLabel?: string;
   isHighlighted: boolean;
   isPending: boolean;
   isSource: boolean;
@@ -13,14 +14,23 @@ interface Props {
   onMouseDown: (compId: string, termId: string, e: React.MouseEvent) => void;
 }
 
+function terminalTooltip(terminal: TerminalDefinition, componentLabel?: string): string {
+  const parts: string[] = [];
+  if (componentLabel) parts.push(componentLabel);
+  if (terminal.label) parts.push(terminal.label);
+  if (parts.length === 0) return 'Connection Node';
+  return parts.join(' — ');
+}
+
 function terminalColor(terminal: TerminalDefinition, busColors: BusColorMap): string {
   return busColors[busTypeFromTerminal(terminal)];
 }
 
-export function Terminal({ terminal, componentId, isHighlighted, isPending, isSource, isDisabled, busColors, onMouseDown }: Props) {
+export function Terminal({ terminal, componentId, componentLabel, isHighlighted, isPending, isSource, isDisabled, busColors, onMouseDown }: Props) {
   const color = terminalColor(terminal, busColors);
   const r = (isHighlighted || isSource) ? 6 : 4;
   const isCommPort = terminal.kind === 'network';
+  const tooltip = terminalTooltip(terminal, componentLabel);
 
   return (
     <g
@@ -35,6 +45,7 @@ export function Terminal({ terminal, componentId, isHighlighted, isPending, isSo
         onMouseDown(componentId, terminal.id, e);
       }}
     >
+      <title>{tooltip}</title>
       {isCommPort ? (
         // Communication ports render as small squares to distinguish from power terminals
         <>

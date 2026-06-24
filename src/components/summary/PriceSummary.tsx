@@ -7,22 +7,11 @@ interface Props {
   onTabChange: (tab: 'overview' | 'section' | 'manufacturer') => void;
 }
 
-function SummaryRow({
-  label, msrp, oem, highlight,
-}: {
-  label: string;
-  msrp: number;
-  oem: number;
-  highlight?: boolean;
-}) {
+function SummaryRow({ label, msrp, highlight }: { label: string; msrp: number; highlight?: boolean }) {
   return (
     <tr style={{ background: highlight ? 'var(--blue-soft)' : undefined }}>
       <td style={{ color: highlight ? 'var(--ink)' : 'var(--ink-soft)', fontWeight: highlight ? 700 : 600 }}>{label}</td>
       <td style={{ textAlign: 'right', color: 'var(--ink)', fontWeight: 600 }}>{fmt(msrp)}</td>
-      <td style={{ textAlign: 'right', color: 'var(--green)', fontWeight: 600 }}>{fmt(oem)}</td>
-      <td style={{ textAlign: 'right', color: 'var(--muted)', fontSize: 11, fontWeight: 600 }}>
-        {msrp > 0 ? `${(((msrp - oem) / msrp) * 100).toFixed(0)}%` : '-'}
-      </td>
     </tr>
   );
 }
@@ -58,24 +47,15 @@ export function PriceSummaryPanel({ summary, activeTab, onTabChange }: Props) {
             <tr>
               <th>Category</th>
               <th style={{ textAlign: 'right' }}>MSRP</th>
-              <th style={{ textAlign: 'right' }}>OEM Est.</th>
-              <th style={{ textAlign: 'right' }}>Savings</th>
             </tr>
           </thead>
           <tbody>
             {activeTab === 'overview' && (
               <>
-                <SummaryRow label="Total System" msrp={summary.totalMsrp} oem={summary.totalOem} highlight />
+                <SummaryRow label="Total System" msrp={summary.totalMsrp} highlight />
                 <tr>
-                  <td colSpan={4} style={{ padding: '6px 8px', color: 'var(--muted)', fontSize: 11, fontWeight: 700 }}>
-                    OEM estimate uses {100 - 30}% of MSRP unless overridden. All prices are preliminary.
-                  </td>
-                </tr>
-                <tr>
-                  <td style={{ color: 'var(--ink-soft)', fontWeight: 700 }}>Est. Savings vs MSRP</td>
-                  <td colSpan={2} />
-                  <td style={{ textAlign: 'right', color: 'var(--green)', fontWeight: 700 }}>
-                    {fmt(summary.savings)}
+                  <td colSpan={2} style={{ padding: '6px 8px', color: 'var(--muted)', fontSize: 11, fontWeight: 700 }}>
+                    All prices are preliminary MSRP estimates.
                   </td>
                 </tr>
               </>
@@ -83,15 +63,15 @@ export function PriceSummaryPanel({ summary, activeTab, onTabChange }: Props) {
             {activeTab === 'section' && (
               Object.entries(summary.bySection)
                 .sort((a, b) => b[1].msrp - a[1].msrp)
-                .map(([section, { msrp, oem }]) => (
-                  <SummaryRow key={section} label={section} msrp={msrp} oem={oem} />
+                .map(([section, { msrp }]) => (
+                  <SummaryRow key={section} label={section} msrp={msrp} />
                 ))
             )}
             {activeTab === 'manufacturer' && (
               Object.entries(summary.byManufacturer)
                 .sort((a, b) => b[1].msrp - a[1].msrp)
-                .map(([mfr, { msrp, oem }]) => (
-                  <SummaryRow key={mfr} label={mfr} msrp={msrp} oem={oem} />
+                .map(([mfr, { msrp }]) => (
+                  <SummaryRow key={mfr} label={mfr} msrp={msrp} />
                 ))
             )}
           </tbody>
@@ -100,4 +80,3 @@ export function PriceSummaryPanel({ summary, activeTab, onTabChange }: Props) {
     </div>
   );
 }
-

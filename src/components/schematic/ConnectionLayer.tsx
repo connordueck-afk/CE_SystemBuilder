@@ -383,7 +383,7 @@ export function ConnectionLayer({
                 {conn.recommendedCableAwg} AWG
               </text>
             )}
-            {renderVisual && protectionRecommendation && (
+            {renderInteractive && protectionRecommendation && (
               <g
                 transform={`translate(${markerPoint.x} ${markerPoint.y})`}
                 style={{ cursor: 'pointer' }}

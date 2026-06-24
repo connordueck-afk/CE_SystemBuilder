@@ -10,6 +10,8 @@ import type {
   SystemTextAnnotation,
   SystemShapeAnnotation,
   CableMode,
+  DcSourceType,
+  AcSourceType,
 } from '../../types/system';
 import { ComponentInspector } from '../inspector/ComponentInspector';
 import { ConnectionInspector } from '../inspector/ConnectionInspector';
@@ -57,6 +59,7 @@ interface Props {
   onUpdateConnectionCableMode: (id: string, mode: CableMode) => void;
   onUpdateConnectionPremanufacturedCable: (id: string, cableId: string | undefined) => void;
   onUpdateConfiguredProtocol: (componentId: string, portId: string, protocol: import('../../types/system').CommunicationProtocol | undefined) => void;
+  onUpdateSourceType: (id: string, sourceType: DcSourceType | AcSourceType | undefined) => void;
   onResetConnectionRoute: (id: string) => void;
   onUpdateTextAnnotation: (id: string, patch: Partial<SystemTextAnnotation>) => void;
   onUpdateShapeAnnotation: (id: string, patch: Partial<SystemShapeAnnotation>) => void;
@@ -104,6 +107,7 @@ export function RightInspector({
   onUpdateConnectionCableMode,
   onUpdateConnectionPremanufacturedCable,
   onUpdateConfiguredProtocol,
+  onUpdateSourceType,
   onResetConnectionRoute,
   onUpdateTextAnnotation,
   onUpdateShapeAnnotation,
@@ -291,6 +295,7 @@ export function RightInspector({
             onUpdateFuseSlot={onUpdateFuseSlot}
             onUpdateSolarConfiguration={onUpdateSolarConfiguration}
             onUpdateConfiguredProtocol={onUpdateConfiguredProtocol}
+            onUpdateSourceType={onUpdateSourceType}
             onRemove={onRemoveComponent}
           />
         </>

@@ -1,4 +1,4 @@
-import type { FuseSlotState, SystemComponent, Product, NominalVoltage, CommunicationProtocol } from '../../types/system';
+import type { FuseSlotState, SystemComponent, Product, NominalVoltage, CommunicationProtocol, DcSourceType, AcSourceType } from '../../types/system';
 import { CABLE_TABLE } from '../../data/cableAmpacity';
 import { fmt } from '../../utils/priceCalculations';
 import type { SolarArrayAggregation } from '../../utils/solarCalculations';
@@ -19,6 +19,9 @@ import {
 } from '../../utils/componentScale';
 
 type SourceLoadKind = 'dc_source' | 'ac_source' | 'dc_load' | 'ac_load';
+
+const DC_SOURCE_TYPES: DcSourceType[] = ['Generic', 'Vehicle Battery', 'Alternator', 'Auxiliary Battery', 'DC Generator', 'Solar Charge Output', 'Power Supply', 'Other'];
+const AC_SOURCE_TYPES: AcSourceType[] = ['Generic', 'Shore Power', 'Generator', 'Grid', 'Inverter Output', 'Other'];
 
 function getSourceLoadKind(product: Product): SourceLoadKind | null {
   if (product.productType === 'dc_load') return 'dc_load';
@@ -52,6 +55,7 @@ interface Props {
   onUpdateFuseSlot: (id: string, slotId: string, patch: FuseSlotState) => void;
   onUpdateSolarConfiguration: (id: string, seriesCount: number, parallelCount: number) => void;
   onUpdateConfiguredProtocol?: (id: string, portId: string, protocol: CommunicationProtocol | undefined) => void;
+  onUpdateSourceType?: (id: string, sourceType: DcSourceType | AcSourceType | undefined) => void;
   onRemove: (id: string) => void;
 }
 
@@ -86,6 +90,7 @@ export function ComponentInspector({
   onUpdateFuseSlot,
   onUpdateSolarConfiguration,
   onUpdateConfiguredProtocol,
+  onUpdateSourceType,
   onRemove,
 }: Props) {
   const sourceLoadKind = getSourceLoadKind(product);
@@ -248,6 +253,26 @@ export function ComponentInspector({
               }}
             />
             <span className="spec-row-unit">VDC</span>
+          </div>
+        )}
+        {(sourceLoadKind === 'dc_source' || sourceLoadKind === 'ac_source') && onUpdateSourceType && (
+          <div className="spec-row spec-row-editable">
+            <span className="spec-row-label">Source Type</span>
+            <select
+              className="spec-row-input"
+              value={component.sourceType ?? 'Generic'}
+              onChange={(e) => {
+                const val = e.target.value;
+                onUpdateSourceType(
+                  component.id,
+                  val === 'Generic' ? undefined : val as DcSourceType | AcSourceType
+                );
+              }}
+            >
+              {(sourceLoadKind === 'dc_source' ? DC_SOURCE_TYPES : AC_SOURCE_TYPES).map((t) => (
+                <option key={t} value={t}>{t}</option>
+              ))}
+            </select>
           </div>
         )}
         {sourceLoadKind && (
@@ -425,7 +450,6 @@ export function ComponentInspector({
           </label>
         )}
         <SpecRow label="MSRP" value={fmt(product.msrpUsd ?? null)} />
-        <SpecRow label="OEM Est." value={fmt(product.oemPriceUsd ?? null)} />
         <div style={{ marginTop: 6 }}>
           <div style={{ color: 'var(--muted)', fontSize: 11, fontWeight: 600, marginBottom: 3 }}>Price override (unit)</div>
           <input

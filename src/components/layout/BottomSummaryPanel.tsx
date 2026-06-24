@@ -46,10 +46,6 @@ export function BottomSummaryPanel({
         <div className="bottom-totals">
           <span className="bottom-total-label">Total MSRP</span>
           <span className="bottom-total-msrp">{fmt(priceSummary.totalMsrp)}</span>
-          <span className="bottom-total-label">OEM Est.</span>
-          <span className="bottom-total-oem">{fmt(priceSummary.totalOem)}</span>
-          <span className="bottom-total-label">Save</span>
-          <span className="bottom-total-save">{fmt(priceSummary.savings)}</span>
         </div>
         <button className="btn-header" style={{ marginRight: 8 }} onClick={onExportCsv}>
           Export CSV

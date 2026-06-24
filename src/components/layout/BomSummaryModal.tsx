@@ -18,6 +18,7 @@ interface Props {
   priceSummary: PriceSummary;
   electricalSummary: ElectricalSummary;
   onToggleBusLink?: (connectionId: string, busLink: boolean) => void;
+  onToggleIncludeInBOM?: (connectionId: string, include: boolean) => void;
   onClose: () => void;
   onExportCsv: () => void;
 }
@@ -30,6 +31,7 @@ export function BomSummaryModal({
   priceSummary,
   electricalSummary,
   onToggleBusLink,
+  onToggleIncludeInBOM,
   onClose,
   onExportCsv,
 }: Props) {
@@ -45,10 +47,6 @@ export function BomSummaryModal({
             <div className="bom-summary-totals">
               <span className="bottom-total-label">MSRP</span>
               <span className="bottom-total-msrp">{fmt(priceSummary.totalMsrp)}</span>
-              <span className="bottom-total-label">OEM</span>
-              <span className="bottom-total-oem">{fmt(priceSummary.totalOem)}</span>
-              <span className="bottom-total-label">Save</span>
-              <span className="bottom-total-save">{fmt(priceSummary.savings)}</span>
             </div>
           </div>
           <button className="product-selector-close" onClick={onClose} title="Close">x</button>
@@ -93,6 +91,7 @@ export function BomSummaryModal({
               cableRows={cableBomRows}
               connectorSummary={connectorSummary}
               onToggleBusLink={onToggleBusLink}
+              onToggleIncludeInBOM={onToggleIncludeInBOM}
             />
           )}
           {activeTab === 'price' && (

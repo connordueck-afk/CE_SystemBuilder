@@ -182,6 +182,7 @@ export function ComponentNode({
               key={t.id}
               terminal={{ ...t, ...offset }}
               componentId={component.id}
+              componentLabel={label}
               isHighlighted={isHighlighted}
               isPending={false}
               isSource={isSource}

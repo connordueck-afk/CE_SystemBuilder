@@ -55,6 +55,7 @@ import {
   splitPointsAtMarker,
   type PathMarker,
 } from './utils/connectionGeometry';
+import { autoRouteConnections, buildObstacles, routeConnection } from './utils/autoRouter';
 import './styles/app.css';
 
 const PRODUCT_MAP = new Map(ALL_PRODUCTS.map((p) => [p.id, p]));
@@ -302,10 +303,12 @@ export function App() {
   const undoStackRef = useRef<SystemDesign[]>([]);
   const redoStackRef = useRef<SystemDesign[]>([]);
   const copiedComponentRef = useRef<SystemComponent | null>(null);
+  const copiedComponentsRef = useRef<SystemComponent[]>([]);
   const loadFileInputRef = useRef<HTMLInputElement>(null);
   const [selectedComponentId, setSelectedComponentId] = useState<string | null>(null);
   const [selectedConnectionId, setSelectedConnectionId] = useState<string | null>(null);
   const [selectedAnnotationId, setSelectedAnnotationId] = useState<string | null>(null);
+  const [selectedComponentIds, setSelectedComponentIds] = useState<string[]>([]);
   const [focusedComponentId, setFocusedComponentId] = useState<string | null>(null);
   const [focusRequestId, setFocusRequestId] = useState(0);
   const [focusedConnectionId, setFocusedConnectionId] = useState<string | null>(null);
@@ -498,6 +501,17 @@ export function App() {
     setSystem((prev) => ({
       ...prev,
       components: prev.components.map((c) => (c.id === id ? { ...c, x, y } : c)),
+    }));
+  }, []);
+
+  const handleMoveComponents = useCallback((moves: { id: string; x: number; y: number }[]) => {
+    const moveMap = new Map(moves.map((m) => [m.id, m]));
+    setSystem((prev) => ({
+      ...prev,
+      components: prev.components.map((c) => {
+        const move = moveMap.get(c.id);
+        return move ? { ...c, x: move.x, y: move.y } : c;
+      }),
     }));
   }, []);
 
@@ -744,6 +758,23 @@ export function App() {
         : undefined;
       const isCommWire = fromTermDef?.kind === 'network' && toTermDef?.kind === 'network';
 
+      // Route new connection around obstacles
+      let routePoints: Array<{ x: number; y: number }> | undefined;
+      if (fromComponent && toComponent && fromProduct && toProduct) {
+        try {
+          const fromTermPos = getConnectionTerminalPos(fromComponent, fromTerm, fromProduct);
+          const toTermPos = getConnectionTerminalPos(toComponent, toTerm, toProduct);
+          if (fromTermPos && toTermPos) {
+            const obstacles = buildObstacles(system.components, PRODUCT_MAP, system.annotations ?? []);
+            const excludeIds = new Set([fromComp, toComp]);
+            const pts = routeConnection(fromTermPos, toTermPos, obstacles, excludeIds);
+            if (pts.length > 0) routePoints = pts;
+          }
+        } catch {
+          // fall through to default routing
+        }
+      }
+
       const conn: SystemConnection = {
         id: genId('conn'),
         fromComponentId: fromComp,
@@ -753,6 +784,7 @@ export function App() {
         cableLengthFt: isBusLink ? 0 : system.assumptions.defaultCableLengthFt,
         busLink: isBusLink || undefined,
         ...(isCommWire ? { wireKind: 'communication' as const } : {}),
+        ...(routePoints ? { routePoints, routeMode: 'auto' as const } : {}),
       };
 
       updateSystem((s) => ({ ...s, connections: [...s.connections, conn] }));
@@ -870,6 +902,24 @@ export function App() {
         }
         return { ...c, configuredProtocols: next };
       }),
+    }));
+  }, [updateSystem]);
+
+  const handleToggleConnectionIncludeInBOM = useCallback((id: string, include: boolean) => {
+    updateSystem((s) => ({
+      ...s,
+      connections: s.connections.map((c) =>
+        c.id === id ? { ...c, includeInBOM: include } : c
+      ),
+    }));
+  }, [updateSystem]);
+
+  const handleUpdateSourceType = useCallback((id: string, sourceType: import('./types/system').DcSourceType | import('./types/system').AcSourceType | undefined) => {
+    updateSystem((s) => ({
+      ...s,
+      components: s.components.map((c) =>
+        c.id === id ? { ...c, sourceType } : c
+      ),
     }));
   }, [updateSystem]);
 
@@ -1001,7 +1051,7 @@ export function App() {
     updateSystem((s) => ({
       ...s,
       connections: s.connections.map((c) =>
-        c.id === id ? { ...c, routePoints } : c
+        c.id === id ? { ...c, routePoints, routeMode: 'manual' as const } : c
       ),
     }));
   }, [updateSystem]);
@@ -1054,15 +1104,23 @@ export function App() {
     updateSystem((s) => ({
       ...s,
       connections: s.connections.map((c) =>
-        c.id === id ? { ...c, routePoints: undefined } : c
+        c.id === id ? { ...c, routePoints: undefined, routeMode: undefined } : c
       ),
     }));
+  }, [updateSystem]);
+
+  const handleAutoRouteAll = useCallback(() => {
+    updateSystem((s) => ({
+      ...s,
+      connections: autoRouteConnections(s.connections, s.components, PRODUCT_MAP, s.annotations ?? []),
+    }), { recordHistory: true });
   }, [updateSystem]);
 
   const handleCopyComponent = useCallback((id: string) => {
     const component = system.components.find((c) => c.id === id);
     if (!component) return;
     copiedComponentRef.current = component;
+    copiedComponentsRef.current = [component];
   }, [system.components]);
 
   const handleCopySelectedComponent = useCallback(() => {
@@ -1074,39 +1132,85 @@ export function App() {
     const component = system.components.find((c) => c.id === id);
     if (!component) return;
     copiedComponentRef.current = component;
+    copiedComponentsRef.current = [component];
     handleRemoveComponent(id);
   }, [handleRemoveComponent, system.components]);
 
+  const handleCopyMultipleComponents = useCallback((ids: string[]) => {
+    const components = system.components.filter((c) => ids.includes(c.id));
+    if (components.length === 0) return;
+    copiedComponentsRef.current = components;
+    copiedComponentRef.current = components[0];
+  }, [system.components]);
+
+  const handleRemoveMultipleComponents = useCallback((ids: string[]) => {
+    const idSet = new Set(ids);
+    updateSystem((s) => ({
+      ...s,
+      components: s.components.filter((c) => !idSet.has(c.id)),
+      connections: s.connections.filter(
+        (conn) => !idSet.has(conn.fromComponentId) && !idSet.has(conn.toComponentId)
+      ),
+    }), { recordHistory: true });
+    setSelectedComponentIds([]);
+    setSelectedComponentId(null);
+  }, [updateSystem]);
+
+  const handleCutMultipleComponents = useCallback((ids: string[]) => {
+    handleCopyMultipleComponents(ids);
+    handleRemoveMultipleComponents(ids);
+  }, [handleCopyMultipleComponents, handleRemoveMultipleComponents]);
+
   const handlePasteComponent = useCallback(() => {
-    const source = copiedComponentRef.current;
-    if (!source) return;
-    const product = getProduct(source.productId);
-    if (!product) return;
+    const sources = copiedComponentsRef.current;
+    if (sources.length === 0) return;
 
-    const bounded = clampComponentPosition(
-      source.x + PASTE_OFFSET,
-      source.y + PASTE_OFFSET,
-      product,
-      source.rotationDeg,
-      componentScale(source)
-    );
-    const pasted: SystemComponent = {
-      ...source,
-      id: genId('comp'),
-      label: source.label ? `${source.label} Copy` : `${product.name} Copy`,
-      x: bounded.x,
-      y: bounded.y,
-      locked: false,
-      inferredElectricalType: undefined,
-      inferredConnectionKind: undefined,
-      inferredPolarity: undefined,
-      inferredVoltageClass: undefined,
-    };
-
-    copiedComponentRef.current = pasted;
-    updateSystem((s) => ({ ...s, components: [...s.components, pasted] }), { recordHistory: true });
-    setSelectedComponentId(pasted.id);
-    setSelectedConnectionId(null);
+    if (sources.length === 1) {
+      const source = sources[0];
+      const product = getProduct(source.productId);
+      if (!product) return;
+      const bounded = clampComponentPosition(
+        source.x + PASTE_OFFSET,
+        source.y + PASTE_OFFSET,
+        product,
+        source.rotationDeg,
+        componentScale(source)
+      );
+      const pasted: SystemComponent = {
+        ...source,
+        id: genId('comp'),
+        label: source.label ? `${source.label} Copy` : `${product.name} Copy`,
+        x: bounded.x,
+        y: bounded.y,
+        locked: false,
+        inferredElectricalType: undefined,
+        inferredConnectionKind: undefined,
+        inferredPolarity: undefined,
+        inferredVoltageClass: undefined,
+      };
+      copiedComponentRef.current = pasted;
+      copiedComponentsRef.current = [pasted];
+      updateSystem((s) => ({ ...s, components: [...s.components, pasted] }), { recordHistory: true });
+      setSelectedComponentId(pasted.id);
+      setSelectedComponentIds([]);
+      setSelectedConnectionId(null);
+    } else {
+      const pasted: SystemComponent[] = sources.map((source) => ({
+        ...source,
+        id: genId('comp'),
+        x: source.x + PASTE_OFFSET,
+        y: source.y + PASTE_OFFSET,
+        locked: false,
+        inferredElectricalType: undefined,
+        inferredConnectionKind: undefined,
+        inferredPolarity: undefined,
+        inferredVoltageClass: undefined,
+      }));
+      copiedComponentsRef.current = pasted;
+      updateSystem((s) => ({ ...s, components: [...s.components, ...pasted] }), { recordHistory: true });
+      setSelectedComponentIds(pasted.map((c) => c.id));
+      setSelectedComponentId(null);
+    }
   }, [updateSystem]);
 
   useEffect(() => {
@@ -1132,6 +1236,11 @@ export function App() {
 
       const key = e.key.toLowerCase();
       if (key === 'c') {
+        if (selectedComponentIds.length > 1) {
+          e.preventDefault();
+          handleCopyMultipleComponents(selectedComponentIds);
+          return;
+        }
         if (!selectedComponentId) return;
         e.preventDefault();
         handleCopySelectedComponent();
@@ -1139,7 +1248,7 @@ export function App() {
       }
 
       if (key === 'v') {
-        if (!copiedComponentRef.current) return;
+        if (copiedComponentsRef.current.length === 0) return;
         e.preventDefault();
         handlePasteComponent();
         return;
@@ -1163,7 +1272,7 @@ export function App() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleCopySelectedComponent, handlePasteComponent, redo, selectedComponentId, undo]);
+  }, [handleCopyMultipleComponents, handleCopySelectedComponent, handlePasteComponent, redo, selectedComponentId, selectedComponentIds, undo]);
 
   const handleLoadSystem = useCallback((loadedSystem: SystemDesign) => {
     const normalized = enrichConnections(withInferredConductors(withSingleComponentQuantities(loadedSystem)));
@@ -1174,9 +1283,11 @@ export function App() {
     undoStackRef.current = [];
     redoStackRef.current = [];
     copiedComponentRef.current = null;
+    copiedComponentsRef.current = [];
     setShowLoadModal(false);
     setStartupModalOpen(false);
     setSelectedComponentId(null);
+    setSelectedComponentIds([]);
     setSelectedConnectionId(null);
     setSelectedAnnotationId(null);
   }, []);
@@ -1230,7 +1341,9 @@ export function App() {
     undoStackRef.current = [];
     redoStackRef.current = [];
     copiedComponentRef.current = null;
+    copiedComponentsRef.current = [];
     setSelectedComponentId(null);
+    setSelectedComponentIds([]);
     setSelectedConnectionId(null);
     setSelectedAnnotationId(null);
   }, []);
@@ -1277,8 +1390,20 @@ export function App() {
     }
   }, [system]);
 
+  const handleSelectMultipleComponents = useCallback((ids: string[]) => {
+    setSelectedComponentIds(ids);
+    setSelectedComponentId(null);
+    setSelectedConnectionId(null);
+    setSelectedAnnotationId(null);
+  }, []);
+
+  const handleClearMultiSelect = useCallback(() => {
+    setSelectedComponentIds([]);
+  }, []);
+
   const handleSelectComponent = useCallback((id: string | null) => {
     setSelectedComponentId(id);
+    setSelectedComponentIds([]);
     if (id) setSelectedConnectionId(null);
     if (id) setSelectedAnnotationId(null);
   }, []);
@@ -1402,6 +1527,14 @@ export function App() {
           onEnterFullView={handleEnterFullView}
           onScaleComponent={handleUpdateComponentImageScale}
           onAddConnection={handleAddConnection}
+          selectedComponentIds={selectedComponentIds}
+          onSelectMultipleComponents={handleSelectMultipleComponents}
+          onClearMultiSelect={handleClearMultiSelect}
+          onMoveComponents={handleMoveComponents}
+          onCopyMultiple={handleCopyMultipleComponents}
+          onCutMultiple={handleCutMultipleComponents}
+          onRemoveMultiple={handleRemoveMultipleComponents}
+          onAutoRouteAll={handleAutoRouteAll}
         />
       </main>
 
@@ -1442,6 +1575,7 @@ export function App() {
         onUpdateConnectionCableMode={handleUpdateConnectionCableMode}
         onUpdateConnectionPremanufacturedCable={handleUpdateConnectionPremanufacturedCable}
         onUpdateConfiguredProtocol={handleUpdateConfiguredProtocol}
+        onUpdateSourceType={handleUpdateSourceType}
         onResetConnectionRoute={handleResetConnectionRoute}
         onUpdateTextAnnotation={handleUpdateTextAnnotation}
         onUpdateShapeAnnotation={handleUpdateShapeAnnotation}
@@ -1490,6 +1624,7 @@ export function App() {
           priceSummary={priceSummary}
           electricalSummary={electricalSummary}
           onToggleBusLink={handleToggleBusLink}
+          onToggleIncludeInBOM={handleToggleConnectionIncludeInBOM}
           onClose={() => setBomModalOpen(false)}
           onExportCsv={handleExportCsv}
         />

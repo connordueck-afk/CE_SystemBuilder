@@ -19,6 +19,14 @@ interface DragState {
   startMouseY: number;
   startCompX: number;
   startCompY: number;
+  companions?: { id: string; startX: number; startY: number }[];
+}
+
+interface SelectionBox {
+  startX: number;
+  startY: number;
+  currentX: number;
+  currentY: number;
 }
 
 interface PendingConn {
@@ -109,6 +117,14 @@ interface Props {
     toComp: string,
     toTerm: string
   ) => void;
+  selectedComponentIds: string[];
+  onSelectMultipleComponents: (ids: string[]) => void;
+  onClearMultiSelect: () => void;
+  onMoveComponents: (moves: { id: string; x: number; y: number }[]) => void;
+  onCopyMultiple: (ids: string[]) => void;
+  onCutMultiple: (ids: string[]) => void;
+  onRemoveMultiple: (ids: string[]) => void;
+  onAutoRouteAll: () => void;
 }
 
 const VIEW_W = 1200;
@@ -337,6 +353,14 @@ export function SchematicCanvas({
   onEnterFullView,
   onScaleComponent,
   onAddConnection,
+  selectedComponentIds,
+  onSelectMultipleComponents,
+  onClearMultiSelect,
+  onMoveComponents,
+  onCopyMultiple,
+  onCutMultiple,
+  onRemoveMultiple,
+  onAutoRouteAll,
 }: Props) {
   const canvasRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
@@ -352,7 +376,11 @@ export function SchematicCanvas({
   const [zoom, setZoom] = useState(1);
   const [viewportCenter, setViewportCenter] = useState({ x: VIEW_W / 2, y: VIEW_H / 2 });
   const [canvasSize, setCanvasSize] = useState<CanvasSize>({ width: VIEW_W, height: VIEW_H });
+  const [selectionBox, setSelectionBox] = useState<SelectionBox | null>(null);
+  const [showAutoRouteDialog, setShowAutoRouteDialog] = useState(false);
+  const isBoxSelectRef = useRef(false);
   const didPanRef = useRef(false);
+  const didBoxSelectRef = useRef(false);
   const handledFocusRequestIdRef = useRef(0);
   const handledFocusConnectionRequestIdRef = useRef(0);
   const mouseClientRef = useRef<{ x: number; y: number } | null>(null);
@@ -415,7 +443,7 @@ export function SchematicCanvas({
   }, [canvasSize, focusConnectionRequestId, focusedConnectionId, system.connections, system.components, zoom]);
 
   useEffect(() => {
-    if (!dragging && !panning && !scrollDragging && !scaleDragging) return;
+    if (!dragging && !panning && !scrollDragging && !scaleDragging && !selectionBox) return;
     const previousUserSelect = document.body.style.userSelect;
     document.body.style.userSelect = 'none';
     window.getSelection()?.removeAllRanges();
@@ -424,7 +452,7 @@ export function SchematicCanvas({
       document.body.style.userSelect = previousUserSelect;
       window.getSelection()?.removeAllRanges();
     };
-  }, [dragging, panning, scaleDragging, scrollDragging]);
+  }, [dragging, panning, scaleDragging, scrollDragging, selectionBox]);
 
   useEffect(() => {
     if (fusePrompt && selectedConnectionId !== fusePrompt.connectionId) {
@@ -501,6 +529,11 @@ export function SchematicCanvas({
       const tagName = target?.tagName.toLowerCase();
       if (tagName === 'input' || tagName === 'textarea' || tagName === 'select' || target?.isContentEditable) return;
       if (e.key === 'Delete') {
+        if (selectedComponentIds.length > 0) {
+          e.preventDefault();
+          onRemoveMultiple(selectedComponentIds);
+          return;
+        }
         if (selectedComponentId) {
           e.preventDefault();
           onRemoveComponent(selectedComponentId);
@@ -526,7 +559,7 @@ export function SchematicCanvas({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onRemoveAnnotation, onRemoveComponent, onRemoveConnection, onRotateComponent, selectedAnnotationId, selectedComponentId, selectedConnectionId]);
+  }, [onRemoveAnnotation, onRemoveComponent, onRemoveConnection, onRemoveMultiple, onRotateComponent, selectedAnnotationId, selectedComponentId, selectedComponentIds, selectedConnectionId]);
 
   const updateZoom = useCallback((delta: number) => {
     setZoom((current) => {
@@ -693,14 +726,22 @@ export function SchematicCanvas({
     setFusePrompt(null);
     setComponentContextMenu(null);
     setCanvasContextMenu(null);
+
+    const companions = selectedComponentIds.length > 1 && selectedComponentIds.includes(componentId)
+      ? system.components
+          .filter((c) => c.id !== componentId && selectedComponentIds.includes(c.id) && !c.locked)
+          .map((c) => ({ id: c.id, startX: c.x, startY: c.y }))
+      : undefined;
+
     setDragging({
       componentId,
       startMouseX: pos.x,
       startMouseY: pos.y,
       startCompX: comp.x,
       startCompY: comp.y,
+      companions,
     });
-  }, [onSelectComponent, system.components, pendingConn]);
+  }, [onSelectComponent, selectedComponentIds, system.components, pendingConn]);
 
   const handleScaleDragStart = useCallback((componentId: string, e: React.MouseEvent) => {
     if (!svgRef.current) return;
@@ -725,15 +766,17 @@ export function SchematicCanvas({
     setPanning(null);
     setDragging(null);
     setCanvasContextMenu(null);
-    onSelectComponent(componentId);
-    onSelectConnection(null);
-    onSelectAnnotation(null);
-    setComponentContextMenu({
-      componentId,
-      x: e.clientX,
-      y: e.clientY,
-    });
-  }, [onSelectAnnotation, onSelectComponent, onSelectConnection]);
+    if (selectedComponentIds.length > 1 && selectedComponentIds.includes(componentId)) {
+      // Keep multi-selection intact
+      setComponentContextMenu({ componentId, x: e.clientX, y: e.clientY });
+    } else {
+      onClearMultiSelect();
+      onSelectComponent(componentId);
+      onSelectConnection(null);
+      onSelectAnnotation(null);
+      setComponentContextMenu({ componentId, x: e.clientX, y: e.clientY });
+    }
+  }, [onSelectAnnotation, onSelectComponent, onSelectConnection, onClearMultiSelect, selectedComponentIds]);
 
   const runComponentMenuAction = useCallback((action: (componentId: string) => void) => {
     const componentId = componentContextMenu?.componentId;
@@ -773,6 +816,11 @@ export function SchematicCanvas({
     const pos = svgCoords(e, svgRef.current);
     setMousePos(pos);
 
+    if (isBoxSelectRef.current) {
+      setSelectionBox((prev) => prev ? { ...prev, currentX: pos.x, currentY: pos.y } : null);
+      return;
+    }
+
     if (dragging) {
       const dx = pos.x - dragging.startMouseX;
       const dy = pos.y - dragging.startMouseY;
@@ -783,11 +831,18 @@ export function SchematicCanvas({
         x: snapToGrid(dragging.startCompX + dx),
         y: snapToGrid(dragging.startCompY + dy),
       }, product, comp.rotationDeg, componentScale(comp));
-      onMoveComponent(
-        dragging.componentId,
-        nextPos.x,
-        nextPos.y
-      );
+      if (dragging.companions && dragging.companions.length > 0) {
+        onMoveComponents([
+          { id: dragging.componentId, x: nextPos.x, y: nextPos.y },
+          ...dragging.companions.map((c) => ({
+            id: c.id,
+            x: snapToGrid(c.startX + dx),
+            y: snapToGrid(c.startY + dy),
+          })),
+        ]);
+      } else {
+        onMoveComponent(dragging.componentId, nextPos.x, nextPos.y);
+      }
     }
 
     if (scaleDragging) {
@@ -811,20 +866,43 @@ export function SchematicCanvas({
         y: panning.startCenterY - dy,
       }, zoom, canvasSize));
     }
-  }, [canvasSize, dragging, onMoveComponent, onScaleComponent, panning, products, scaleDragging, system.components, zoom]);
+  }, [canvasSize, dragging, onMoveComponent, onMoveComponents, onScaleComponent, panning, products, scaleDragging, system.components, zoom]);
 
   const handleMouseUp = useCallback(() => {
+    if (selectionBox) {
+      const minX = Math.min(selectionBox.startX, selectionBox.currentX);
+      const maxX = Math.max(selectionBox.startX, selectionBox.currentX);
+      const minY = Math.min(selectionBox.startY, selectionBox.currentY);
+      const maxY = Math.max(selectionBox.startY, selectionBox.currentY);
+      if (maxX - minX > 4 && maxY - minY > 4) {
+        const ids = system.components
+          .filter((c) => c.x >= minX && c.x <= maxX && c.y >= minY && c.y <= maxY)
+          .map((c) => c.id);
+        if (ids.length > 0) {
+          onSelectMultipleComponents(ids);
+          didBoxSelectRef.current = true;
+        }
+      }
+      isBoxSelectRef.current = false;
+      setSelectionBox(null);
+    }
     setDragging(null);
     setScaleDragging(null);
     setPanning(null);
     setScrollDragging(null);
-  }, []);
+  }, [selectionBox, system.components, onSelectMultipleComponents]);
 
   const handleCanvasMouseDown = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
     if (!svgRef.current || pendingConn || e.button !== 0) return;
     const target = e.target as Element;
     if (target !== e.currentTarget && target.getAttribute('data-canvas-bg') !== 'true') return;
     e.preventDefault();
+    if (e.shiftKey) {
+      const pos = svgCoords(e, svgRef.current);
+      isBoxSelectRef.current = true;
+      setSelectionBox({ startX: pos.x, startY: pos.y, currentX: pos.x, currentY: pos.y });
+      return;
+    }
     didPanRef.current = false;
     setPanning({
       startClientX: e.clientX,
@@ -867,6 +945,17 @@ export function SchematicCanvas({
     ? `${pendingConn.fromComponentId}:${pendingConn.fromTerminalId}`
     : null;
 
+  const pendingConnLabel = useMemo(() => {
+    if (!pendingConn) return null;
+    const comp = system.components.find((c) => c.id === pendingConn.fromComponentId);
+    const prod = comp ? products.get(comp.productId) : undefined;
+    if (!comp || !prod) return null;
+    const terminal = getEffectiveTerminal(prod, pendingConn.fromTerminalId, comp);
+    const compLabel = comp.label ?? prod.name;
+    const termLabel = terminal?.label ?? pendingConn.fromTerminalId;
+    return `${compLabel} — ${termLabel}`;
+  }, [pendingConn, system.components, products]);
+
   const handleTerminalMouseDown = useCallback((compId: string, termId: string, e: React.MouseEvent) => {
     if (!svgRef.current) return;
     e.stopPropagation();
@@ -900,16 +989,21 @@ export function SchematicCanvas({
       didPanRef.current = false;
       return;
     }
+    if (didBoxSelectRef.current) {
+      didBoxSelectRef.current = false;
+      return;
+    }
     if (pendingConn) {
       setPendingConn(null);
       setFusePrompt(null);
       return;
     }
     setFusePrompt(null);
+    onClearMultiSelect();
     onSelectComponent(null);
     onSelectConnection(null);
     onSelectAnnotation(null);
-  }, [pendingConn, onSelectAnnotation, onSelectComponent, onSelectConnection]);
+  }, [pendingConn, onSelectAnnotation, onSelectComponent, onSelectConnection, onClearMultiSelect]);
 
   const pendingLine = pendingConn && mousePos
     ? { x1: pendingConn.startX, y1: pendingConn.startY, x2: mousePos.x, y2: mousePos.y }
@@ -949,16 +1043,31 @@ export function SchematicCanvas({
         <button type="button" className="canvas-zoom-btn canvas-full-btn" onClick={onEnterFullView} title="Collapse side panels">
           Full
         </button>
+        <button
+          type="button"
+          className="canvas-zoom-btn"
+          onClick={() => setShowAutoRouteDialog(true)}
+          title="Auto-route all connections"
+          style={{ marginLeft: 8, fontSize: 12, padding: '3px 10px' }}
+        >
+          Auto-Route
+        </button>
       </div>
       {pendingConn && (
         <div style={{
           position: 'absolute', top: 8, left: '50%', transform: 'translateX(-50%)',
-          background: '#eaf4ff', color: '#1769d2', padding: '6px 12px',
+          background: '#eaf4ff', color: '#1769d2', padding: '6px 14px',
           borderRadius: 8, fontSize: 13, fontWeight: 600, zIndex: 10, pointerEvents: 'none',
           border: '1px solid #cfe1f8',
           boxShadow: '0 8px 20px rgb(30 45 70 / 8%)',
+          whiteSpace: 'nowrap',
         }}>
-          Click another terminal to connect - Escape or click canvas to cancel
+          {pendingConnLabel && (
+            <span style={{ marginRight: 10, color: '#0f4fa8' }}>{pendingConnLabel}</span>
+          )}
+          <span style={{ fontWeight: 500, color: '#3d6baa' }}>
+            Click a terminal to connect · Esc or click canvas to cancel
+          </span>
         </div>
       )}
       <svg
@@ -967,7 +1076,7 @@ export function SchematicCanvas({
         width="100%"
         height="100%"
         preserveAspectRatio="none"
-        style={{ display: 'block', cursor: pendingConn ? 'crosshair' : scaleDragging ? 'nwse-resize' : dragging || panning ? 'grabbing' : 'grab' }}
+        style={{ display: 'block', cursor: pendingConn || selectionBox ? 'crosshair' : scaleDragging ? 'nwse-resize' : dragging || panning ? 'grabbing' : 'grab' }}
         onMouseDown={handleCanvasMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
@@ -984,28 +1093,6 @@ export function SchematicCanvas({
         <rect data-canvas-bg="true" x={WORLD_X} y={WORLD_Y} width={WORLD_W} height={WORLD_H} fill="var(--canvas)" />
         <rect data-canvas-bg="true" x={WORLD_X} y={WORLD_Y} width={WORLD_W} height={WORLD_H} fill="url(#grid)" />
 
-        {/* Connection hit areas below components */}
-        <ConnectionLayer
-          connections={system.connections}
-          components={system.components}
-          products={products}
-          selectedConnectionId={selectedConnectionId}
-          protectionRecommendations={protectionRecommendations}
-          busColors={busColors}
-          onSelectConnection={(id) => {
-            setFusePrompt(null);
-            onSelectConnection(id);
-            onSelectComponent(null);
-          }}
-          onShowProtectionPrompt={(connectionId, recommendation, marker) => {
-            setFusePrompt({ connectionId, recommendation, marker });
-          }}
-          onClearProtectionPrompt={() => setFusePrompt(null)}
-          onMoveConnectionRoute={onMoveConnectionRoute}
-          pendingLine={pendingLine}
-          layer="interactive"
-        />
-
         {/* Components */}
         {system.components.map((comp) => {
           const product = getEffectiveProductForComponent(comp, products.get(comp.productId));
@@ -1015,7 +1102,7 @@ export function SchematicCanvas({
               key={comp.id}
               component={comp}
               product={product}
-              selected={comp.id === selectedComponentId}
+              selected={comp.id === selectedComponentId || selectedComponentIds.includes(comp.id)}
               pendingSourceKey={pendingSourceKey}
               validTargetTerminals={validTargetTerminals}
               busColors={busColors}
@@ -1072,6 +1159,42 @@ export function SchematicCanvas({
             : <TextAnnotationNode {...commonProps} annotation={annotation} />;
         })}
 
+        {/* Connection hit areas — topmost layer so cables are selectable/draggable over product images */}
+        <ConnectionLayer
+          connections={system.connections}
+          components={system.components}
+          products={products}
+          selectedConnectionId={selectedConnectionId}
+          protectionRecommendations={protectionRecommendations}
+          busColors={busColors}
+          onSelectConnection={(id) => {
+            setFusePrompt(null);
+            onSelectConnection(id);
+            onSelectComponent(null);
+          }}
+          onShowProtectionPrompt={(connectionId, recommendation, marker) => {
+            setFusePrompt({ connectionId, recommendation, marker });
+          }}
+          onClearProtectionPrompt={() => setFusePrompt(null)}
+          onMoveConnectionRoute={onMoveConnectionRoute}
+          pendingLine={pendingLine}
+          layer="interactive"
+        />
+
+        {selectionBox && (
+          <rect
+            x={Math.min(selectionBox.startX, selectionBox.currentX)}
+            y={Math.min(selectionBox.startY, selectionBox.currentY)}
+            width={Math.abs(selectionBox.currentX - selectionBox.startX)}
+            height={Math.abs(selectionBox.currentY - selectionBox.startY)}
+            fill="rgba(23, 105, 210, 0.08)"
+            stroke="#1769d2"
+            strokeWidth={1 / zoom}
+            strokeDasharray={`${4 / zoom} ${2 / zoom}`}
+            style={{ pointerEvents: 'none' }}
+          />
+        )}
+
         {fusePrompt && (() => {
           const label = (fusePrompt.recommendation.busType === 'ac_line' || fusePrompt.recommendation.busType === 'ac_line2') ? 'Add Breaker' : 'Add Fuse';
 
@@ -1123,26 +1246,45 @@ export function SchematicCanvas({
           onContextMenu={(e) => e.preventDefault()}
           onPointerDown={(e) => e.stopPropagation()}
         >
-          <button type="button" role="menuitem" onClick={() => runComponentMenuAction(onCopyComponent)}>
-            <MenuIcon name="copy" />
-            <span>Copy</span>
-          </button>
-          <button type="button" role="menuitem" onClick={() => runComponentMenuAction(onCutComponent)}>
-            <MenuIcon name="cut" />
-            <span>Cut</span>
-          </button>
-          <button type="button" role="menuitem" onClick={() => runComponentMenuAction(onRemoveComponent)}>
-            <MenuIcon name="delete" />
-            <span>Delete</span>
-          </button>
-          <button type="button" role="menuitem" onClick={() => runComponentMenuAction(onRotateComponent)}>
-            <MenuIcon name="rotate" />
-            <span>Rotate</span>
-          </button>
-          <button type="button" role="menuitem" onClick={() => runComponentMenuAction(onToggleComponentLock)}>
-            <MenuIcon name={menuComponent.locked ? 'unlock' : 'lock'} />
-            <span>{menuComponent.locked ? 'Unlock' : 'Lock'}</span>
-          </button>
+          {selectedComponentIds.length > 1 && selectedComponentIds.includes(componentContextMenu.componentId) ? (
+            <>
+              <button type="button" role="menuitem" onClick={() => { onCopyMultiple(selectedComponentIds); setComponentContextMenu(null); }}>
+                <MenuIcon name="copy" />
+                <span>Copy {selectedComponentIds.length} items</span>
+              </button>
+              <button type="button" role="menuitem" onClick={() => { onCutMultiple(selectedComponentIds); setComponentContextMenu(null); }}>
+                <MenuIcon name="cut" />
+                <span>Cut {selectedComponentIds.length} items</span>
+              </button>
+              <button type="button" role="menuitem" onClick={() => { onRemoveMultiple(selectedComponentIds); setComponentContextMenu(null); }}>
+                <MenuIcon name="delete" />
+                <span>Delete {selectedComponentIds.length} items</span>
+              </button>
+            </>
+          ) : (
+            <>
+              <button type="button" role="menuitem" onClick={() => runComponentMenuAction(onCopyComponent)}>
+                <MenuIcon name="copy" />
+                <span>Copy</span>
+              </button>
+              <button type="button" role="menuitem" onClick={() => runComponentMenuAction(onCutComponent)}>
+                <MenuIcon name="cut" />
+                <span>Cut</span>
+              </button>
+              <button type="button" role="menuitem" onClick={() => runComponentMenuAction(onRemoveComponent)}>
+                <MenuIcon name="delete" />
+                <span>Delete</span>
+              </button>
+              <button type="button" role="menuitem" onClick={() => runComponentMenuAction(onRotateComponent)}>
+                <MenuIcon name="rotate" />
+                <span>Rotate</span>
+              </button>
+              <button type="button" role="menuitem" onClick={() => runComponentMenuAction(onToggleComponentLock)}>
+                <MenuIcon name={menuComponent.locked ? 'unlock' : 'lock'} />
+                <span>{menuComponent.locked ? 'Unlock' : 'Lock'}</span>
+              </button>
+            </>
+          )}
         </div>
       )}
       {canvasContextMenu && (
@@ -1197,6 +1339,48 @@ export function SchematicCanvas({
           onPointerCancel={handleScrollThumbPointerUp}
         />
       </div>
+
+      {showAutoRouteDialog && (
+        <div
+          style={{
+            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.35)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000,
+          }}
+          onPointerDown={() => setShowAutoRouteDialog(false)}
+        >
+          <div
+            style={{
+              background: 'var(--bg-primary, #fff)', borderRadius: 12, padding: '28px 32px',
+              maxWidth: 420, width: '90%', boxShadow: '0 16px 48px rgba(0,0,0,0.22)',
+            }}
+            onPointerDown={(e) => e.stopPropagation()}
+          >
+            <h3 style={{ margin: '0 0 12px', fontSize: 16, fontWeight: 700 }}>Auto-route all connections?</h3>
+            <p style={{ margin: '0 0 24px', fontSize: 14, color: 'var(--text-secondary, #555)', lineHeight: 1.5 }}>
+              This will recalculate routes for all connections and may overwrite manually adjusted cable paths. Continue?
+            </p>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => setShowAutoRouteDialog(false)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={() => {
+                  onAutoRouteAll();
+                  setShowAutoRouteDialog(false);
+                }}
+              >
+                Auto-Route All
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

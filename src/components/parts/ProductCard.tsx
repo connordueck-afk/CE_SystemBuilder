@@ -60,9 +60,6 @@ export function ProductCard({ product, onAdd }: Props) {
       <div className="product-card-footer">
         <span className="product-price">
           {fmt(product.msrpUsd ?? null)}
-          {product.oemPriceUsd != null && (
-            <span className="product-oem-price"> / {fmt(product.oemPriceUsd)}</span>
-          )}
         </span>
         <button
           className="btn-add"

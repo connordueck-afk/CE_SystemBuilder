@@ -535,6 +535,13 @@ export interface CommunicationNetwork {
 export type WireKind = 'dc-power' | 'ac-power' | 'communication';
 
 // -----------------------------------------------------------
+// Source Type (for generic DC/AC source components)
+// -----------------------------------------------------------
+
+export type DcSourceType = 'Vehicle Battery' | 'Alternator' | 'Generic' | 'DC Generator' | 'Solar Charge Output' | 'Auxiliary Battery' | 'Power Supply' | 'Other';
+export type AcSourceType = 'Generator' | 'Shore Power' | 'Generic' | 'Inverter Output' | 'Grid' | 'Other';
+
+// -----------------------------------------------------------
 // Pre-manufactured Cable Types
 // -----------------------------------------------------------
 
@@ -728,6 +735,8 @@ export interface SystemComponent {
   inferredVoltageClass?: VoltageClass;
   /** Per-instance configured protocol for each configurable communication port. Key = portId. */
   configuredProtocols?: Record<string, CommunicationProtocol>;
+  /** Descriptive source type for generic DC/AC source components. */
+  sourceType?: DcSourceType | AcSourceType;
 }
 
 // -----------------------------------------------------------
@@ -741,6 +750,7 @@ export interface SystemConnection {
   toComponentId: string;
   toTerminalId: string;
   routePoints?: Array<{ x: number; y: number }>;
+  routeMode?: 'auto' | 'manual';
   cableLengthFt: number;
   /** Unit for cableLengthFt when edited/imported; length is normalized to feet internally. */
   cableLengthUnit?: CableLengthUnit;
@@ -782,6 +792,12 @@ export interface SystemConnection {
   cableMode?: CableMode;
   /** ID of the selected pre-manufactured cable assembly when cableMode = 'premanufactured'. */
   premanufacturedCableId?: string;
+  /**
+   * Whether this cable should be counted in the cable BOM and length totals.
+   * Defaults to true. When false, the wire stays on the diagram and carries current
+   * but is excluded from all BOM line items and cable-length summaries.
+   */
+  includeInBOM?: boolean;
 }
 
 // -----------------------------------------------------------

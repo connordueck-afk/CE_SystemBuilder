@@ -850,9 +850,6 @@ export function PartLibrary({
                     )}
                     <div className="selected-product-price">
                       {fmt(selectedProduct.msrpUsd ?? null)}
-                      {selectedProduct.oemPriceUsd != null && (
-                        <span> / {fmt(selectedProduct.oemPriceUsd)} OEM</span>
-                      )}
                     </div>
                   </div>
                 ) : (
