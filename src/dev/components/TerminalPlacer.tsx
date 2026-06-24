@@ -37,6 +37,8 @@ export function TerminalPlacer({
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<{ id: string; startX: number; startY: number; origX: number; origY: number } | null>(null);
+  // Survives the mouseup→click boundary — dragRef is cleared in mouseup (before click fires)
+  const didDragRef = useRef(false);
 
   // Scale up from product canvas units to a comfortable display size
   const displayScale = Math.max(2, TARGET_DISPLAY_WIDTH / Math.max(width, 1));
@@ -54,14 +56,17 @@ export function TerminalPlacer({
   }, [displayW, displayH, displayScale]);
 
   const handleCanvasClick = useCallback((e: React.MouseEvent) => {
-    if (dragRef.current) return;
+    // Suppress the click that fires after a drag ends
+    if (didDragRef.current) {
+      didDragRef.current = false;
+      return;
+    }
     const { offsetX, offsetY } = toOffset(e.clientX, e.clientY);
     onPlaceTerminal(offsetX, offsetY);
   }, [toOffset, onPlaceTerminal]);
 
   const handleDotMouseDown = useCallback((e: React.MouseEvent, t: TerminalDefinition) => {
-    e.stopPropagation();
-    onSelectTerminal(t.id);
+    e.preventDefault(); // prevent text selection during drag
     dragRef.current = { id: t.id, startX: e.clientX, startY: e.clientY, origX: t.offsetX, origY: t.offsetY };
 
     const onMove = (me: MouseEvent) => {
@@ -69,6 +74,7 @@ export function TerminalPlacer({
       const dx = me.clientX - dragRef.current.startX;
       const dy = me.clientY - dragRef.current.startY;
       if (Math.abs(dx) > 3 || Math.abs(dy) > 3) {
+        didDragRef.current = true;
         onMoveTerminal(
           dragRef.current.id,
           Math.round(dragRef.current.origX + dx / displayScale),
@@ -85,7 +91,7 @@ export function TerminalPlacer({
 
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseup', onUp);
-  }, [onSelectTerminal, onMoveTerminal, displayScale]);
+  }, [onMoveTerminal, displayScale]);
 
   return (
     <div
@@ -126,6 +132,7 @@ export function TerminalPlacer({
             className={`pb-terminal-dot${t.id === selectedId ? ' selected' : ''}`}
             style={{ left: dotX, top: dotY, background: color }}
             onMouseDown={e => handleDotMouseDown(e, t)}
+            onClick={e => { e.stopPropagation(); if (!didDragRef.current) onSelectTerminal(t.id); }}
             title={`${t.id} (${t.offsetX}, ${t.offsetY})`}
           >
             <span className="pb-terminal-label">{t.label || t.id}</span>

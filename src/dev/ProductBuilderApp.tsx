@@ -306,7 +306,7 @@ export function ProductBuilderApp() {
       {/* Main */}
       <div className="pb-main">
 
-        {/* Left: form */}
+        {/* Left: form + terminal editor when active */}
         <div className="pb-form-col">
           <CoreFieldsForm
             product={product}
@@ -323,12 +323,20 @@ export function ProductBuilderApp() {
             product={product}
             onRatingsChange={updateRatings}
           />
+          {selectedTerminal && (
+            <TerminalEditorPanel
+              terminal={selectedTerminal}
+              onChange={changes => updateTerminal(selectedTerminal.id, changes)}
+              onDelete={() => removeTerminal(selectedTerminal.id)}
+              onClose={() => setSelectedTerminalId(null)}
+            />
+          )}
         </div>
 
-        {/* Right: SVG + terminals */}
+        {/* Right: SVG placer + terminal list — stays fully visible */}
         <div className="pb-right-col">
 
-          {/* SVG picker */}
+          {/* SVG + terminal placer */}
           <div className="pb-section">
             <div className="pb-section-header">
               <span>Visual / Terminals</span>
@@ -397,16 +405,6 @@ export function ProductBuilderApp() {
               ))}
             </div>
           </div>
-
-          {/* Terminal editor */}
-          {selectedTerminal && (
-            <TerminalEditorPanel
-              terminal={selectedTerminal}
-              onChange={changes => updateTerminal(selectedTerminal.id, changes)}
-              onDelete={() => removeTerminal(selectedTerminal.id)}
-              onClose={() => setSelectedTerminalId(null)}
-            />
-          )}
 
         </div>
       </div>
