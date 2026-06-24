@@ -14,16 +14,6 @@ export {
   ALL_PRODUCTS,
   PRODUCT_MAP,
   getProduct,
-  batteries,
-  mppts,
-  inverterChargers,
-  dcDcChargers,
-  acChargers,
-  solarArrays,
-  distribution,
-  protection,
-  monitoring,
-  accessories,
 } from './products/index';
 
 import type { Product, ProductType } from '../types/system';
