@@ -149,7 +149,7 @@ function resolveTermination(
   if (commPort) {
     // holeSize carries the connector type string so the connector summary can label it correctly.
     // Gender is inverted: the cable-end connector must mate with the port (female port → male cable end).
-    const matingGender = commPort.gender === 'female' ? 'male'
+    const matingGender: 'male' | 'female' | undefined = commPort.gender === 'female' ? 'male'
                        : commPort.gender === 'male' ? 'female'
                        : undefined;
     const connector = { kind: 'comm' as const, holeSize: commPort.connectorType, gender: matingGender };
