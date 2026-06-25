@@ -295,7 +295,9 @@ export function ProductBuilderApp() {
         </button>
       </header>
 
-      {/* Sidebar */}
+      {/* Body: sidebar + main */}
+      <div className="pb-body">
+
       <Sidebar
         products={productList}
         currentId={currentId}
@@ -418,6 +420,7 @@ export function ProductBuilderApp() {
           onClose={() => setShowSvgPicker(false)}
         />
       )}
+      </div>
     </div>
   );
 }

@@ -19,33 +19,48 @@
   --gap:      12px;
 }
 
+html, body {
+  height: 100%;
+  overflow: hidden;
+}
+
 body {
   background: var(--bg);
   color: var(--text);
   font-family: ui-monospace, 'Cascadia Code', 'Fira Code', monospace;
   font-size: 13px;
-  height: 100vh;
-  overflow: hidden;
+}
+
+#pb-root {
+  height: 100%;
 }
 
 /* ---- Layout ---- */
 
 .pb-shell {
-  display: grid;
-  grid-template-rows: 44px 1fr;
-  grid-template-columns: 240px 1fr;
+  display: flex;
+  flex-direction: column;
   height: 100vh;
   overflow: hidden;
 }
 
 .pb-header {
-  grid-column: 1 / -1;
+  flex-shrink: 0;
+  height: 44px;
   display: flex;
   align-items: center;
   gap: var(--gap);
   padding: 0 16px;
   background: var(--bg2);
   border-bottom: 1px solid var(--border);
+}
+
+.pb-body {
+  height: calc(100vh - 44px);
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  grid-template-rows: 1fr;
+  overflow: hidden;
 }
 
 .pb-header-title {
@@ -139,8 +154,8 @@ body {
 .pb-main {
   display: grid;
   grid-template-columns: 1fr 440px;
+  grid-template-rows: 1fr;
   overflow: hidden;
-  min-height: 0;
 }
 
 .pb-form-col {
@@ -149,7 +164,6 @@ body {
   display: flex;
   flex-direction: column;
   gap: 16px;
-  min-height: 0;
 }
 
 .pb-right-col {
@@ -159,7 +173,6 @@ body {
   display: flex;
   flex-direction: column;
   gap: 16px;
-  min-height: 0;
 }
 
 /* ---- Sections ---- */
