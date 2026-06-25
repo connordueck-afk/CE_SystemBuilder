@@ -1,4 +1,4 @@
-import type { Product } from '../../../../types/system';
+﻿import type { Product } from '../../../../types/system';
 
 const product: Product = {
   id: "comm-vebus-ethernet-gw",
@@ -44,7 +44,6 @@ const product: Product = {
       label: "VE.Bus Port",
       kind: "network",
       role: "bidirectional",
-      domain: "communication",
       side: "bottom",
       offsetX: -45,
       offsetY: 30
@@ -54,7 +53,6 @@ const product: Product = {
       label: "Ethernet Port",
       kind: "network",
       role: "bidirectional",
-      domain: "communication",
       side: "bottom",
       offsetX: 45,
       offsetY: 30

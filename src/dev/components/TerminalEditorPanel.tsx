@@ -1,7 +1,7 @@
+import { useState, useEffect, useCallback } from 'react';
 import type {
   TerminalDefinition, ConnectionPointKind, ConnectionPolarity,
-  ConnectionRole, TerminalSide, ElectricalDomain, ElectricalType,
-  VoltageClass, ConnectorKind,
+  ConnectionRole, TerminalSide, VoltageClass, ConnectorKind,
   ProductCommunicationPort, CommunicationProtocol, CommunicationConnectorType,
 } from '../../types/system';
 
@@ -20,10 +20,10 @@ const KINDS: ConnectionPointKind[] = ['dc_power', 'pv_power', 'ac_power', 'signa
 const POLARITIES: ConnectionPolarity[] = ['positive', 'negative', 'line', 'line2', 'neutral', 'ground'];
 const ROLES: ConnectionRole[] = ['source', 'sink', 'bidirectional', 'pass_through', 'bus', 'sense', 'control'];
 const SIDES: TerminalSide[] = ['top', 'bottom', 'left', 'right'];
-const DOMAINS: ElectricalDomain[] = ['dc', 'ac', 'pv', 'chassisGround', 'earthGround', 'communication', 'signal'];
-const ETYPES: ElectricalType[] = ['dc_pos', 'dc_neg', 'pv_pos', 'pv_neg', 'ac', 'signal', 'generic'];
 const VCLASSES: VoltageClass[] = ['dc_low_voltage', 'pv_high_voltage', 'ac_120v', 'ac_240v', 'signal_low_voltage'];
-const CONNECTOR_KINDS: ConnectorKind[] = ['lug', 'screw_terminal', 'mc4_male', 'mc4_female'];
+const CONNECTOR_KINDS: ConnectorKind[] = ['stud', 'screw_terminal', 'mc4', 'lug', 'ferrule'];
+const GENDERED_CONNECTOR_KINDS: ConnectorKind[] = ['mc4'];
+const GENDERED_COMM_CONNECTORS: CommunicationConnectorType[] = ['RJ45', 'M12', 'Deutsch', 'JST'];
 const PROTOCOLS: CommunicationProtocol[] = ['CANopen', 'J1939', 'VE.Bus', 'VE.Direct', 'VE.Can', 'BMS-Can', 'AEbus', 'RS485', 'Ethernet', 'Other'];
 const COMM_CONNECTORS: CommunicationConnectorType[] = ['RJ45', 'M12', 'Deutsch', 'TerminalBlock', 'JST', 'VE.Direct', 'Other'];
 
@@ -37,8 +37,23 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 }
 
 export function TerminalEditorPanel({ terminal: t, onChange, onDelete, onClose, port, onPortChange }: Props) {
-  const isCommNode = t.kind === 'network' || t.domain === 'communication';
+  const isCommNode = t.kind === 'network';
   const supported = port?.supportedProtocols ?? [];
+
+  // Buffer the ID locally so intermediate keystrokes don't get committed to state.
+  // Committing on every keystroke lets an in-progress rename temporarily collide
+  // with an existing terminal ID, tying them together.
+  const [draftId, setDraftId] = useState(t.id ?? '');
+  useEffect(() => { setDraftId(t.id ?? ''); }, [t.id]);
+
+  const commitId = useCallback(() => {
+    const trimmed = draftId.trim();
+    if (!trimmed) {
+      setDraftId(t.id ?? '');         // revert empty back to current id
+    } else if (trimmed !== t.id) {
+      onChange({ id: trimmed });
+    }
+  }, [draftId, t.id, onChange]);
 
   const toggleProtocol = (proto: CommunicationProtocol) => {
     if (!onPortChange) return;
@@ -90,7 +105,14 @@ export function TerminalEditorPanel({ terminal: t, onChange, onDelete, onClose, 
 
         <div className="pb-field-row">
           <Field label="ID *">
-            <input type="text" value={t.id ?? ''} onChange={e => onChange({ id: e.target.value })} placeholder="dc_pos" />
+            <input
+              type="text"
+              value={draftId}
+              onChange={e => setDraftId(e.target.value)}
+              onBlur={commitId}
+              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); commitId(); } }}
+              placeholder="dc_pos"
+            />
           </Field>
           <Field label="Label *">
             <input type="text" value={t.label ?? ''} onChange={e => onChange({ label: e.target.value })} placeholder="+" />
@@ -139,21 +161,6 @@ export function TerminalEditorPanel({ terminal: t, onChange, onDelete, onClose, 
         <hr />
 
         <div className="pb-field-row">
-          <Field label="Electrical Type">
-            <select value={t.electricalType ?? ''} onChange={opt('electricalType')}>
-              <option value="">—</option>
-              {ETYPES.map(v => <option key={v} value={v}>{v}</option>)}
-            </select>
-          </Field>
-          <Field label="Domain">
-            <select value={t.domain ?? ''} onChange={opt('domain')}>
-              <option value="">—</option>
-              {DOMAINS.map(d => <option key={d} value={d}>{d}</option>)}
-            </select>
-          </Field>
-        </div>
-
-        <div className="pb-field-row">
           <Field label="Voltage Class">
             <select value={t.voltageClass ?? ''} onChange={opt('voltageClass')}>
               <option value="">—</option>
@@ -196,25 +203,76 @@ export function TerminalEditorPanel({ terminal: t, onChange, onDelete, onClose, 
         </div>
 
         <div className="pb-field-row">
-          <Field label="Connector Kind">
-            <select
-              value={t.connector?.kind ?? ''}
-              onChange={e => onChange({ connector: e.target.value ? { kind: e.target.value as ConnectorKind } : undefined })}
-            >
-              <option value="">—</option>
-              {CONNECTOR_KINDS.map(k => <option key={k} value={k}>{k}</option>)}
-            </select>
-          </Field>
-          {t.connector?.kind === 'lug' && (
-            <Field label="Lug Hole Size">
-              <input
-                type="text"
-                value={t.connector?.holeSize ?? ''}
-                onChange={e => onChange({ connector: { kind: 'lug', holeSize: e.target.value || undefined } })}
-                placeholder="5/16, M8…"
-              />
-            </Field>
+          {isCommNode ? (
+            <>
+              <Field label="Connector">
+                <select
+                  value={port?.connectorType ?? 'RJ45'}
+                  onChange={e => onPortChange?.({ connectorType: e.target.value as CommunicationConnectorType })}
+                >
+                  {COMM_CONNECTORS.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </Field>
+              {GENDERED_COMM_CONNECTORS.includes(port?.connectorType ?? 'RJ45' as CommunicationConnectorType) && (
+                <Field label="Gender">
+                  <select
+                    value={port?.gender ?? ''}
+                    onChange={e => onPortChange?.({ gender: (e.target.value || undefined) as 'male' | 'female' | undefined })}
+                  >
+                    <option value="">—</option>
+                    <option value="male">Male</option>
+                    <option value="female">Female</option>
+                  </select>
+                </Field>
+              )}
+            </>
+          ) : (
+            <>
+              <Field label="Connector">
+                <select
+                  value={t.connector?.kind ?? ''}
+                  onChange={e => onChange({ connector: e.target.value ? { kind: e.target.value as ConnectorKind } : undefined })}
+                >
+                  <option value="">—</option>
+                  {CONNECTOR_KINDS.map(k => <option key={k} value={k}>{k}</option>)}
+                </select>
+              </Field>
+              {t.connector?.kind && GENDERED_CONNECTOR_KINDS.includes(t.connector.kind) && (
+                <Field label="Gender">
+                  <select
+                    value={t.connector?.gender ?? ''}
+                    onChange={e => onChange({ connector: { ...t.connector!, gender: (e.target.value || undefined) as 'male' | 'female' | undefined } })}
+                  >
+                    <option value="">—</option>
+                    <option value="male">Male</option>
+                    <option value="female">Female</option>
+                  </select>
+                </Field>
+              )}
+              {(t.connector?.kind === 'stud' || t.connector?.kind === 'lug') && (
+                <Field label={t.connector.kind === 'stud' ? 'Stud Diameter' : 'Lug Hole Size'}>
+                  <input
+                    type="text"
+                    value={t.connector?.holeSize ?? ''}
+                    onChange={e => onChange({ connector: { kind: t.connector!.kind, holeSize: e.target.value || undefined } })}
+                    placeholder="M6, M8, 5/16, 3/8…"
+                  />
+                </Field>
+              )}
+            </>
           )}
+        </div>
+
+        <div className="pb-field-row">
+          <Field label="Max Connections">
+            <input
+              type="number"
+              value={t.maxConnections ?? ''}
+              onChange={e => onChange({ maxConnections: e.target.value ? Number(e.target.value) : undefined })}
+              min={1}
+              placeholder="auto"
+            />
+          </Field>
         </div>
 
         <Field label="Notes">
@@ -256,14 +314,6 @@ export function TerminalEditorPanel({ terminal: t, onChange, onDelete, onClose, 
                       onChange={e => onPortChange({ name: e.target.value || undefined })}
                       placeholder={t.label || t.id}
                     />
-                  </Field>
-                  <Field label="Connector">
-                    <select
-                      value={port?.connectorType ?? 'RJ45'}
-                      onChange={e => onPortChange({ connectorType: e.target.value as CommunicationConnectorType })}
-                    >
-                      {COMM_CONNECTORS.map(c => <option key={c} value={c}>{c}</option>)}
-                    </select>
                   </Field>
                 </div>
 

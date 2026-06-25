@@ -1,4 +1,4 @@
-import type { Product } from '../../../../types/system';
+﻿import type { Product } from '../../../../types/system';
 
 const product: Product = {
   id: "discover-dlp-lithium-24-60",
@@ -22,7 +22,6 @@ const product: Product = {
     {
       id: "dc_pos",
       label: "+",
-      electricalType: "dc_pos",
       kind: "dc_power",
       polarity: "positive",
       role: "bidirectional",
@@ -31,15 +30,14 @@ const product: Product = {
       side: "top",
       offsetX: 22,
       offsetY: -45,
-      domain: "dc",
       maxCurrentA: 60,
       requiresOvercurrentProtection: true,
+      connector: { kind: 'stud', holeSize: 'M6' },
       notes: "DC positive terminal. Requires overcurrent protection (fuse/breaker) on the positive conductor."
     },
     {
       id: "dc_neg",
       label: "-",
-      electricalType: "dc_neg",
       kind: "dc_power",
       polarity: "negative",
       role: "bidirectional",
@@ -48,8 +46,8 @@ const product: Product = {
       side: "top",
       offsetX: -26,
       offsetY: -45,
-      domain: "dc",
       maxCurrentA: 60,
+      connector: { kind: 'stud', holeSize: 'M6' },
       notes: "DC negative terminal."
     }
   ],

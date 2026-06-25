@@ -95,9 +95,9 @@ const CW = 48;
 const CH = 28;
 const CY = CH / 2; // 14 — vertical centre / cable strand height
 
-type ConnectorKindStr = 'lug' | 'screw_terminal' | 'mc4_male' | 'mc4_female';
+type ConnectorKindStr = 'lug' | 'screw_terminal' | 'mc4' | 'comm';
 
-function ConnectorIcon({ kind, side }: { kind: ConnectorKindStr | undefined; side: 'left' | 'right' }) {
+function ConnectorIcon({ kind, gender, side }: { kind: ConnectorKindStr | undefined; gender?: 'male' | 'female'; side: 'left' | 'right' }) {
   let shapes: ReactNode;
 
   if (kind === 'lug') {
@@ -158,7 +158,7 @@ function ConnectorIcon({ kind, side }: { kind: ConnectorKindStr | undefined; sid
         <line x1={CW/2} y1={CY - 3.5} x2={CW/2} y2={CY + 3.5} stroke="#555" strokeWidth={1.1} strokeLinecap="round"/>
       </>
     );
-  } else if (kind === 'mc4_male') {
+  } else if (kind === 'mc4' && gender !== 'female') {
     // Cylindrical black housing + hex locking collar + protruding metal pin on the outward end
     const houseX = side === 'left' ? 6 : 2;
     const houseW = CW - 10;
@@ -184,7 +184,7 @@ function ConnectorIcon({ kind, side }: { kind: ConnectorKindStr | undefined; sid
           fill="url(#cc-metal)" stroke="#9a9a9a" strokeWidth={0.6}/>
       </>
     );
-  } else if (kind === 'mc4_female') {
+  } else if (kind === 'mc4' && gender === 'female') {
     // Cylindrical black housing + hex collar + socket recess on outward end
     const houseX = side === 'left' ? 8 : 2;
     const houseW = CW - 10;
@@ -208,6 +208,38 @@ function ConnectorIcon({ kind, side }: { kind: ConnectorKindStr | undefined; sid
         <circle cx={sockCx} cy={CY} r={6} fill="#0c1014" stroke="#1e2428" strokeWidth={0.8}/>
         <circle cx={sockCx} cy={CY} r={3}   fill="#1c2028"/>
         <circle cx={sockCx} cy={CY} r={1.5} fill="#2a3040"/>
+      </>
+    );
+  } else if (kind === 'comm') {
+    // Data connector: rectangular housing with gold contact pins (RJ45/VE.Direct style)
+    const houseX = side === 'left' ? 4 : 2;
+    const houseW = CW - 8; // 40px
+    const faceX = side === 'left' ? houseX : houseX + houseW - 8;
+    shapes = (
+      <>
+        {/* Main housing body */}
+        <rect x={houseX} y={CY - 7} width={houseW} height={14} rx={2}
+          fill="url(#cc-body)" stroke="#31363d" strokeWidth={0.8}/>
+        <rect x={houseX + 2} y={CY - 6} width={houseW - 4} height={2} rx={1}
+          fill="white" fillOpacity={0.07}/>
+        {/* Locking tab at bottom */}
+        <rect x={houseX + 10} y={CY + 5} width={14} height={4} rx={1}
+          fill="#2d3440" stroke="#1e2530" strokeWidth={0.5}/>
+        {/* Contact pocket at outward face */}
+        <rect x={faceX} y={CY - 5} width={8} height={10} rx={1}
+          fill="#0f1520"/>
+        {/* Gold contact pins */}
+        {[0, 1, 2, 3].map(i => (
+          <line key={i}
+            x1={faceX + 1} y1={CY - 3.5 + i * 2.4}
+            x2={faceX + 6} y2={CY - 3.5 + i * 2.4}
+            stroke="#c8a840" strokeWidth={0.75} strokeOpacity={0.85}/>
+        ))}
+        {/* Cable entry slot on cable-facing side */}
+        <rect
+          x={side === 'left' ? houseX + houseW - 7 : houseX}
+          y={CY - 3} width={7} height={6} rx={1}
+          fill="#0c1014" stroke="#252d3a" strokeWidth={0.4}/>
       </>
     );
   } else {
@@ -239,8 +271,10 @@ function CableVisualRow({ row }: { row: CableBomRow }) {
   const hiColor  = tintHex(base, 1.45);
   const loColor  = tintHex(base, 0.58);
 
-  const fromKind = row.fromEnd.connector?.kind as ConnectorKindStr | undefined;
-  const toKind   = row.toEnd.connector?.kind as ConnectorKindStr | undefined;
+  const fromKind   = row.fromEnd.connector?.kind as ConnectorKindStr | undefined;
+  const fromGender = row.fromEnd.connector?.gender;
+  const toKind     = row.toEnd.connector?.kind as ConnectorKindStr | undefined;
+  const toGender   = row.toEnd.connector?.gender;
 
   const gaugeLabel  = row.gauge !== 'Unspecified' ? `${row.gauge} AWG` : '';
   const lengthLabel = formatFeetAndInches(row.lengthFt);
@@ -249,14 +283,14 @@ function CableVisualRow({ row }: { row: CableBomRow }) {
     <div>
       {/* Visual: connector — thin cable strand — connector */}
       <div style={{ display: 'flex', alignItems: 'center', height: CH }}>
-        <ConnectorIcon kind={fromKind} side="left" />
+        <ConnectorIcon kind={fromKind} gender={fromGender} side="left" />
         <div style={{
           flex: 1,
           height: 5,
           background: `linear-gradient(to bottom, ${hiColor} 0%, ${base} 45%, ${loColor} 100%)`,
           boxShadow: '0 1px 3px rgba(0,0,0,0.35)',
         }}/>
-        <ConnectorIcon kind={toKind} side="right" />
+        <ConnectorIcon kind={toKind} gender={toGender} side="right" />
       </div>
       {/* Labels: [End A]  [gauge · length]  [End B] */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginTop: 2, fontSize: 10 }}>

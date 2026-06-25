@@ -1,4 +1,4 @@
-import type { Product } from '../../../../types/system';
+﻿import type { Product } from '../../../../types/system';
 
 const product: Product = {
   id: "discover-aes-rackmount-48-42-5120",
@@ -10,7 +10,7 @@ const product: Product = {
   capacityWh: 5120,
   maxCurrentA: 100,
   msrpUsd: 3400,
-  description: "Discover AES Rackmount LiFePO4 battery 51.2V/100Ah — CAN/RS485 communication. Confirm communication profile and closed-loop compatibility per inverter setup.",
+  description: "Discover AES Rackmount LiFePO4 battery 51.2V/100Ah â€” CAN/RS485 communication. Confirm communication profile and closed-loop compatibility per inverter setup.",
   partNumber: "48-42-5120",
   productUrl: "https://www.cdnrg.com/products/48-48-5120-h",
   source: "Discover Battery 2025",
@@ -22,7 +22,6 @@ const product: Product = {
     {
       id: "dc_pos",
       label: "+",
-      electricalType: "dc_pos",
       kind: "dc_power",
       polarity: "positive",
       role: "bidirectional",
@@ -31,15 +30,14 @@ const product: Product = {
       side: "top",
       offsetX: 20,
       offsetY: -50,
-      domain: "dc",
       maxCurrentA: 100,
       requiresOvercurrentProtection: true,
+      connector: { kind: 'stud', holeSize: 'M8' },
       notes: "DC positive terminal. Requires overcurrent protection (fuse/breaker) on the positive conductor."
     },
     {
       id: "dc_neg",
       label: "-",
-      electricalType: "dc_neg",
       kind: "dc_power",
       polarity: "negative",
       role: "bidirectional",
@@ -48,8 +46,8 @@ const product: Product = {
       side: "top",
       offsetX: -20,
       offsetY: -50,
-      domain: "dc",
       maxCurrentA: 100,
+      connector: { kind: 'stud', holeSize: 'M8' },
       notes: "DC negative terminal."
     }
   ],

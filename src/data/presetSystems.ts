@@ -363,153 +363,606 @@ const FULL_12V: SystemDesign = {
 };
 
 // ----------------------------------------------------------
-// Preset 3: 48V Off-Grid Cabin
-// Fixed installation — large lithium bank, high-power solar,
-// grid-interactive inverter, generator backup
+// Preset 3: 48V Off-Grid Cabin (Helios ESS)
+// Fixed installation — 2× Discover Helios in parallel,
+// high-power solar, grid-interactive inverter, generator backup
 // ----------------------------------------------------------
 const OFFGRID_48V: SystemDesign = {
-  id: 'preset-offgrid-48v',
-  name: '48V Off-Grid Cabin',
+  id: "sys-1782429874112-852",
+  name: "48V Off-Grid Cabin",
   nominalVoltage: 48,
-  assumptions: { ...DEFAULT_ASSUMPTIONS },
-  createdAt: new Date().toISOString(),
-  updatedAt: new Date().toISOString(),
+  assumptions: {
+    inverterEfficiency: 0.92,
+    defaultOemDiscountPercent: 30,
+    defaultCableLengthFt: 6,
+    maxVoltageDropPercent: 3,
+    continuousLoadMultiplier: 1.25,
+    batteryInterconnectMaxLengthFt: 3
+  },
+  createdAt: "2026-06-25T23:24:34.112Z",
+  updatedAt: "2026-06-25T23:27:30.961Z",
   components: [
     {
-      id: 'p3-bat-1',
-      productId: 'bat-vic-smart-48-100',
-      label: 'Battery 1',
+      id: "p3-bat-1",
+      productId: "discover-helios-ess-52-48-16000",
+      label: "Helios ESS 1",
       quantity: 1,
-      x: -200,
-      y: 260,
+      x: -320,
+      y: 440
     },
     {
-      id: 'p3-bat-2',
-      productId: 'bat-vic-smart-48-100',
-      label: 'Battery 2',
+      id: "p3-bat-2",
+      productId: "discover-helios-ess-52-48-16000",
+      label: "Helios ESS 2",
       quantity: 1,
-      x: -200,
+      x: -220,
       y: 440,
+      configuredProtocols: {
+        can_out: "VE.Can"
+      }
     },
     {
-      id: 'p3-fuse-bat1',
-      productId: 'fuse-anl-125a',
-      label: 'Battery 1 Fuse',
+      id: "p3-fuse-pack",
+      productId: "fuse-anl-littelfuse-300a",
+      label: "Pack Fuse",
       quantity: 1,
       x: -60,
-      y: 270,
+      y: 360,
+      inferredConnectionKind: "dc_power",
+      inferredPolarity: "positive",
+      inferredVoltageClass: "dc_low_voltage"
     },
     {
-      id: 'p3-fuse-bat2',
-      productId: 'fuse-anl-125a',
-      label: 'Battery 2 Fuse',
+      id: "p3-bus-pos",
+      productId: "dist-generic-busbar-5pt",
+      label: "Positive Busbar",
       quantity: 1,
-      x: -60,
-      y: 440,
-    },
-    {
-      id: 'p3-bus-pos',
-      productId: 'dist-generic-busbar-5pt',
-      label: 'Positive Busbar',
-      quantity: 1,
-      x: 60,
+      x: 80,
       y: 300,
-      busPolarity: 'positive',
+      inferredElectricalType: "dc_pos",
+      inferredConnectionKind: "dc_power",
+      inferredPolarity: "positive",
+      inferredVoltageClass: "dc_low_voltage"
     },
     {
-      id: 'p3-bus-neg',
-      productId: 'dist-generic-busbar-5pt',
-      label: 'Negative Busbar',
-      quantity: 1,
-      x: 60,
-      y: 440,
-      busPolarity: 'negative',
-    },
-    {
-      id: 'p3-solar',
-      productId: 'solar-array-400w',
-      label: 'Solar Array (4× 400W)',
-      quantity: 1,
-      x: -140,
-      y: -80,
-      solarSeriesCount: 2,
-      solarParallelCount: 2,
-    },
-    {
-      id: 'p3-mppt',
-      productId: 'mppt-vic-150-100',
-      label: 'MPPT 150/100',
-      quantity: 1,
-      x: 300,
-      y: -20,
-    },
-    {
-      id: 'p3-fuse-mppt',
-      productId: 'fuse-midi-125a',
-      label: 'MPPT Fuse',
-      quantity: 1,
-      x: 190,
-      y: 130,
-    },
-    {
-      id: 'p3-fuse-inv',
-      productId: 'fuse-anl-150a',
-      label: 'Inverter Fuse',
-      quantity: 1,
-      x: 300,
-      y: 320,
-    },
-    {
-      id: 'p3-inverter',
-      productId: 'inv-vic-mp2-48-5000',
-      label: 'MultiPlus-II 48/5000',
-      quantity: 1,
-      x: 500,
-      y: 340,
-    },
-    {
-      id: 'p3-generator',
-      productId: 'generic-generator-source',
-      label: 'Generator',
+      id: "p3-bus-neg",
+      productId: "dist-generic-busbar-5pt",
+      label: "Negative Busbar",
       quantity: 1,
       x: 280,
-      y: 600,
+      y: 300,
+      inferredConnectionKind: "dc_power",
+      inferredPolarity: "negative",
+      inferredVoltageClass: "dc_low_voltage"
     },
     {
-      id: 'p3-ac-load',
-      productId: 'acc-ac-load-generic',
-      label: 'AC Loads',
+      id: "p3-mppt",
+      productId: "mppt-vic-150-100",
+      label: "MPPT 150/100",
+      quantity: 1,
+      x: 300,
+      y: -20
+    },
+    {
+      id: "p3-fuse-mppt",
+      productId: "fuse-midi-125a",
+      label: "MPPT Fuse",
+      quantity: 1,
+      x: 280,
+      y: 140,
+      rotationDeg: 90,
+      inferredConnectionKind: "dc_power",
+      inferredPolarity: "positive",
+      inferredVoltageClass: "dc_low_voltage"
+    },
+    {
+      id: "p3-fuse-inv",
+      productId: "fuse-anl-150a",
+      label: "Inverter Fuse",
+      quantity: 1,
+      x: 160,
+      y: 420,
+      inferredConnectionKind: "dc_power",
+      inferredPolarity: "positive",
+      inferredVoltageClass: "dc_low_voltage"
+    },
+    {
+      id: "p3-inverter",
+      productId: "inv-vic-mp2-48-5000",
+      label: "MultiPlus-II 48/5000",
+      quantity: 1,
+      x: 500,
+      y: 340
+    },
+    {
+      id: "p3-generator",
+      productId: "generic-generator-source",
+      label: "Generator",
       quantity: 1,
       x: 720,
-      y: 600,
+      y: 460,
+      rotationDeg: 180
     },
+    {
+      id: "p3-ac-load",
+      productId: "acc-ac-load-generic",
+      label: "AC Loads",
+      quantity: 1,
+      x: 800,
+      y: 640
+    },
+    {
+      id: "comp-1782430014160-1412",
+      productId: "solar-array-400w",
+      label: "Solar Array 400W",
+      quantity: 1,
+      x: 80,
+      y: -100,
+      includeInBom: true
+    },
+    {
+      id: "comp-1782430016792-1497",
+      productId: "solar-array-400w",
+      label: "Solar Array 400W Copy",
+      quantity: 1,
+      x: -60,
+      y: -100,
+      includeInBom: true,
+      locked: false
+    },
+    {
+      id: "comp-1782430018784-1598",
+      productId: "solar-array-400w",
+      label: "Solar Array 400W Copy Copy",
+      quantity: 1,
+      x: -200,
+      y: -100,
+      includeInBom: true,
+      locked: false
+    },
+    {
+      id: "comp-1782430036032-1951",
+      productId: "breaker-ac-din-1p-50a",
+      label: "AC Breaker",
+      quantity: 1,
+      x: 500,
+      y: 560,
+      rotationDeg: 0,
+      includeInBom: true
+    }
   ],
   connections: [
-    // Battery 1 → ANL 125A fuse → positive busbar
-    { id: 'p3-b1-to-fuse', fromComponentId: 'p3-bat-1', fromTerminalId: 'dc_pos', toComponentId: 'p3-fuse-bat1', toTerminalId: 'in', cableLengthFt: 1.5 },
-    { id: 'p3-b1-fuse-to-bus', fromComponentId: 'p3-fuse-bat1', fromTerminalId: 'out', toComponentId: 'p3-bus-pos', toTerminalId: 'terminal_1', cableLengthFt: 1.5 },
-    { id: 'p3-b1-neg', fromComponentId: 'p3-bat-1', fromTerminalId: 'dc_neg', toComponentId: 'p3-bus-neg', toTerminalId: 'terminal_1', cableLengthFt: 3 },
-    // Battery 2 → ANL 125A fuse → positive busbar
-    { id: 'p3-b2-to-fuse', fromComponentId: 'p3-bat-2', fromTerminalId: 'dc_pos', toComponentId: 'p3-fuse-bat2', toTerminalId: 'in', cableLengthFt: 1.5 },
-    { id: 'p3-b2-fuse-to-bus', fromComponentId: 'p3-fuse-bat2', fromTerminalId: 'out', toComponentId: 'p3-bus-pos', toTerminalId: 'terminal_2', cableLengthFt: 1.5 },
-    { id: 'p3-b2-neg', fromComponentId: 'p3-bat-2', fromTerminalId: 'dc_neg', toComponentId: 'p3-bus-neg', toTerminalId: 'terminal_2', cableLengthFt: 3 },
-    // Solar array
-    { id: 'p3-solar-pv-pos', fromComponentId: 'p3-solar', fromTerminalId: 'pv_pos', toComponentId: 'p3-mppt', toTerminalId: 'pv_pos', cableLengthFt: 15 },
-    { id: 'p3-solar-pv-neg', fromComponentId: 'p3-solar', fromTerminalId: 'pv_neg', toComponentId: 'p3-mppt', toTerminalId: 'pv_neg', cableLengthFt: 15 },
-    // MPPT → MIDI 125A fuse → positive busbar
-    { id: 'p3-mppt-to-fuse', fromComponentId: 'p3-mppt', fromTerminalId: 'bat_pos', toComponentId: 'p3-fuse-mppt', toTerminalId: 'in', cableLengthFt: 2 },
-    { id: 'p3-mppt-fuse-to-bus', fromComponentId: 'p3-fuse-mppt', fromTerminalId: 'out', toComponentId: 'p3-bus-pos', toTerminalId: 'terminal_3', cableLengthFt: 3 },
-    { id: 'p3-mppt-neg', fromComponentId: 'p3-mppt', fromTerminalId: 'bat_neg', toComponentId: 'p3-bus-neg', toTerminalId: 'terminal_3', cableLengthFt: 5 },
-    // Positive busbar → ANL 150A fuse → inverter
-    { id: 'p3-bus-to-fuse-inv', fromComponentId: 'p3-bus-pos', fromTerminalId: 'terminal_4', toComponentId: 'p3-fuse-inv', toTerminalId: 'in', cableLengthFt: 3 },
-    { id: 'p3-fuse-inv-to-inv', fromComponentId: 'p3-fuse-inv', fromTerminalId: 'out', toComponentId: 'p3-inverter', toTerminalId: 'dc_pos', cableLengthFt: 3 },
-    { id: 'p3-inv-neg', fromComponentId: 'p3-bus-neg', fromTerminalId: 'terminal_4', toComponentId: 'p3-inverter', toTerminalId: 'dc_neg', cableLengthFt: 6 },
-    // Generator and AC loads
-    { id: 'p3-gen-l', fromComponentId: 'p3-generator', fromTerminalId: 'ac_l', toComponentId: 'p3-inverter', toTerminalId: 'ac_in_l', cableLengthFt: 10 },
-    { id: 'p3-gen-n', fromComponentId: 'p3-generator', fromTerminalId: 'ac_n', toComponentId: 'p3-inverter', toTerminalId: 'ac_in_n', cableLengthFt: 10 },
-    { id: 'p3-ac-l', fromComponentId: 'p3-inverter', fromTerminalId: 'ac_out_l', toComponentId: 'p3-ac-load', toTerminalId: 'ac_l', cableLengthFt: 15 },
-    { id: 'p3-ac-n', fromComponentId: 'p3-inverter', fromTerminalId: 'ac_out_n', toComponentId: 'p3-ac-load', toTerminalId: 'ac_n', cableLengthFt: 15 },
-  ],
+    {
+      id: "p3-b2-to-b1-pos",
+      fromComponentId: "p3-bat-2",
+      fromTerminalId: "dc_pos",
+      toComponentId: "p3-bat-1",
+      toTerminalId: "dc_pos",
+      cableLengthFt: 1,
+      busType: "dc_pos",
+      calculatedCurrentA: 300,
+      recommendedFuseA: 400,
+      recommendedCableAwg: "4/0",
+      voltageDropV: 0.029,
+      voltageDropPercent: 0.06,
+      warnings: [],
+      routePoints: [
+        {
+          x: -182,
+          y: 350
+        },
+        {
+          x: -282,
+          y: 350
+        }
+      ],
+      routeMode: "manual",
+      manualCableAwg: "4/0"
+    },
+    {
+      id: "p3-fuse-to-bus",
+      fromComponentId: "p3-fuse-pack",
+      fromTerminalId: "out",
+      toComponentId: "p3-bus-pos",
+      toTerminalId: "terminal_1",
+      cableLengthFt: 2,
+      busType: "dc_pos",
+      calculatedCurrentA: 110,
+      recommendedFuseA: 150,
+      recommendedCableAwg: "4/0",
+      voltageDropV: 0.022,
+      voltageDropPercent: 0.04,
+      warnings: []
+    },
+    {
+      id: "p3-b2-to-b1-neg",
+      fromComponentId: "p3-bat-2",
+      fromTerminalId: "dc_neg",
+      toComponentId: "p3-bat-1",
+      toTerminalId: "dc_neg",
+      cableLengthFt: 1,
+      busType: "dc_neg",
+      calculatedCurrentA: 300,
+      recommendedCableAwg: "4/0",
+      voltageDropV: 0.029,
+      voltageDropPercent: 0.06,
+      warnings: [],
+      routePoints: [
+        {
+          x: -258,
+          y: 350
+        },
+        {
+          x: -370,
+          y: 350
+        },
+        {
+          x: -370,
+          y: 385
+        }
+      ],
+      routeMode: "manual"
+    },
+    {
+      id: "p3-b1-neg",
+      fromComponentId: "p3-bat-1",
+      fromTerminalId: "dc_neg",
+      toComponentId: "p3-bus-neg",
+      toTerminalId: "terminal_1",
+      cableLengthFt: 2,
+      busType: "dc_neg",
+      calculatedCurrentA: 300,
+      recommendedCableAwg: "4/0",
+      voltageDropV: 0.059,
+      voltageDropPercent: 0.11,
+      warnings: [],
+      routePoints: [
+        {
+          x: -370,
+          y: 385
+        },
+        {
+          x: -370,
+          y: 560
+        },
+        {
+          x: 228,
+          y: 560
+        }
+      ],
+      routeMode: "manual"
+    },
+    {
+      id: "p3-mppt-to-fuse",
+      fromComponentId: "p3-mppt",
+      fromTerminalId: "bat_pos",
+      toComponentId: "p3-fuse-mppt",
+      toTerminalId: "in",
+      cableLengthFt: 2,
+      busType: "dc_pos",
+      calculatedCurrentA: 30.208333333333332,
+      recommendedFuseA: 40,
+      recommendedCableAwg: "4",
+      voltageDropV: 0.03,
+      voltageDropPercent: 0.06,
+      warnings: []
+    },
+    {
+      id: "p3-mppt-fuse-to-bus",
+      fromComponentId: "p3-fuse-mppt",
+      fromTerminalId: "out",
+      toComponentId: "p3-bus-pos",
+      toTerminalId: "terminal_3",
+      cableLengthFt: 3,
+      busType: "dc_pos",
+      calculatedCurrentA: 30.208333333333332,
+      recommendedFuseA: 40,
+      recommendedCableAwg: "4",
+      voltageDropV: 0.045,
+      voltageDropPercent: 0.09,
+      warnings: [],
+      routePoints: [
+        {
+          x: 280,
+          y: 240
+        },
+        {
+          x: 80,
+          y: 240
+        }
+      ],
+      routeMode: "manual"
+    },
+    {
+      id: "p3-mppt-neg",
+      fromComponentId: "p3-mppt",
+      fromTerminalId: "bat_neg",
+      toComponentId: "p3-bus-neg",
+      toTerminalId: "terminal_3",
+      cableLengthFt: 5,
+      busType: "dc_neg",
+      calculatedCurrentA: 30.208333333333332,
+      recommendedCableAwg: "4",
+      voltageDropV: 0.075,
+      voltageDropPercent: 0.16,
+      warnings: [],
+      routePoints: [
+        {
+          x: 328,
+          y: 260
+        },
+        {
+          x: 280,
+          y: 260
+        }
+      ],
+      routeMode: "manual"
+    },
+    {
+      id: "p3-bus-to-fuse-inv",
+      fromComponentId: "p3-bus-pos",
+      fromTerminalId: "terminal_4",
+      toComponentId: "p3-fuse-inv",
+      toTerminalId: "in",
+      cableLengthFt: 3,
+      busType: "dc_pos",
+      calculatedCurrentA: 110,
+      recommendedFuseA: 150,
+      recommendedCableAwg: "2",
+      voltageDropV: 0.104,
+      voltageDropPercent: 0.22,
+      warnings: []
+    },
+    {
+      id: "p3-fuse-inv-to-inv",
+      fromComponentId: "p3-fuse-inv",
+      fromTerminalId: "out",
+      toComponentId: "p3-inverter",
+      toTerminalId: "dc_pos",
+      cableLengthFt: 3,
+      busType: "dc_pos",
+      calculatedCurrentA: 110,
+      recommendedFuseA: 150,
+      recommendedCableAwg: "2",
+      voltageDropV: 0.104,
+      voltageDropPercent: 0.22,
+      warnings: []
+    },
+    {
+      id: "p3-inv-neg",
+      fromComponentId: "p3-bus-neg",
+      fromTerminalId: "terminal_4",
+      toComponentId: "p3-inverter",
+      toTerminalId: "dc_neg",
+      cableLengthFt: 6,
+      busType: "dc_neg",
+      calculatedCurrentA: 110,
+      recommendedCableAwg: "2",
+      voltageDropV: 0.207,
+      voltageDropPercent: 0.43,
+      warnings: []
+    },
+    {
+      id: "p3-gen-l",
+      fromComponentId: "p3-generator",
+      fromTerminalId: "ac_l",
+      toComponentId: "p3-inverter",
+      toTerminalId: "ac_in_l",
+      cableLengthFt: 10,
+      busType: "ac_line",
+      calculatedCurrentA: 25,
+      recommendedFuseA: 35,
+      recommendedCableAwg: "12",
+      voltageDropV: 0.794,
+      voltageDropPercent: 0.66,
+      warnings: []
+    },
+    {
+      id: "p3-gen-n",
+      fromComponentId: "p3-generator",
+      fromTerminalId: "ac_n",
+      toComponentId: "p3-inverter",
+      toTerminalId: "ac_in_n",
+      cableLengthFt: 10,
+      busType: "ac_neutral",
+      calculatedCurrentA: 25,
+      recommendedCableAwg: "14",
+      voltageDropV: 1.262,
+      voltageDropPercent: 1.05,
+      warnings: []
+    },
+    {
+      id: "p3-ac-n",
+      fromComponentId: "p3-inverter",
+      fromTerminalId: "ac_out_n",
+      toComponentId: "p3-ac-load",
+      toTerminalId: "ac_n",
+      cableLengthFt: 15,
+      busType: "ac_neutral",
+      calculatedCurrentA: 8.333333333333334,
+      recommendedCableAwg: "18",
+      voltageDropV: 1.595,
+      voltageDropPercent: 1.33,
+      warnings: []
+    },
+    {
+      id: "conn-1782429174545-5",
+      fromComponentId: "p3-bat-2",
+      fromTerminalId: "dc_pos",
+      toComponentId: "p3-fuse-pack",
+      toTerminalId: "in",
+      cableLengthFt: 1,
+      routePoints: [
+        {
+          x: -182,
+          y: 360
+        }
+      ],
+      routeMode: "manual",
+      busType: "dc_pos",
+      calculatedCurrentA: 110,
+      recommendedFuseA: 150,
+      recommendedCableAwg: "4/0",
+      voltageDropV: 0.011,
+      voltageDropPercent: 0.02,
+      warnings: []
+    },
+    {
+      id: "conn-1782429290345-6",
+      fromComponentId: "p3-bat-1",
+      fromTerminalId: "port_lynk_2",
+      toComponentId: "p3-bat-2",
+      toTerminalId: "port_lynk_2",
+      cableLengthFt: 6,
+      wireKind: "communication",
+      busType: "communication",
+      calculatedCurrentA: 0,
+      voltageDropV: 0,
+      voltageDropPercent: 0,
+      warnings: []
+    },
+    {
+      id: "conn-1782429308609-13",
+      fromComponentId: "p3-bat-2",
+      fromTerminalId: "can_out",
+      toComponentId: "p3-mppt",
+      toTerminalId: "ve_can",
+      cableLengthFt: 6,
+      wireKind: "communication",
+      routePoints: [
+        {
+          x: -220,
+          y: 370
+        },
+        {
+          x: -220,
+          y: 200
+        },
+        {
+          x: 220,
+          y: 200
+        },
+        {
+          x: 220,
+          y: -76
+        }
+      ],
+      routeMode: "manual",
+      busType: "communication",
+      calculatedCurrentA: 0,
+      voltageDropV: 0,
+      voltageDropPercent: 0,
+      warnings: []
+    },
+    {
+      id: "conn-1782430021177-1711",
+      fromComponentId: "comp-1782430018784-1598",
+      fromTerminalId: "pv_pos",
+      toComponentId: "comp-1782430016792-1497",
+      toTerminalId: "pv_neg",
+      cableLengthFt: 6,
+      busType: "unknown",
+      calculatedCurrentA: 12,
+      recommendedCableAwg: "18",
+      voltageDropV: 0.919,
+      voltageDropPercent: 2.7,
+      warnings: []
+    },
+    {
+      id: "conn-1782430022656-1716",
+      fromComponentId: "comp-1782430016792-1497",
+      fromTerminalId: "pv_pos",
+      toComponentId: "comp-1782430014160-1412",
+      toTerminalId: "pv_neg",
+      cableLengthFt: 6,
+      busType: "unknown",
+      calculatedCurrentA: 12,
+      recommendedCableAwg: "18",
+      voltageDropV: 0.919,
+      voltageDropPercent: 2.7,
+      warnings: []
+    },
+    {
+      id: "conn-1782430024040-1721",
+      fromComponentId: "comp-1782430014160-1412",
+      fromTerminalId: "pv_pos",
+      toComponentId: "p3-mppt",
+      toTerminalId: "pv_pos",
+      cableLengthFt: 6,
+      routePoints: [
+        {
+          x: 105,
+          y: 40
+        },
+        {
+          x: 291,
+          y: 40
+        }
+      ],
+      routeMode: "manual",
+      busType: "pv_pos",
+      calculatedCurrentA: 12,
+      recommendedCableAwg: "16",
+      voltageDropV: 0.578,
+      voltageDropPercent: 0.39,
+      warnings: []
+    },
+    {
+      id: "conn-1782430025752-1726",
+      fromComponentId: "comp-1782430018784-1598",
+      fromTerminalId: "pv_neg",
+      toComponentId: "p3-mppt",
+      toTerminalId: "pv_neg",
+      cableLengthFt: 6,
+      routePoints: [
+        {
+          x: -225,
+          y: 60
+        },
+        {
+          x: 272,
+          y: 60
+        }
+      ],
+      routeMode: "manual",
+      busType: "pv_neg",
+      calculatedCurrentA: 12,
+      recommendedCableAwg: "16",
+      voltageDropV: 0.578,
+      voltageDropPercent: 0.39,
+      warnings: []
+    },
+    {
+      id: "conn-1782430036032-1952",
+      fromComponentId: "p3-inverter",
+      fromTerminalId: "ac_out_l",
+      toComponentId: "comp-1782430036032-1951",
+      toTerminalId: "l1_in",
+      cableLengthFt: 7.5,
+      busType: "ac_line",
+      calculatedCurrentA: 8.333333333333334,
+      recommendedFuseA: 15,
+      recommendedCableAwg: "10",
+      voltageDropV: 0.125,
+      voltageDropPercent: 0.1,
+      warnings: []
+    },
+    {
+      id: "conn-1782430036032-1953",
+      fromComponentId: "comp-1782430036032-1951",
+      fromTerminalId: "l1_out",
+      toComponentId: "p3-ac-load",
+      toTerminalId: "ac_l",
+      cableLengthFt: 7.5,
+      busType: "ac_line",
+      calculatedCurrentA: 8.333333333333334,
+      recommendedFuseA: 15,
+      recommendedCableAwg: "10",
+      voltageDropV: 0.125,
+      voltageDropPercent: 0.1,
+      warnings: []
+    }
+  ]
 };
 
 export const SYSTEM_PRESETS: SystemPreset[] = [
@@ -532,9 +985,9 @@ export const SYSTEM_PRESETS: SystemPreset[] = [
   {
     id: 'offgrid-48v',
     name: '48V Off-Grid Cabin',
-    description: 'Two 48V lithium batteries, a 1600W solar array (2S2P), a high-power MPPT, a 5kW inverter, and generator backup for a permanent installation.',
+    description: 'Two Discover Helios ESS batteries in parallel (32 kWh), a 1600W solar array (2S2P), a high-power MPPT, a 5kW inverter, and generator backup for a permanent installation.',
     voltage: 48,
-    tags: ['48V', 'Cabin', 'Off-Grid', 'Solar', 'Generator'],
+    tags: ['48V', 'Cabin', 'Off-Grid', 'Solar', 'Generator', 'Helios'],
     system: OFFGRID_48V,
   },
 ];

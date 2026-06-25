@@ -1,4 +1,4 @@
-import type { Product } from '../../../../types/system';
+﻿import type { Product } from '../../../../types/system';
 
 const product: Product = {
   id: "lynx-shunt-ve-can",
@@ -14,7 +14,7 @@ const product: Product = {
   ],
   maxCurrentA: 1000,
   msrpUsd: 420,
-  description: "Victron Lynx Shunt VE.Can — precision 1000A current measurement module for the Lynx system. VE.Can communication.",
+  description: "Victron Lynx Shunt VE.Can â€” precision 1000A current measurement module for the Lynx system. VE.Can communication.",
   partNumber: "LYN040102100",
   productUrl: "https://www.cdnrg.com/products/velyn040102100",
   source: "Victron 2025",
@@ -26,7 +26,6 @@ const product: Product = {
     {
       id: "main_pos",
       label: "Main+",
-      electricalType: "dc_pos",
       kind: "dc_power",
       polarity: "positive",
       role: "bus",
@@ -38,7 +37,6 @@ const product: Product = {
     {
       id: "main_neg",
       label: "Main-",
-      electricalType: "dc_neg",
       kind: "dc_power",
       polarity: "negative",
       role: "bus",
@@ -50,7 +48,6 @@ const product: Product = {
     {
       id: "out_pos",
       label: "Out+",
-      electricalType: "dc_pos",
       kind: "dc_power",
       polarity: "positive",
       role: "bus",
@@ -62,7 +59,6 @@ const product: Product = {
     {
       id: "out_neg",
       label: "Out-",
-      electricalType: "dc_neg",
       kind: "dc_power",
       polarity: "negative",
       role: "bus",

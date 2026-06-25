@@ -1,4 +1,4 @@
-import type { Product } from '../../../../types/system';
+﻿import type { Product } from '../../../../types/system';
 
 const product: Product = {
   id: "ve-bus-smart-dongle",
@@ -7,7 +7,7 @@ const product: Product = {
   productType: "accessory",
   category: "Accessories",
   msrpUsd: 115,
-  description: "Victron VE.Bus Smart Dongle — adds Bluetooth monitoring to MultiPlus/Quattro inverter-chargers without a GX device.",
+  description: "Victron VE.Bus Smart Dongle â€” adds Bluetooth monitoring to MultiPlus/Quattro inverter-chargers without a GX device.",
   partNumber: "ASS030537010",
   productUrl: "https://www.cdnrg.com/products/veass030537010",
   source: "Victron 2025",
@@ -19,14 +19,12 @@ const product: Product = {
     {
       id: "signal",
       label: "VE.Bus",
-      electricalType: "signal",
       kind: "signal",
       role: "control",
       voltageClass: "signal_low_voltage",
       side: "left",
       offsetX: -30,
       offsetY: 0,
-      domain: "communication"
     }
   ]
 };

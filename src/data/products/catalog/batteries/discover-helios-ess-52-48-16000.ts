@@ -25,7 +25,6 @@ const product: Product = {
     {
       id: "dc_pos",
       label: "+",
-      electricalType: "dc_pos",
       kind: "dc_power",
       polarity: "positive",
       role: "bidirectional",
@@ -34,15 +33,17 @@ const product: Product = {
       side: "right",
       offsetX: 38,
       offsetY: -55,
-      domain: "dc",
       maxCurrentA: 200,
       requiresOvercurrentProtection: true,
+      connector: {
+        kind: "stud",
+        holeSize: "M10"
+      },
       notes: "DC positive output. Confirm actual Helios field terminal location and protection requirements."
     },
     {
       id: "dc_neg",
       label: "-",
-      electricalType: "dc_neg",
       kind: "dc_power",
       polarity: "negative",
       role: "bidirectional",
@@ -51,8 +52,11 @@ const product: Product = {
       side: "left",
       offsetX: -38,
       offsetY: -55,
-      domain: "dc",
       maxCurrentA: 200,
+      connector: {
+        kind: "stud",
+        holeSize: "M10"
+      },
       notes: "DC negative output. Confirm actual Helios field terminal location."
     },
     {
@@ -60,10 +64,27 @@ const product: Product = {
       label: "CAN",
       kind: "network",
       role: "bidirectional",
-      domain: "communication",
       side: "top",
-      offsetX: 0,
-      offsetY: -72
+      offsetX: 3,
+      offsetY: -70
+    },
+    {
+      id: "port_lynk_1",
+      label: "LYNK",
+      kind: "network",
+      role: "bidirectional",
+      side: "top",
+      offsetX: 13,
+      offsetY: -70
+    },
+    {
+      id: "port_lynk_2",
+      label: "LYNK",
+      kind: "network",
+      role: "bidirectional",
+      side: "top",
+      offsetX: 23,
+      offsetY: -70
     }
   ],
   batteryRatings: {
@@ -97,7 +118,28 @@ const product: Product = {
       ],
       configuredProtocol: "CANopen",
       isConfigurable: true,
-      notes: "Closed-loop CAN; protocol selectable for inverter compatibility (CANopen or J1939)."
+      notes: "Closed-loop CAN; protocol selectable for inverter compatibility (CANopen or J1939).",
+      gender: "female"
+    },
+    {
+      id: "port_lynk_1",
+      name: "LYNK",
+      connectorType: "RJ45",
+      supportedProtocols: [
+        "AEbus"
+      ],
+      gender: "female",
+      configuredProtocol: "AEbus"
+    },
+    {
+      id: "port_lynk_2",
+      name: "LYNK",
+      connectorType: "RJ45",
+      supportedProtocols: [
+        "AEbus"
+      ],
+      gender: "female",
+      configuredProtocol: "AEbus"
     }
   ]
 };

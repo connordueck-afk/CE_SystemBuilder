@@ -26,9 +26,9 @@ const AC_SOURCE_TYPES: AcSourceType[] = ['Generic', 'Shore Power', 'Generator', 
 function getSourceLoadKind(product: Product): SourceLoadKind | null {
   if (product.productType === 'dc_load') return 'dc_load';
   if (product.productType === 'ac_load') return 'ac_load';
-  const hasAcSource = product.terminals.some((t) => t.role === 'source' && t.domain === 'ac');
+  const hasAcSource = product.terminals.some((t) => t.role === 'source' && t.kind === 'ac_power');
   if (hasAcSource && product.productType === 'shorePowerInlet') return 'ac_source';
-  const hasDcSource = product.terminals.some((t) => t.role === 'source' && t.domain === 'dc');
+  const hasDcSource = product.terminals.some((t) => t.role === 'source' && t.kind === 'dc_power');
   if (hasDcSource && product.productType === 'accessory' && product.dataQuality === 'placeholder') return 'dc_source';
   return null;
 }
@@ -109,6 +109,14 @@ export function ComponentInspector({
   const isDcBus = isDcBusProduct(product);
   const fuseHolder = getFuseHolderForProduct(product);
   const imageScale = componentScale(component);
+  const productMaxCableAwg = (() => {
+    const awgs = product.terminals
+      .filter((t) => ['dc_power', 'pv_power', 'ac_power'].includes(t.kind) && t.maxCableAwg)
+      .map((t) => t.maxCableAwg!);
+    if (awgs.length === 0) return null;
+    const minIdx = Math.min(...awgs.map((awg) => CABLE_TABLE.findIndex((c) => c.awg === awg)).filter((i) => i >= 0));
+    return CABLE_TABLE[minIdx]?.label ?? null;
+  })();
 
   return (
     <div className="inspector-content">
@@ -326,21 +334,9 @@ export function ComponentInspector({
         {product.productType === 'solar_array' && product.maxPvCurrentA && (
           <SpecRow label="Max PV Current" value={`${product.maxPvCurrentA} A`} />
         )}
-        <div className="spec-row spec-row-editable">
-          <span className="spec-row-label">Max Cable Size</span>
-          <select
-            className="spec-row-input"
-            value={component.maxCableAwg ?? ''}
-            onChange={(e) => onUpdateComponentMaxCableAwg(component.id, e.target.value || undefined)}
-          >
-            <option value="">Auto</option>
-            {CABLE_TABLE.map((cable) => (
-              <option key={cable.awg} value={cable.awg}>
-                {cable.label}
-              </option>
-            ))}
-          </select>
-        </div>
+        {productMaxCableAwg && (
+          <SpecRow label="Max Cable Size" value={productMaxCableAwg} />
+        )}
         {solarStats && (
           <>
             <SpecRow label="Solar String" value={`${solarStats.seriesCount}S (${solarStats.panelCount} panels)`} />

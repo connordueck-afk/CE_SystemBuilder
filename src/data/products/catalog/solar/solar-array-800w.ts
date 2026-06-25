@@ -1,4 +1,4 @@
-import type { Product } from '../../../../types/system';
+﻿import type { Product } from '../../../../types/system';
 
 const product: Product = {
   id: "solar-array-800w",
@@ -20,7 +20,6 @@ const product: Product = {
     {
       id: "pv_pos",
       label: "PV+",
-      electricalType: "pv_pos",
       kind: "pv_power",
       polarity: "positive",
       role: "source",
@@ -28,16 +27,15 @@ const product: Product = {
       side: "bottom",
       offsetX: 25,
       offsetY: 40,
-      domain: "pv",
       connector: {
-        kind: "mc4_male"
+        kind: "mc4",
+        gender: "male"
       },
       notes: "PV array positive output."
     },
     {
       id: "pv_neg",
       label: "PV-",
-      electricalType: "pv_neg",
       kind: "pv_power",
       polarity: "negative",
       role: "source",
@@ -45,9 +43,9 @@ const product: Product = {
       side: "bottom",
       offsetX: -25,
       offsetY: 40,
-      domain: "pv",
       connector: {
-        kind: "mc4_female"
+        kind: "mc4",
+        gender: "female"
       },
       notes: "PV array negative output."
     }

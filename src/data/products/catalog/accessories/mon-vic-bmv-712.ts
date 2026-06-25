@@ -1,4 +1,4 @@
-import type { Product } from '../../../../types/system';
+﻿import type { Product } from '../../../../types/system';
 
 const product: Product = {
   id: "mon-vic-bmv-712",
@@ -19,7 +19,6 @@ const product: Product = {
     {
       id: "shunt_pos",
       label: "Shunt+",
-      electricalType: "dc_pos",
       kind: "dc_power",
       polarity: "positive",
       role: "sense",
@@ -27,13 +26,11 @@ const product: Product = {
       side: "left",
       offsetX: -40,
       offsetY: 0,
-      domain: "dc",
       notes: "Positive sense connection via 500A/50mV shunt (included)."
     },
     {
       id: "shunt_neg",
       label: "Shunt-",
-      electricalType: "dc_neg",
       kind: "dc_power",
       polarity: "negative",
       role: "sense",
@@ -41,7 +38,6 @@ const product: Product = {
       side: "right",
       offsetX: 40,
       offsetY: 0,
-      domain: "dc",
       notes: "Negative sense connection (load side of shunt)."
     }
   ]

@@ -4,15 +4,12 @@ export function isDcBusProduct(product: Product): boolean {
   if (product.productType === 'busbar' || product.productType === 'dc_distribution') return true;
   return product.terminals.some((terminal) =>
     terminal.kind === 'dc_power' &&
-    terminal.role === 'bus' &&
-    (terminal.domain == null || terminal.domain === 'dc')
+    terminal.role === 'bus'
   );
 }
 
 export function isDcBusTerminal(product: Product, terminal: TerminalDefinition): boolean {
-  return isDcBusProduct(product) &&
-    terminal.kind === 'dc_power' &&
-    (terminal.domain == null || terminal.domain === 'dc');
+  return isDcBusProduct(product) && terminal.kind === 'dc_power';
 }
 
 export function getDcBusNominalVoltage(component: SystemComponent, product: Product): number | undefined {

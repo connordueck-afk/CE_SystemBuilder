@@ -1,4 +1,4 @@
-import type { Product } from '../../../../types/system';
+﻿import type { Product } from '../../../../types/system';
 
 const product: Product = {
   id: "lynx-smart-bms-ng-500",
@@ -14,7 +14,7 @@ const product: Product = {
   ],
   maxCurrentA: 500,
   msrpUsd: 950,
-  description: "Victron Lynx Smart BMS NG 500A — next-generation BMS for Victron Lithium NG batteries. VE.Can / Bluetooth.",
+  description: "Victron Lynx Smart BMS NG 500A â€” next-generation BMS for Victron Lithium NG batteries. VE.Can / Bluetooth.",
   partNumber: "Lynx Smart BMS NG 500",
   source: "Victron 2025",
   dataQuality: "partial",
@@ -25,7 +25,6 @@ const product: Product = {
     {
       id: "bat_pos",
       label: "Bat+",
-      electricalType: "dc_pos",
       kind: "dc_power",
       polarity: "positive",
       role: "bus",
@@ -37,7 +36,6 @@ const product: Product = {
     {
       id: "bat_neg",
       label: "Bat-",
-      electricalType: "dc_neg",
       kind: "dc_power",
       polarity: "negative",
       role: "bus",
@@ -49,7 +47,6 @@ const product: Product = {
     {
       id: "load_pos",
       label: "Load+",
-      electricalType: "dc_pos",
       kind: "dc_power",
       polarity: "positive",
       role: "bus",
@@ -61,7 +58,6 @@ const product: Product = {
     {
       id: "load_neg",
       label: "Load-",
-      electricalType: "dc_neg",
       kind: "dc_power",
       polarity: "negative",
       role: "bus",

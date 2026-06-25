@@ -418,7 +418,7 @@ function parallelBatteryBankWithSingleMainFuse(): SystemDesign {
         inferredPolarity: 'negative',
         inferredElectricalType: 'dc_neg',
       },
-      { id: 'fuse', productId: 'fuse-mega-300a', label: '300A Main Fuse', quantity: 1, x: 330, y: -60 },
+      { id: 'fuse', productId: 'fuse-mega-generic-58v-300a', label: '300A Main Fuse', quantity: 1, x: 330, y: -60 },
       {
         ...busDefaults,
         id: 'pos-main',
@@ -473,7 +473,7 @@ function daisyChainParallelBatteries(): SystemDesign {
     components: [
       { id: 'bat-a', productId: 'bat-vic-smart-12-200', label: 'Battery A', quantity: 1, x: 0, y: -80 },
       { id: 'bat-b', productId: 'bat-vic-smart-12-200', label: 'Battery B', quantity: 1, x: 0, y: 80 },
-      { id: 'fuse', productId: 'fuse-mega-300a', label: '300A Main Fuse', quantity: 1, x: 200, y: -80 },
+      { id: 'fuse', productId: 'fuse-mega-generic-58v-300a', label: '300A Main Fuse', quantity: 1, x: 200, y: -80 },
       {
         ...busDefaults,
         id: 'pos-main',
@@ -660,7 +660,7 @@ test('selected fuse below load current is a hard branch error', () => {
 });
 
 test('selected fuse over manual cable ampacity is a hard branch error', () => {
-  const codes = errorCodes(batteryFuseLoad(80, 'fuse-mega-200a', '6'), 'fuse-load');
+  const codes = errorCodes(batteryFuseLoad(80, 'fuse-mega-generic-58v-200a', '6'), 'fuse-load');
   assert.ok(codes.includes('FUSE_OVER_CABLE_AMPACITY'));
 });
 

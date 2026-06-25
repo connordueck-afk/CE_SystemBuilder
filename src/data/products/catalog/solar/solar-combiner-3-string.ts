@@ -1,4 +1,4 @@
-import type { Product } from '../../../../types/system';
+﻿import type { Product } from '../../../../types/system';
 
 const product: Product = {
   id: "solar-combiner-3-string",
@@ -19,7 +19,6 @@ const product: Product = {
     {
       id: "string_1_pos",
       label: "S1+",
-      electricalType: "pv_pos",
       kind: "pv_power",
       polarity: "positive",
       role: "bus",
@@ -27,13 +26,12 @@ const product: Product = {
       side: "left",
       offsetX: -70,
       offsetY: -34,
-      domain: "pv",
+      connector: { kind: 'mc4', gender: 'female' },
       notes: "String 1 positive input."
     },
     {
       id: "string_1_neg",
       label: "S1-",
-      electricalType: "pv_neg",
       kind: "pv_power",
       polarity: "negative",
       role: "bus",
@@ -41,13 +39,12 @@ const product: Product = {
       side: "left",
       offsetX: -70,
       offsetY: -26,
-      domain: "pv",
+      connector: { kind: 'mc4', gender: 'male' },
       notes: "String 1 negative input."
     },
     {
       id: "string_2_pos",
       label: "S2+",
-      electricalType: "pv_pos",
       kind: "pv_power",
       polarity: "positive",
       role: "bus",
@@ -55,13 +52,12 @@ const product: Product = {
       side: "left",
       offsetX: -70,
       offsetY: -4,
-      domain: "pv",
+      connector: { kind: 'mc4', gender: 'female' },
       notes: "String 2 positive input."
     },
     {
       id: "string_2_neg",
       label: "S2-",
-      electricalType: "pv_neg",
       kind: "pv_power",
       polarity: "negative",
       role: "bus",
@@ -69,13 +65,12 @@ const product: Product = {
       side: "left",
       offsetX: -70,
       offsetY: 4,
-      domain: "pv",
+      connector: { kind: 'mc4', gender: 'male' },
       notes: "String 2 negative input."
     },
     {
       id: "string_3_pos",
       label: "S3+",
-      electricalType: "pv_pos",
       kind: "pv_power",
       polarity: "positive",
       role: "bus",
@@ -83,13 +78,12 @@ const product: Product = {
       side: "left",
       offsetX: -70,
       offsetY: 26,
-      domain: "pv",
+      connector: { kind: 'mc4', gender: 'female' },
       notes: "String 3 positive input."
     },
     {
       id: "string_3_neg",
       label: "S3-",
-      electricalType: "pv_neg",
       kind: "pv_power",
       polarity: "negative",
       role: "bus",
@@ -97,13 +91,12 @@ const product: Product = {
       side: "left",
       offsetX: -70,
       offsetY: 34,
-      domain: "pv",
+      connector: { kind: 'mc4', gender: 'male' },
       notes: "String 3 negative input."
     },
     {
       id: "out_pos",
       label: "Out+",
-      electricalType: "pv_pos",
       kind: "pv_power",
       polarity: "positive",
       role: "bus",
@@ -111,13 +104,12 @@ const product: Product = {
       side: "right",
       offsetX: 70,
       offsetY: -10,
-      domain: "pv",
+      connector: { kind: 'screw_terminal' },
       notes: "Combined PV positive output to MPPT."
     },
     {
       id: "out_neg",
       label: "Out-",
-      electricalType: "pv_neg",
       kind: "pv_power",
       polarity: "negative",
       role: "bus",
@@ -125,7 +117,7 @@ const product: Product = {
       side: "right",
       offsetX: 70,
       offsetY: 10,
-      domain: "pv",
+      connector: { kind: 'screw_terminal' },
       notes: "Combined PV negative output to MPPT."
     }
   ],

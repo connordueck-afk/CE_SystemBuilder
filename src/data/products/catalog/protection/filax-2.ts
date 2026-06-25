@@ -1,4 +1,4 @@
-import type { Product } from '../../../../types/system';
+﻿import type { Product } from '../../../../types/system';
 
 const product: Product = {
   id: "filax-2",
@@ -7,7 +7,7 @@ const product: Product = {
   productType: "transferSwitch",
   category: "Protection",
   msrpUsd: 316,
-  description: "Victron Filax 2 — ultra-fast (<20ms) automatic transfer switch for shore power / generator changeover.",
+  description: "Victron Filax 2 â€” ultra-fast (<20ms) automatic transfer switch for shore power / generator changeover.",
   partNumber: "FIL000020000",
   source: "Victron 2025",
   dataQuality: "partial",
@@ -18,7 +18,6 @@ const product: Product = {
     {
       id: "ac_in_1_l",
       label: "In1 L",
-      electricalType: "ac",
       kind: "ac_power",
       polarity: "line",
       role: "sink",
@@ -26,12 +25,10 @@ const product: Product = {
       side: "left",
       offsetX: -40,
       offsetY: -20,
-      domain: "ac"
     },
     {
       id: "ac_in_1_n",
       label: "In1 N",
-      electricalType: "ac",
       kind: "ac_power",
       polarity: "neutral",
       role: "sink",
@@ -39,12 +36,10 @@ const product: Product = {
       side: "left",
       offsetX: -40,
       offsetY: 0,
-      domain: "ac"
     },
     {
       id: "ac_in_2_l",
       label: "In2 L",
-      electricalType: "ac",
       kind: "ac_power",
       polarity: "line",
       role: "sink",
@@ -52,12 +47,10 @@ const product: Product = {
       side: "left",
       offsetX: -40,
       offsetY: 20,
-      domain: "ac"
     },
     {
       id: "ac_out_l",
       label: "Out L",
-      electricalType: "ac",
       kind: "ac_power",
       polarity: "line",
       role: "source",
@@ -65,12 +58,10 @@ const product: Product = {
       side: "right",
       offsetX: 40,
       offsetY: -10,
-      domain: "ac"
     },
     {
       id: "ac_out_n",
       label: "Out N",
-      electricalType: "ac",
       kind: "ac_power",
       polarity: "neutral",
       role: "source",
@@ -78,7 +69,6 @@ const product: Product = {
       side: "right",
       offsetX: 40,
       offsetY: 10,
-      domain: "ac"
     }
   ]
 };

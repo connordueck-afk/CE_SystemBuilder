@@ -1,4 +1,4 @@
-import type { Product } from '../../../../types/system';
+﻿import type { Product } from '../../../../types/system';
 
 const product: Product = {
   id: "dist-generic-busbar",
@@ -23,45 +23,45 @@ const product: Product = {
     {
       id: "terminal_1",
       label: "T1",
-      electricalType: "generic",
       kind: "generic",
       role: "bus",
       side: "bottom",
       offsetX: -52,
       offsetY: 30,
+      connector: { kind: 'stud', holeSize: 'M8' },
       notes: "Bus connection point. Polarity determined by component busPolarity assignment."
     },
     {
       id: "terminal_2",
       label: "T2",
-      electricalType: "generic",
       kind: "generic",
       role: "bus",
       side: "bottom",
       offsetX: -17.333333333333336,
       offsetY: 30,
+      connector: { kind: 'stud', holeSize: 'M8' },
       notes: "Bus connection point. Polarity determined by component busPolarity assignment."
     },
     {
       id: "terminal_3",
       label: "T3",
-      electricalType: "generic",
       kind: "generic",
       role: "bus",
       side: "bottom",
       offsetX: 17.33333333333333,
       offsetY: 30,
+      connector: { kind: 'stud', holeSize: 'M8' },
       notes: "Bus connection point. Polarity determined by component busPolarity assignment."
     },
     {
       id: "terminal_4",
       label: "T4",
-      electricalType: "generic",
       kind: "generic",
       role: "bus",
       side: "bottom",
       offsetX: 52,
       offsetY: 30,
+      connector: { kind: 'stud', holeSize: 'M8' },
       notes: "Bus connection point. Polarity determined by component busPolarity assignment."
     }
   ],

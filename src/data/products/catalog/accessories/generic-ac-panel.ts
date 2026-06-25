@@ -1,4 +1,4 @@
-import type { Product } from '../../../../types/system';
+﻿import type { Product } from '../../../../types/system';
 
 const product: Product = {
   id: "generic-ac-panel",
@@ -17,7 +17,6 @@ const product: Product = {
     {
       id: "in_l",
       label: "In L",
-      electricalType: "ac",
       kind: "ac_power",
       polarity: "line",
       role: "sink",
@@ -25,13 +24,11 @@ const product: Product = {
       side: "left",
       offsetX: -55,
       offsetY: -12,
-      domain: "ac",
       phases: 1
     },
     {
       id: "in_n",
       label: "In N",
-      electricalType: "ac",
       kind: "ac_power",
       polarity: "neutral",
       role: "sink",
@@ -39,12 +36,10 @@ const product: Product = {
       side: "left",
       offsetX: -55,
       offsetY: 12,
-      domain: "ac"
     },
     {
       id: "out_l",
       label: "Out L",
-      electricalType: "ac",
       kind: "ac_power",
       polarity: "line",
       role: "source",
@@ -52,13 +47,11 @@ const product: Product = {
       side: "right",
       offsetX: 55,
       offsetY: -12,
-      domain: "ac",
       phases: 1
     },
     {
       id: "out_n",
       label: "Out N",
-      electricalType: "ac",
       kind: "ac_power",
       polarity: "neutral",
       role: "source",
@@ -66,7 +59,6 @@ const product: Product = {
       side: "right",
       offsetX: 55,
       offsetY: 12,
-      domain: "ac"
     }
   ]
 };

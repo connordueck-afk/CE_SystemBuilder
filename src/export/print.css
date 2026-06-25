@@ -1,0 +1,391 @@
+/* ─── Print View — hidden on screen, shown during print ─────────────────── */
+
+@media screen {
+  .print-view {
+    display: none;
+  }
+}
+
+@media print {
+  @page {
+    size: A4 landscape;
+    margin: 12mm 14mm;
+  }
+
+  /* app.css sets body/html to height:100% overflow:hidden — reset so the
+     print view can flow across multiple pages without being clipped. */
+  html, body {
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  /* PrintView renders via a portal directly into <body>.
+     Hide every other body child (including #root and the app) so only the
+     print view is visible. This avoids any height/overflow constraints from
+     the app container clipping the print output. */
+  body > *:not(.print-view) {
+    display: none !important;
+  }
+
+  .print-view {
+    display: block;
+  }
+
+  /* Page breaks */
+  .print-page {
+    page-break-after: always;
+    break-after: page;
+  }
+
+  .print-page:last-child {
+    page-break-after: avoid;
+    break-after: avoid;
+  }
+
+  /* Lock cover, schematic, and legend pages to exactly one printed page.
+     min-height: 90vh from shared CSS would overflow in print context; unset it.
+     overflow: hidden prevents flex children from bleeding onto the next page. */
+  .print-cover,
+  .print-schematic-page,
+  .print-legend-page {
+    height: 186mm; /* A4 landscape printable height: 210mm - 2×12mm margins */
+    min-height: unset;
+    overflow: hidden;
+  }
+
+  /* With the page height fixed, let flex handle the schematic frame height
+     instead of the hard-coded 165mm (which is overridden by flex: 1 anyway). */
+  .schematic-frame {
+    height: unset;
+  }
+
+  /* Keep cable table sections together where possible */
+  .cable-section {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+}
+
+/* ─── Shared layout ─────────────────────────────────────────────────────── */
+
+.print-page {
+  width: 100%;
+  box-sizing: border-box;
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  color: #1a1a1a;
+  background: white;
+}
+
+/* ─── Cover page ─────────────────────────────────────────────────────────── */
+
+.print-cover {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  padding: 40px 48px;
+  min-height: 90vh;
+}
+
+.cover-logo-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 48px;
+}
+
+.cover-logo {
+  height: 48px;
+  width: auto;
+}
+
+.cover-doc-type {
+  font-size: 13px;
+  font-weight: 500;
+  color: #666;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.cover-title {
+  font-size: 36px;
+  font-weight: 700;
+  color: #111;
+  line-height: 1.15;
+  margin-bottom: 12px;
+}
+
+.cover-meta {
+  display: flex;
+  gap: 24px;
+  font-size: 14px;
+  color: #555;
+  margin-bottom: 48px;
+}
+
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 20px;
+}
+
+.summary-card {
+  background: #f7f8fa;
+  border: 1px solid #e2e5ea;
+  border-radius: 8px;
+  padding: 20px 24px;
+}
+
+.summary-card-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #666;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  margin-bottom: 8px;
+}
+
+.summary-card-value {
+  font-size: 28px;
+  font-weight: 700;
+  color: #111;
+  line-height: 1;
+  margin-bottom: 6px;
+}
+
+.summary-card-sub {
+  font-size: 12px;
+  color: #888;
+}
+
+/* ─── Schematic pages ────────────────────────────────────────────────────── */
+
+.print-schematic-page {
+  display: flex;
+  flex-direction: column;
+  padding: 16px 20px;
+  min-height: 90vh;
+}
+
+.schematic-page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1.5px solid #222;
+}
+
+.schematic-page-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #111;
+}
+
+.schematic-page-name {
+  font-size: 12px;
+  color: #666;
+}
+
+.schematic-frame {
+  flex: 1;
+  min-height: 0;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+/* ─── Legend page ────────────────────────────────────────────────────────── */
+
+.print-legend-page {
+  padding: 32px 48px;
+}
+
+.legend-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: #111;
+  margin-bottom: 24px;
+  padding-bottom: 10px;
+  border-bottom: 2px solid #222;
+}
+
+.legend-body {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 40px;
+}
+
+.legend-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.legend-section-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: #555;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  margin-bottom: 4px;
+  margin-top: 4px;
+}
+
+.legend-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 13px;
+  color: #222;
+}
+
+.legend-swatch {
+  width: 32px;
+  height: 12px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.legend-label {
+  font-size: 13px;
+  color: #333;
+}
+
+.legend-line {
+  display: inline-block;
+  width: 40px;
+  border-radius: 3px;
+  background: #444;
+  flex-shrink: 0;
+}
+
+.legend-line-xl { height: 6px; }
+.legend-line-lg { height: 4.75px; }
+.legend-line-md { height: 3.5px; }
+.legend-line-sm { height: 2.25px; }
+
+.legend-awg-badge {
+  background: #fff;
+  border: 1.5px solid #444;
+  border-radius: 3px;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 1px 5px;
+  color: #222;
+  flex-shrink: 0;
+}
+
+/* ─── Table pages (cable schedule, BOM) ─────────────────────────────────── */
+
+.print-table-page {
+  padding: 20px 28px;
+}
+
+.table-page-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #111;
+  margin-bottom: 18px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid #222;
+}
+
+.cable-section {
+  margin-bottom: 24px;
+}
+
+.cable-section-header {
+  font-size: 12px;
+  font-weight: 700;
+  color: #222;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  border-left: 4px solid #888;
+  padding-left: 10px;
+  margin-bottom: 8px;
+}
+
+.bom-group-row td {
+  background: #f0f2f5;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #333;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 5px 10px;
+  border-bottom: 1px solid #ddd;
+}
+
+.print-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11.5px;
+  color: #222;
+}
+
+.print-table th {
+  background: #1a2535;
+  color: #fff;
+  font-weight: 600;
+  text-align: left;
+  padding: 6px 10px;
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.print-table td {
+  padding: 5px 10px;
+  border-bottom: 1px solid #e8eaed;
+}
+
+.print-table tr:last-child td {
+  border-bottom: none;
+}
+
+.print-table tr:nth-child(even) td {
+  background: #f8f9fb;
+}
+
+.td-num {
+  color: #888;
+  font-size: 10.5px;
+  width: 28px;
+}
+
+.td-center {
+  text-align: center;
+}
+
+.td-right {
+  text-align: right;
+}
+
+.bom-total-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  font-weight: 700;
+  color: #111;
+  border-top: 2px solid #222;
+  padding-top: 10px;
+  margin-top: 16px;
+}
+
+/* ─── Footer on every print page ────────────────────────────────────────── */
+
+@media print {
+  .print-page::after {
+    content: attr(data-name) '  ·  ' counter(page) ' / ' counter(pages);
+    display: block;
+    position: fixed;
+    bottom: 8mm;
+    left: 14mm;
+    right: 14mm;
+    font-size: 9px;
+    color: #999;
+    border-top: 1px solid #ddd;
+    padding-top: 4px;
+    counter-increment: page;
+  }
+}

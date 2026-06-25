@@ -1,4 +1,4 @@
-import type { Product } from '../../../../types/system';
+﻿import type { Product } from '../../../../types/system';
 
 const product: Product = {
   id: "globallink-520",
@@ -7,7 +7,7 @@ const product: Product = {
   productType: "monitor",
   category: "Monitoring",
   msrpUsd: 265,
-  description: "Victron GlobalLink 520 — LTE-M cellular gateway for remote VRM monitoring via VE.Direct",
+  description: "Victron GlobalLink 520 â€” LTE-M cellular gateway for remote VRM monitoring via VE.Direct",
   partNumber: "ASS030543020",
   source: "Victron 2025",
   dataQuality: "partial",
@@ -18,14 +18,12 @@ const product: Product = {
     {
       id: "signal",
       label: "Signal",
-      electricalType: "signal",
       kind: "signal",
       role: "control",
       voltageClass: "signal_low_voltage",
       side: "left",
       offsetX: -40,
       offsetY: 0,
-      domain: "communication",
       notes: "VE.Bus / VE.Can / VE.Direct system communications."
     }
   ]

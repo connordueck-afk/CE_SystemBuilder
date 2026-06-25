@@ -10,6 +10,7 @@ interface Props {
   isPending: boolean;
   isSource: boolean;
   isDisabled: boolean;
+  isFull: boolean;
   busColors: BusColorMap;
   onMouseDown: (compId: string, termId: string, e: React.MouseEvent) => void;
 }
@@ -26,19 +27,23 @@ function terminalColor(terminal: TerminalDefinition, busColors: BusColorMap): st
   return busColors[busTypeFromTerminal(terminal)];
 }
 
-export function Terminal({ terminal, componentId, componentLabel, isHighlighted, isPending, isSource, isDisabled, busColors, onMouseDown }: Props) {
+export function Terminal({ terminal, componentId, componentLabel, isHighlighted, isPending, isSource, isDisabled, isFull, busColors, onMouseDown }: Props) {
   const color = terminalColor(terminal, busColors);
   const r = (isHighlighted || isSource) ? 6 : 4;
   const isCommPort = terminal.kind === 'network';
   const tooltip = terminalTooltip(terminal, componentLabel);
 
+  // Full terminals: solid fill at reduced opacity when idle, disabled when a connection is being drawn
+  const fillColor = (isSource || isFull) ? color : '#ffffff';
+  const cursorStyle = isDisabled ? 'default' : (isFull ? 'not-allowed' : 'crosshair');
+
   return (
     <g
       transform={`translate(${terminal.offsetX}, ${terminal.offsetY})`}
       style={{
-        cursor: isDisabled ? 'default' : 'crosshair',
+        cursor: cursorStyle,
         pointerEvents: isDisabled ? 'none' : 'auto',
-        opacity: isDisabled ? 0.2 : 1,
+        opacity: isDisabled ? 0.2 : (isFull && !isSource) ? 0.55 : 1,
       }}
       onMouseDown={(e) => {
         e.stopPropagation();
@@ -48,18 +53,18 @@ export function Terminal({ terminal, componentId, componentLabel, isHighlighted,
       // pending connection we just started on mousedown.
       onClick={(e) => e.stopPropagation()}
     >
-      <title>{tooltip}</title>
+      <title>{isFull ? `${tooltip} (at connection limit)` : tooltip}</title>
       {isCommPort ? (
         // Communication ports render as small squares to distinguish from power terminals
         <>
           <rect
             x={-(r + 3)} y={-(r + 3)} width={(r + 3) * 2} height={(r + 3) * 2}
             fill="transparent"
-            style={{ cursor: isDisabled ? 'default' : 'crosshair' }}
+            style={{ cursor: cursorStyle }}
           />
           <rect
             x={-r} y={-r} width={r * 2} height={r * 2}
-            fill={isSource ? color : '#ffffff'}
+            fill={fillColor}
             stroke={color}
             strokeWidth={isSource ? 2.5 : 1.5}
             rx={1}
@@ -74,11 +79,11 @@ export function Terminal({ terminal, componentId, componentLabel, isHighlighted,
           <circle
             r={r + 3}
             fill="transparent"
-            style={{ cursor: isDisabled ? 'default' : 'crosshair' }}
+            style={{ cursor: cursorStyle }}
           />
           <circle
             r={r}
-            fill={isSource ? color : '#ffffff'}
+            fill={fillColor}
             stroke={color}
             strokeWidth={isSource ? 2.5 : isPending ? 2.5 : 1.5}
             style={{ transition: 'r 0.1s' }}

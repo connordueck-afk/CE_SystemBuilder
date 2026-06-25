@@ -1,4 +1,4 @@
-import type { Product } from '../../../../types/system';
+﻿import type { Product } from '../../../../types/system';
 
 const product: Product = {
   id: "temperature-sensor-quattro",
@@ -7,7 +7,7 @@ const product: Product = {
   productType: "accessory",
   category: "Accessories",
   msrpUsd: 25,
-  description: "Victron battery temperature sensor for MultiPlus/Quattro — enables temperature-compensated charging.",
+  description: "Victron battery temperature sensor for MultiPlus/Quattro â€” enables temperature-compensated charging.",
   partNumber: "ASS000100000",
   source: "Victron 2025",
   dataQuality: "partial",
@@ -18,14 +18,12 @@ const product: Product = {
     {
       id: "signal",
       label: "Sensor",
-      electricalType: "signal",
       kind: "signal",
       role: "control",
       voltageClass: "signal_low_voltage",
       side: "left",
       offsetX: -30,
       offsetY: 0,
-      domain: "signal"
     }
   ]
 };

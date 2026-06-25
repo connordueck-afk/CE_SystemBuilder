@@ -1,4 +1,4 @@
-import type { Product } from '../../../../types/system';
+﻿import type { Product } from '../../../../types/system';
 
 const product: Product = {
   id: "vedirect-usb",
@@ -7,7 +7,7 @@ const product: Product = {
   productType: "accessory",
   category: "Accessories",
   msrpUsd: 34,
-  description: "Victron VE.Direct to USB interface — connect VE.Direct devices (MPPTs, BMVs) to a computer for monitoring and configuration.",
+  description: "Victron VE.Direct to USB interface â€” connect VE.Direct devices (MPPTs, BMVs) to a computer for monitoring and configuration.",
   partNumber: "ASS030530010",
   productUrl: "https://www.cdnrg.com/products/veass030530010",
   source: "Victron 2025",
@@ -19,14 +19,12 @@ const product: Product = {
     {
       id: "signal",
       label: "VE.Direct",
-      electricalType: "signal",
       kind: "signal",
       role: "control",
       voltageClass: "signal_low_voltage",
       side: "left",
       offsetX: -30,
       offsetY: 0,
-      domain: "communication"
     }
   ]
 };

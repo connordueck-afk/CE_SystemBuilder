@@ -1,4 +1,4 @@
-import type { Product } from '../../../../types/system';
+﻿import type { Product } from '../../../../types/system';
 
 const product: Product = {
   id: "generic-mc4-connector",
@@ -18,7 +18,6 @@ const product: Product = {
     {
       id: "in_pos",
       label: "In+",
-      electricalType: "pv_pos",
       kind: "pv_power",
       polarity: "positive",
       role: "pass_through",
@@ -26,12 +25,10 @@ const product: Product = {
       side: "left",
       offsetX: -35,
       offsetY: -8,
-      domain: "pv"
     },
     {
       id: "out_pos",
       label: "Out+",
-      electricalType: "pv_pos",
       kind: "pv_power",
       polarity: "positive",
       role: "pass_through",
@@ -39,12 +36,10 @@ const product: Product = {
       side: "right",
       offsetX: 35,
       offsetY: -8,
-      domain: "pv"
     },
     {
       id: "in_neg",
       label: "In-",
-      electricalType: "pv_neg",
       kind: "pv_power",
       polarity: "negative",
       role: "pass_through",
@@ -52,12 +47,10 @@ const product: Product = {
       side: "left",
       offsetX: -35,
       offsetY: 8,
-      domain: "pv"
     },
     {
       id: "out_neg",
       label: "Out-",
-      electricalType: "pv_neg",
       kind: "pv_power",
       polarity: "negative",
       role: "pass_through",
@@ -65,7 +58,6 @@ const product: Product = {
       side: "right",
       offsetX: 35,
       offsetY: 8,
-      domain: "pv"
     }
   ]
 };

@@ -1,4 +1,4 @@
-import type { Product } from '../../../../types/system';
+﻿import type { Product } from '../../../../types/system';
 
 const product: Product = {
   id: "kisae-sc1220ld",
@@ -28,7 +28,6 @@ const product: Product = {
     {
       id: "pv_pos",
       label: "PV+",
-      electricalType: "pv_pos",
       kind: "pv_power",
       polarity: "positive",
       role: "sink",
@@ -37,12 +36,10 @@ const product: Product = {
       side: "left",
       offsetX: -48,
       offsetY: -16,
-      domain: "pv"
     },
     {
       id: "pv_neg",
       label: "PV-",
-      electricalType: "pv_neg",
       kind: "pv_power",
       polarity: "negative",
       role: "sink",
@@ -51,12 +48,10 @@ const product: Product = {
       side: "left",
       offsetX: -48,
       offsetY: 16,
-      domain: "pv"
     },
     {
       id: "bat_pos",
       label: "Bat+",
-      electricalType: "dc_pos",
       kind: "dc_power",
       polarity: "positive",
       role: "source",
@@ -65,13 +60,11 @@ const product: Product = {
       side: "right",
       offsetX: 48,
       offsetY: -16,
-      domain: "dc",
       requiresOvercurrentProtection: true
     },
     {
       id: "bat_neg",
       label: "Bat-",
-      electricalType: "dc_neg",
       kind: "dc_power",
       polarity: "negative",
       role: "source",
@@ -80,14 +73,12 @@ const product: Product = {
       side: "right",
       offsetX: 48,
       offsetY: 16,
-      domain: "dc"
     },
     {
       id: "ve_can",
       label: "VE.Can",
       kind: "network",
       role: "bidirectional",
-      domain: "communication",
       side: "top",
       offsetX: -48,
       offsetY: -36
@@ -97,7 +88,6 @@ const product: Product = {
       label: "VE.Direct",
       kind: "network",
       role: "bidirectional",
-      domain: "communication",
       side: "top",
       offsetX: 48,
       offsetY: -36

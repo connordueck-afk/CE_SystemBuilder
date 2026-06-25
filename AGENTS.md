@@ -105,6 +105,10 @@ If adding a new product type, update both the `ProductType` union in `src/types/
 
 These are useful context, but the current source code is authoritative.
 
+## Git
+
+Never commit or push to Git unless explicitly asked to do so.
+
 ## Gotchas
 
 - `git status` may report "not a git repository" from this environment even though a `.git` entry is visible. Do not rely on Git being available unless checked.

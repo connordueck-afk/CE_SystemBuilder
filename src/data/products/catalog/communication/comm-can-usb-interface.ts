@@ -1,4 +1,4 @@
-import type { Product } from '../../../../types/system';
+﻿import type { Product } from '../../../../types/system';
 
 const product: Product = {
   id: "comm-can-usb-interface",
@@ -30,7 +30,6 @@ const product: Product = {
       label: "CAN Port",
       kind: "network",
       role: "bidirectional",
-      domain: "communication",
       side: "bottom",
       offsetX: 0,
       offsetY: 27.5

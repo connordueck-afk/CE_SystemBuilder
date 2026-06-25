@@ -1,4 +1,4 @@
-import type { Product } from '../../../../types/system';
+﻿import type { Product } from '../../../../types/system';
 
 const product: Product = {
   id: "discover-aes-lithium-12-200",
@@ -22,7 +22,6 @@ const product: Product = {
     {
       id: "dc_pos",
       label: "+",
-      electricalType: "dc_pos",
       kind: "dc_power",
       polarity: "positive",
       role: "bidirectional",
@@ -31,15 +30,14 @@ const product: Product = {
       side: "top",
       offsetX: 44,
       offsetY: -47,
-      domain: "dc",
       maxCurrentA: 200,
       requiresOvercurrentProtection: true,
+      connector: { kind: 'stud', holeSize: 'M8' },
       notes: "DC positive terminal. Requires overcurrent protection (fuse/breaker) on the positive conductor."
     },
     {
       id: "dc_neg",
       label: "-",
-      electricalType: "dc_neg",
       kind: "dc_power",
       polarity: "negative",
       role: "bidirectional",
@@ -48,8 +46,8 @@ const product: Product = {
       side: "top",
       offsetX: -44,
       offsetY: -47,
-      domain: "dc",
       maxCurrentA: 200,
+      connector: { kind: 'stud', holeSize: 'M8' },
       notes: "DC negative terminal."
     }
   ],

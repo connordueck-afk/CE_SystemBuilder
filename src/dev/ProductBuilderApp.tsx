@@ -7,6 +7,7 @@ import { RatingsForm } from './components/RatingsForm';
 import { TerminalPlacer } from './components/TerminalPlacer';
 import { TerminalEditorPanel } from './components/TerminalEditorPanel';
 import { SVGPickerModal } from './components/SVGPickerModal';
+import { VariantsForm } from './components/VariantsForm';
 
 // ---- Types ----
 
@@ -145,6 +146,13 @@ export function ProductBuilderApp() {
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
   const [isDirty, setIsDirty] = useState(false);
   const [activeTab, setActiveTab] = useState<'core' | 'visual'>('core');
+  const [svgViewBox, setSvgViewBox] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
+  const [svgTrim, setSvgTrim] = useState({ top: 0, right: 0, bottom: 0, left: 0 });
+  const [svgVersion, setSvgVersion] = useState(0);
+
+  // Derived early so callbacks below can reference them without TDZ issues
+  const width = Number(product.width) || 120;
+  const height = Number(product.height) || 80;
 
   // Load product list and SVG list on mount
   useEffect(() => {
@@ -188,6 +196,10 @@ export function ProductBuilderApp() {
   const updateTerminal = useCallback((id: string, changes: Partial<TerminalDefinition>) => {
     const renamedTo = changes.id && changes.id !== id ? changes.id : undefined;
     setProduct(prev => {
+      if (renamedTo && (prev.terminals ?? []).some((t: TerminalDefinition) => t.id === renamedTo)) {
+        console.warn(`[ProductBuilder] rename to "${renamedTo}" skipped — ID already in use`);
+        return prev;
+      }
       const terminals = (prev.terminals ?? []).map((t: TerminalDefinition) =>
         t.id === id ? { ...t, ...changes } : t
       );
@@ -240,6 +252,50 @@ export function ProductBuilderApp() {
 
   // ---- Import an SVG into public/product-images and select it ----
 
+  // ---- SVG crop helpers ----
+
+  const detectViewBox = useCallback(async () => {
+    if (!product.imageUrl) return;
+    try {
+      const base = product.imageUrl.split('?')[0];
+      const res = await fetch(`${base}?t=${Date.now()}`);
+      const text = await res.text();
+      const vb = text.match(/viewBox=["']([^"']*)["']/i)?.[1];
+      const parts = vb?.trim().split(/[\s,]+/).map(Number);
+      if (parts?.length === 4 && parts.every(n => !isNaN(n))) {
+        setSvgViewBox({ x: parts[0], y: parts[1], w: parts[2], h: parts[3] });
+        setSvgTrim({ top: 0, right: 0, bottom: 0, left: 0 });
+      } else {
+        alert('No viewBox found in SVG — add a viewBox attribute to the file first.');
+      }
+    } catch (e) { alert(`Could not read SVG: ${e}`); }
+  }, [product.imageUrl]);
+
+  const applyTrim = useCallback(async () => {
+    if (!svgViewBox || !product.imageUrl) return;
+    const newVB = {
+      x: svgViewBox.x + svgTrim.left,
+      y: svgViewBox.y + svgTrim.top,
+      w: svgViewBox.w - svgTrim.left - svgTrim.right,
+      h: svgViewBox.h - svgTrim.top - svgTrim.bottom,
+    };
+    if (newVB.w <= 0 || newVB.h <= 0) { alert('Trim values are too large — nothing would remain.'); return; }
+    try {
+      const r = await fetch('/__dev/products/trim-svg', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ imageUrl: product.imageUrl.split('?')[0], viewBox: newVB }),
+      });
+      if (!r.ok) { const d = await r.json(); throw new Error(d.error); }
+      setSvgViewBox(newVB);
+      setSvgTrim({ top: 0, right: 0, bottom: 0, left: 0 });
+      setSvgVersion(v => v + 1);
+      updateProduct('height', Math.round(width * (newVB.h / newVB.w)));
+    } catch (e) { alert(`Trim failed: ${e}`); }
+  }, [svgViewBox, svgTrim, product.imageUrl, width, updateProduct]);
+
+  // ---- Import SVG ----
+
   const handleImportSvg = useCallback(async (file: File, subdir: string): Promise<void> => {
     const content = await file.text();
     const rel = await uploadSvg(file.name, subdir, content);
@@ -253,11 +309,32 @@ export function ProductBuilderApp() {
   const handleSelectProduct = useCallback(async (id: string, subdir: string) => {
     if (isDirty && !confirm(`Discard unsaved changes to "${currentId}"?`)) return;
     try {
-      const p = await loadProductFile(id, subdir);
+      const raw = await loadProductFile(id, subdir);
+      // Guard against duplicate terminal / port IDs — first occurrence wins.
+      const seenT = new Set<string>();
+      const dedupedTerminals = (raw.terminals ?? []).filter((t: TerminalDefinition) => {
+        if (seenT.has(t.id)) { console.warn(`[ProductBuilder] duplicate terminal id "${t.id}" in ${id} — skipping`); return false; }
+        seenT.add(t.id);
+        return true;
+      });
+      const seenP = new Set<string>();
+      const dedupedPorts = (raw.communicationPorts ?? []).filter((p: ProductCommunicationPort) => {
+        if (seenP.has(p.id)) { console.warn(`[ProductBuilder] duplicate port id "${p.id}" in ${id} — skipping`); return false; }
+        seenP.add(p.id);
+        return true;
+      });
+      const p: Product = {
+        ...raw,
+        terminals: dedupedTerminals,
+        ...(raw.communicationPorts ? { communicationPorts: dedupedPorts } : {}),
+      };
       setProduct(p);
       setCurrentId(id);
       setCurrentSubdir(subdir);
       setSelectedTerminalId(null);
+      setSvgViewBox(null);
+      setSvgTrim({ top: 0, right: 0, bottom: 0, left: 0 });
+      setSvgVersion(0);
       setIsDirty(false);
       setSaveStatus('idle');
     } catch (e) {
@@ -273,6 +350,9 @@ export function ProductBuilderApp() {
     setCurrentId(undefined);
     setCurrentSubdir('batteries');
     setSelectedTerminalId(null);
+    setSvgViewBox(null);
+    setSvgTrim({ top: 0, right: 0, bottom: 0, left: 0 });
+    setSvgVersion(0);
     setIsDirty(false);
     setSaveStatus('idle');
   }, [isDirty, currentId]);
@@ -303,24 +383,41 @@ export function ProductBuilderApp() {
     }
   }, [product, currentSubdir]);
 
+  // ---- Arrow-key nudge for selected terminal ----
+
+  useEffect(() => {
+    if (!selectedTerminalId) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) return;
+      const tag = (document.activeElement as HTMLElement)?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+      e.preventDefault();
+      const t = (product.terminals ?? []).find((t: TerminalDefinition) => t.id === selectedTerminalId);
+      if (!t) return;
+      const dx = e.key === 'ArrowLeft' ? -1 : e.key === 'ArrowRight' ? 1 : 0;
+      const dy = e.key === 'ArrowUp'   ? -1 : e.key === 'ArrowDown'  ? 1 : 0;
+      updateTerminal(selectedTerminalId, { offsetX: t.offsetX + dx, offsetY: t.offsetY + dy });
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [selectedTerminalId, product.terminals, updateTerminal]);
+
   // ---- Derived state ----
 
   const selectedTerminal = terminals.find(t => t.id === selectedTerminalId) ?? null;
   const selectedPort = selectedTerminal
     ? (product.communicationPorts ?? []).find(p => p.id === selectedTerminal.id)
     : undefined;
-  const width = Number(product.width) || 120;
-  const height = Number(product.height) || 80;
 
   // Resolve display image: an explicitly chosen imageUrl always wins in the
   // builder; otherwise fall back to manufacturer/type auto-detection.
   const displayImageUrl = useMemo(() => {
-    if (product.imageUrl) return product.imageUrl;
-    if (product.id && product.productType) {
-      return getProductDisplayImageUrl(product as Product);
-    }
-    return undefined;
-  }, [product]);
+    const base = product.imageUrl
+      ? product.imageUrl.split('?')[0]
+      : (product.id && product.productType ? getProductDisplayImageUrl(product as Product) : undefined);
+    if (!base) return undefined;
+    return svgVersion > 0 ? `${base}?v=${svgVersion}` : base;
+  }, [product, svgVersion]);
 
   const statusLabel = saveStatus === 'saving' ? 'Saving…'
     : saveStatus === 'saved' ? 'Saved'
@@ -405,6 +502,10 @@ export function ProductBuilderApp() {
                 product={product}
                 onRatingsChange={updateRatings}
               />
+              <VariantsForm
+                product={product}
+                onChange={variants => updateProduct('variants', variants)}
+              />
             </>
           )}
 
@@ -433,10 +534,75 @@ export function ProductBuilderApp() {
                       onPlaceTerminal={addTerminal}
                       onSelectTerminal={setSelectedTerminalId}
                       onMoveTerminal={(id, x, y) => updateTerminal(id, { offsetX: x, offsetY: y })}
+                      onResize={(w, h) => { updateProduct('width', w); updateProduct('height', h); }}
+                      cropOverlay={svgViewBox ? { viewBox: svgViewBox, trim: svgTrim } : undefined}
                     />
-                    <div style={{ fontSize: 11, color: 'var(--muted)', textAlign: 'center' }}>
-                      Click canvas to add terminal · drag dots to reposition
+                  {/* Width / Height / Fit row */}
+                  <div style={{ display: 'flex', gap: 8, alignSelf: 'stretch', alignItems: 'flex-end' }}>
+                    <div className="pb-field" style={{ flex: 1 }}>
+                      <label>Width (px)</label>
+                      <input type="number" value={product.width ?? ''} onChange={e => updateProduct('width', Number(e.target.value))} min={20} placeholder="128" />
                     </div>
+                    <div className="pb-field" style={{ flex: 1 }}>
+                      <label>Height (px)</label>
+                      <input type="number" value={product.height ?? ''} onChange={e => updateProduct('height', Number(e.target.value))} min={20} placeholder="80" />
+                    </div>
+                    <button
+                      className="pb-btn pb-btn-ghost pb-btn-sm"
+                      style={{ marginBottom: 1 }}
+                      onClick={detectViewBox}
+                      title="Read the SVG viewBox — required before cropping"
+                      disabled={!product.imageUrl}
+                    >
+                      Detect SVG
+                    </button>
+                  </div>
+
+                  {/* SVG crop panel — visible once viewBox is detected */}
+                  {svgViewBox && (
+                    <div style={{ alignSelf: 'stretch', background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: '8px 10px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      <div style={{ fontSize: 11, color: 'var(--muted)' }}>
+                        ViewBox: {svgViewBox.x} {svgViewBox.y} {svgViewBox.w} {svgViewBox.h}
+                        {(svgTrim.top || svgTrim.right || svgTrim.bottom || svgTrim.left) ? (
+                          <span style={{ marginLeft: 8, color: 'var(--accent)' }}>
+                            → {svgViewBox.x + svgTrim.left} {svgViewBox.y + svgTrim.top} {svgViewBox.w - svgTrim.left - svgTrim.right} {svgViewBox.h - svgTrim.top - svgTrim.bottom}
+                          </span>
+                        ) : null}
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 6 }}>
+                        {(['top', 'right', 'bottom', 'left'] as const).map(side => (
+                          <div key={side} className="pb-field">
+                            <label style={{ textTransform: 'capitalize' }}>{side}</label>
+                            <input
+                              type="number"
+                              value={svgTrim[side]}
+                              onChange={e => setSvgTrim(t => ({ ...t, [side]: Number(e.target.value) }))}
+                              min={0}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        <button
+                          className="pb-btn pb-btn-primary pb-btn-sm"
+                          onClick={applyTrim}
+                          disabled={!svgTrim.top && !svgTrim.right && !svgTrim.bottom && !svgTrim.left}
+                        >
+                          Apply Trim
+                        </button>
+                        <button
+                          className="pb-btn pb-btn-ghost pb-btn-sm"
+                          onClick={() => setSvgViewBox(null)}
+                        >
+                          Close
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  <div style={{ fontSize: 11, color: 'var(--muted)', textAlign: 'center' }}>
+                    Click canvas to add terminal · drag handles to resize
+                  </div>
                   </div>
                 </div>
               </div>

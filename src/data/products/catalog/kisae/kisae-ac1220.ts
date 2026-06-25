@@ -1,4 +1,4 @@
-import type { Product } from '../../../../types/system';
+﻿import type { Product } from '../../../../types/system';
 
 const product: Product = {
   id: "kisae-ac1220",
@@ -23,7 +23,6 @@ const product: Product = {
     {
       id: "ac_l",
       label: "AC L",
-      electricalType: "ac",
       kind: "ac_power",
       polarity: "line",
       role: "sink",
@@ -31,12 +30,10 @@ const product: Product = {
       side: "left",
       offsetX: -40,
       offsetY: -10,
-      domain: "ac"
     },
     {
       id: "ac_n",
       label: "AC N",
-      electricalType: "ac",
       kind: "ac_power",
       polarity: "neutral",
       role: "sink",
@@ -44,12 +41,10 @@ const product: Product = {
       side: "left",
       offsetX: -40,
       offsetY: 10,
-      domain: "ac"
     },
     {
       id: "dc_pos",
       label: "DC+",
-      electricalType: "dc_pos",
       kind: "dc_power",
       polarity: "positive",
       role: "source",
@@ -58,13 +53,11 @@ const product: Product = {
       side: "right",
       offsetX: 40,
       offsetY: -10,
-      domain: "dc",
       requiresOvercurrentProtection: true
     },
     {
       id: "dc_neg",
       label: "DC-",
-      electricalType: "dc_neg",
       kind: "dc_power",
       polarity: "negative",
       role: "source",
@@ -73,7 +66,6 @@ const product: Product = {
       side: "right",
       offsetX: 40,
       offsetY: 10,
-      domain: "dc"
     }
   ],
   imageUrl: "/product-images/kisae-ac-charger.svg"

@@ -1,4 +1,4 @@
-import type { Product } from '../../../../types/system';
+﻿import type { Product } from '../../../../types/system';
 
 const product: Product = {
   id: "ekrano-gx",
@@ -7,7 +7,7 @@ const product: Product = {
   productType: "monitor",
   category: "Monitoring",
   msrpUsd: 690,
-  description: "Victron Ekrano GX — combined system controller and 7-inch touchscreen display. VE.Bus / VE.Direct / VE.Can / Ethernet.",
+  description: "Victron Ekrano GX â€” combined system controller and 7-inch touchscreen display. VE.Bus / VE.Direct / VE.Can / Ethernet.",
   partNumber: "BPP900480100",
   source: "Victron 2025",
   dataQuality: "partial",
@@ -18,14 +18,12 @@ const product: Product = {
     {
       id: "signal",
       label: "Signal",
-      electricalType: "signal",
       kind: "signal",
       role: "control",
       voltageClass: "signal_low_voltage",
       side: "left",
       offsetX: -40,
       offsetY: 0,
-      domain: "communication",
       notes: "VE.Bus / VE.Can / VE.Direct system communications."
     },
     {
@@ -33,7 +31,6 @@ const product: Product = {
       label: "BMS-Can / VE.Can",
       kind: "network",
       role: "bidirectional",
-      domain: "communication",
       side: "top",
       offsetX: -40,
       offsetY: -30
@@ -43,7 +40,6 @@ const product: Product = {
       label: "VE.Bus",
       kind: "network",
       role: "bidirectional",
-      domain: "communication",
       side: "top",
       offsetX: 0,
       offsetY: -30
@@ -53,7 +49,6 @@ const product: Product = {
       label: "Ethernet",
       kind: "network",
       role: "bidirectional",
-      domain: "communication",
       side: "top",
       offsetX: 40,
       offsetY: -30

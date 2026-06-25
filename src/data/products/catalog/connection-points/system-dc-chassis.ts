@@ -1,4 +1,4 @@
-import type { Product } from '../../../../types/system';
+﻿import type { Product } from '../../../../types/system';
 
 const product: Product = {
   id: "system-dc-chassis",
@@ -20,7 +20,6 @@ const product: Product = {
       side: "top",
       offsetX: 0,
       offsetY: -30,
-      domain: "chassisGround"
     }
   ]
 };

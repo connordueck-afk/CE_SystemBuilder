@@ -1,4 +1,4 @@
-import type { Product } from '../../../../types/system';
+﻿import type { Product } from '../../../../types/system';
 
 const product: Product = {
   id: "generic-agm-battery",
@@ -18,7 +18,6 @@ const product: Product = {
     {
       id: "dc_pos",
       label: "+",
-      electricalType: "dc_pos",
       kind: "dc_power",
       polarity: "positive",
       role: "bidirectional",
@@ -27,14 +26,12 @@ const product: Product = {
       side: "top",
       offsetX: 22,
       offsetY: -43,
-      domain: "dc",
       requiresOvercurrentProtection: true,
       maxCurrentA: 100
     },
     {
       id: "dc_neg",
       label: "-",
-      electricalType: "dc_neg",
       kind: "dc_power",
       polarity: "negative",
       role: "bidirectional",
@@ -43,7 +40,6 @@ const product: Product = {
       side: "top",
       offsetX: -22,
       offsetY: -43,
-      domain: "dc",
       maxCurrentA: 100
     }
   ],

@@ -49,6 +49,7 @@ import { NewSystemModal } from './components/layout/NewSystemModal';
 import { StartupModal } from './components/layout/StartupModal';
 import { SchematicCanvas } from './components/schematic/SchematicCanvas';
 import { InlineFuseInsertModal } from './components/parts/InlineFuseInsertModal';
+import { PrintView } from './export/PrintView';
 import {
   connectionPoints,
   getConnectionTerminalPos,
@@ -1330,6 +1331,19 @@ export function App() {
     setNewSystemModalOpen(true);
   }, []);
 
+  const handleSetDefault = import.meta.env.DEV ? async (target: string, label: string) => {
+    if (!confirm(`Write the current drawing to "${label}"?`)) return;
+    try {
+      const r = await fetch('/__dev/set-default-system', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ system, target }),
+      });
+      if (!r.ok) throw new Error((await r.json()).error);
+      alert(`"${label}" updated — changes will apply on next Reset or fresh load.`);
+    } catch (e) { alert(`Failed: ${e}`); }
+  } : undefined;
+
   const handleNewSystemSelect = useCallback((template: SystemDesign | null) => {
     setNewSystemModalOpen(false);
     setStartupModalOpen(false);
@@ -1444,6 +1458,7 @@ export function App() {
   }, []);
 
   return (
+    <>
     <div
       className={`app-grid theme-${themeMode}`}
       style={{
@@ -1467,6 +1482,19 @@ export function App() {
         onReset={handleReset}
         onShare={handleShare}
         onOpenBom={() => setBomModalOpen(true)}
+        onExportPdf={() => {
+          const prev = document.title;
+          document.title = system.name;
+          // Restore after the print dialog closes — restoring synchronously
+          // would reset the title before the user clicks "Print".
+          const restore = () => {
+            document.title = prev;
+            window.removeEventListener('afterprint', restore);
+          };
+          window.addEventListener('afterprint', restore);
+          window.print();
+        }}
+        onSetDefault={handleSetDefault}
       />
       <input
         ref={loadFileInputRef}
@@ -1669,6 +1697,16 @@ export function App() {
           </div>
         </div>
       )}
+
     </div>
+    <PrintView
+      system={system}
+      products={PRODUCT_MAP}
+      busColors={busColors}
+      bomRows={bomRows}
+      electricalSummary={electricalSummary}
+      priceSummary={priceSummary}
+    />
+    </>
   );
 }

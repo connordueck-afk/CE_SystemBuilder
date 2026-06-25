@@ -1,4 +1,4 @@
-import type { Product } from '../../../../types/system';
+﻿import type { Product } from '../../../../types/system';
 
 const product: Product = {
   id: "solar-branch-2-1",
@@ -20,7 +20,6 @@ const product: Product = {
     {
       id: "in_1",
       label: "In 1+",
-      electricalType: "pv_pos",
       kind: "pv_power",
       polarity: "positive",
       role: "bus",
@@ -28,13 +27,12 @@ const product: Product = {
       side: "left",
       offsetX: -35,
       offsetY: -31,
-      domain: "pv",
+      connector: { kind: 'mc4', gender: 'female' },
       notes: "PV branch input 1. Polarity is selected on the component."
     },
     {
       id: "in_2",
       label: "In 2+",
-      electricalType: "pv_pos",
       kind: "pv_power",
       polarity: "positive",
       role: "bus",
@@ -42,13 +40,12 @@ const product: Product = {
       side: "left",
       offsetX: -35,
       offsetY: 31,
-      domain: "pv",
+      connector: { kind: 'mc4', gender: 'female' },
       notes: "PV branch input 2. Polarity is selected on the component."
     },
     {
       id: "out",
       label: "Out+",
-      electricalType: "pv_pos",
       kind: "pv_power",
       polarity: "positive",
       role: "bus",
@@ -56,7 +53,7 @@ const product: Product = {
       side: "right",
       offsetX: 35,
       offsetY: 0,
-      domain: "pv",
+      connector: { kind: 'mc4', gender: 'male' },
       notes: "Combined PV branch output. Polarity is selected on the component."
     }
   ],

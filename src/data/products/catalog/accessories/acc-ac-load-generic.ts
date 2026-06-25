@@ -1,4 +1,4 @@
-import type { Product } from '../../../../types/system';
+﻿import type { Product } from '../../../../types/system';
 
 const product: Product = {
   id: "acc-ac-load-generic",
@@ -17,7 +17,6 @@ const product: Product = {
     {
       id: "ac_l",
       label: "AC L",
-      electricalType: "ac",
       kind: "ac_power",
       polarity: "line",
       role: "sink",
@@ -25,14 +24,12 @@ const product: Product = {
       side: "left",
       offsetX: -40,
       offsetY: -10,
-      domain: "ac",
       phases: 1,
       notes: "AC Line conductor input."
     },
     {
       id: "ac_n",
       label: "AC N",
-      electricalType: "ac",
       kind: "ac_power",
       polarity: "neutral",
       role: "sink",
@@ -40,7 +37,6 @@ const product: Product = {
       side: "left",
       offsetX: -40,
       offsetY: 10,
-      domain: "ac",
       notes: "AC Neutral conductor input."
     }
   ],

@@ -1,4 +1,4 @@
-import type { Product } from '../../../../types/system';
+﻿import type { Product } from '../../../../types/system';
 
 const product: Product = {
   id: "acc-vic-dc-dc-orion-12-12-30",
@@ -22,7 +22,6 @@ const product: Product = {
     {
       id: "in_pos",
       label: "In+",
-      electricalType: "dc_pos",
       kind: "dc_power",
       polarity: "positive",
       role: "sink",
@@ -30,14 +29,12 @@ const product: Product = {
       side: "bottom",
       offsetX: -16,
       offsetY: 24,
-      domain: "dc",
       requiresOvercurrentProtection: true,
       notes: "Starter battery / alternator positive input. Requires fuse close to source."
     },
     {
       id: "in_neg",
       label: "In-",
-      electricalType: "dc_neg",
       kind: "dc_power",
       polarity: "negative",
       role: "sink",
@@ -45,13 +42,11 @@ const product: Product = {
       side: "bottom",
       offsetX: -5,
       offsetY: 24,
-      domain: "dc",
       notes: "Input negative."
     },
     {
       id: "out_pos",
       label: "Out+",
-      electricalType: "dc_pos",
       kind: "dc_power",
       polarity: "positive",
       role: "source",
@@ -60,14 +55,12 @@ const product: Product = {
       side: "bottom",
       offsetX: 5,
       offsetY: 24,
-      domain: "dc",
       maxCurrentA: 30,
       notes: "House battery positive output."
     },
     {
       id: "out_neg",
       label: "Out-",
-      electricalType: "dc_neg",
       kind: "dc_power",
       polarity: "negative",
       role: "source",
@@ -76,7 +69,6 @@ const product: Product = {
       side: "bottom",
       offsetX: 16,
       offsetY: 24,
-      domain: "dc",
       maxCurrentA: 30,
       notes: "House battery negative output."
     }

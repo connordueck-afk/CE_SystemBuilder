@@ -1,4 +1,4 @@
-import type { Product } from '../../../../types/system';
+﻿import type { Product } from '../../../../types/system';
 
 const product: Product = {
   id: "generic-alternator-source",
@@ -22,7 +22,6 @@ const product: Product = {
     {
       id: "dc_pos",
       label: "B+",
-      electricalType: "dc_pos",
       kind: "dc_power",
       polarity: "positive",
       role: "source",
@@ -31,14 +30,12 @@ const product: Product = {
       side: "right",
       offsetX: 45,
       offsetY: -10,
-      domain: "dc",
       requiresOvercurrentProtection: true,
       maxCurrentA: 120
     },
     {
       id: "dc_neg",
       label: "B-",
-      electricalType: "dc_neg",
       kind: "dc_power",
       polarity: "negative",
       role: "source",
@@ -47,7 +44,6 @@ const product: Product = {
       side: "right",
       offsetX: 45,
       offsetY: 10,
-      domain: "dc",
       maxCurrentA: 120
     }
   ]

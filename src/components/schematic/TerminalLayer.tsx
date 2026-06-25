@@ -11,6 +11,7 @@ interface Props {
   products: Map<string, Product>;
   pendingSourceKey: string | null;
   validTargetTerminals: Set<string> | null;
+  fullTerminals: Set<string>;
   busColors: BusColorMap;
   onTerminalMouseDown: (compId: string, termId: string, e: React.MouseEvent) => void;
 }
@@ -25,6 +26,7 @@ export function TerminalLayer({
   products,
   pendingSourceKey,
   validTargetTerminals,
+  fullTerminals,
   busColors,
   onTerminalMouseDown,
 }: Props) {
@@ -46,6 +48,7 @@ export function TerminalLayer({
                 const isSource = pendingSourceKey === key;
                 const isHighlighted = !isSource && (validTargetTerminals?.has(key) ?? false);
                 const isDisabled = validTargetTerminals !== null && !isSource && !isHighlighted;
+                const isFull = fullTerminals.has(key);
                 return (
                   <Terminal
                     key={t.id}
@@ -56,6 +59,7 @@ export function TerminalLayer({
                     isPending={false}
                     isSource={isSource}
                     isDisabled={isDisabled}
+                    isFull={isFull}
                     busColors={busColors}
                     onMouseDown={onTerminalMouseDown}
                   />

@@ -1,4 +1,4 @@
-import type { Product } from '../../../../types/system';
+﻿import type { Product } from '../../../../types/system';
 
 const product: Product = {
   id: "gx-touch-70",
@@ -7,7 +7,7 @@ const product: Product = {
   productType: "accessory",
   category: "Monitoring",
   msrpUsd: 397,
-  description: "Victron GX Touch 70 — 7-inch touchscreen display for Cerbo GX (HDMI/USB connection)",
+  description: "Victron GX Touch 70 â€” 7-inch touchscreen display for Cerbo GX (HDMI/USB connection)",
   partNumber: "BPP900455070",
   source: "Victron 2025",
   dataQuality: "partial",
@@ -18,14 +18,12 @@ const product: Product = {
     {
       id: "signal",
       label: "Signal",
-      electricalType: "signal",
       kind: "signal",
       role: "control",
       voltageClass: "signal_low_voltage",
       side: "left",
       offsetX: -40,
       offsetY: 0,
-      domain: "communication",
       notes: "VE.Bus / VE.Can / VE.Direct system communications."
     }
   ]

@@ -366,6 +366,13 @@ textarea { resize: vertical; min-height: 56px; }
 
 /* ---- Terminal placer ---- */
 
+.pb-placer-outer {
+  position: relative;
+  display: inline-block;
+  /* extra space so the resize handles (which sit outside) aren't clipped */
+  margin: 0 8px 8px 0;
+}
+
 .pb-placer-wrap {
   position: relative;
   display: inline-block;
@@ -374,6 +381,39 @@ textarea { resize: vertical; min-height: 56px; }
   border-radius: var(--radius);
   overflow: hidden;
   background: #111;
+}
+
+/* Resize handles */
+.pb-resize-handle {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  background: var(--accent);
+  border: 1px solid rgba(0,0,0,0.4);
+  border-radius: 2px;
+  z-index: 20;
+}
+.pb-resize-handle:hover { background: #fff; }
+
+/* Right-center — sits on the right edge, vertically centered */
+.pb-resize-e {
+  right: -5px;
+  transform: translateY(-50%);
+  cursor: ew-resize;
+}
+
+/* Bottom-center — sits on the bottom edge, horizontally centered */
+.pb-resize-s {
+  bottom: -5px;
+  transform: translateX(-50%);
+  cursor: ns-resize;
+}
+
+/* Bottom-right corner */
+.pb-resize-se {
+  right: -5px;
+  bottom: -5px;
+  cursor: nwse-resize;
 }
 
 .pb-placer-img {
@@ -527,6 +567,50 @@ textarea { resize: vertical; min-height: 56px; }
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+/* ---- Variants table ---- */
+
+.pb-variants-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.pb-variants-table th {
+  padding: 6px 8px;
+  text-align: left;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  background: var(--bg3);
+  border-bottom: 1px solid var(--border);
+}
+
+.pb-variants-table td {
+  padding: 3px 4px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+
+.pb-variants-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.pb-variants-table tbody tr:hover td {
+  background: var(--bg3);
+}
+
+.pb-variants-table input {
+  padding: 3px 6px;
+  font-size: 12px;
+}
+
+.pb-variants-table td:last-child {
+  width: 36px;
+  text-align: center;
+}
 
 /* ---- Misc ---- */
 

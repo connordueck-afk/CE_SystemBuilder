@@ -11,6 +11,7 @@ import type {
 import { getEffectiveTerminal, isDynamicSingleConductorProduct } from './effectiveTerminals';
 import { canProvidePower, canReceivePower, terminalDirectionLabel } from './terminalDirection';
 import { getDcBusNominalVoltage, isDcBusTerminal } from './dcBusVoltage';
+import { effectiveMaxConnections, countTerminalConnections } from './connectorLimits';
 
 export interface TerminalRef {
   component: SystemComponent;
@@ -48,25 +49,54 @@ function commPortFor(ref: TerminalRef): ProductCommunicationPort | undefined {
 }
 
 /**
- * Two communication ports can only be wired together if they can carry a common
- * protocol. A port locked to a single protocol (e.g. VE.Bus) cannot join a
- * different network (e.g. VE.Can / BMS-Can). Configurable ports overlap as long
- * as their supported protocol sets intersect.
+ * Resolves the protocol this terminal will actually carry on a wire.
+ * Priority: per-instance configuredProtocols → product configuredProtocol →
+ * implicit single-protocol → 'unconfigured' (multi-protocol port that needs
+ * explicit selection before it can join a network).
+ */
+function effectiveProtocol(ref: TerminalRef): string | 'unconfigured' | undefined {
+  const port = commPortFor(ref);
+  if (!port) return undefined;
+  // Per-instance override (set by the user in the inspector)
+  const instanceProto = ref.component.configuredProtocols?.[ref.terminal.id];
+  if (instanceProto) return instanceProto;
+  // Product-level default
+  if (port.configuredProtocol) return port.configuredProtocol;
+  // Single-protocol port — no ambiguity
+  if (port.supportedProtocols.length === 1) return port.supportedProtocols[0];
+  // Multi-protocol configurable port — user must pick one before connecting
+  if (port.isConfigurable) return 'unconfigured';
+  // Multi-protocol non-configurable (e.g. passive bus) — use first entry
+  return port.supportedProtocols[0];
+}
+
+/**
+ * Blocks connections between communication ports whose protocols don't match.
+ * Ports with multiple protocols that haven't been configured yet are also
+ * blocked — the user must select a protocol before wiring.
  */
 function communicationConflict(from: TerminalRef, to: TerminalRef): ConnectionValidationResult | null {
   if (from.terminal.kind !== 'network' || to.terminal.kind !== 'network') return null;
+  if (!commPortFor(from) || !commPortFor(to)) return null;
 
-  const fromPort = commPortFor(from);
-  const toPort = commPortFor(to);
-  if (!fromPort || !toPort) return null;
+  const fromProto = effectiveProtocol(from);
+  const toProto = effectiveProtocol(to);
 
-  const shared = fromPort.supportedProtocols.some((p) => toPort.supportedProtocols.includes(p));
-  if (shared) return null;
+  if (fromProto === 'unconfigured') {
+    return { valid: false, message: `${terminalName(from)} supports multiple protocols — select one in the inspector before connecting.` };
+  }
+  if (toProto === 'unconfigured') {
+    return { valid: false, message: `${terminalName(to)} supports multiple protocols — select one in the inspector before connecting.` };
+  }
 
-  return {
-    valid: false,
-    message: `${terminalName(from)} (${fromPort.supportedProtocols.join('/')}) and ${terminalName(to)} (${toPort.supportedProtocols.join('/')}) are different communication networks and cannot be connected.`,
-  };
+  if (fromProto && toProto && fromProto !== toProto) {
+    return {
+      valid: false,
+      message: `${terminalName(from)} (${fromProto}) cannot connect to ${terminalName(to)} (${toProto}) — protocols don't match.`,
+    };
+  }
+
+  return null;
 }
 
 function isSolarSeriesLink(from: TerminalRef, to: TerminalRef): boolean {
@@ -138,7 +168,11 @@ export function getTerminalRef(
   return { component, product, terminal };
 }
 
-export function validateConnectionPair(from: TerminalRef, to: TerminalRef): ConnectionValidationResult {
+export function validateConnectionPair(
+  from: TerminalRef,
+  to: TerminalRef,
+  existingConnections?: Pick<SystemConnection, 'fromComponentId' | 'fromTerminalId' | 'toComponentId' | 'toTerminalId'>[]
+): ConnectionValidationResult {
   if (from.component.id === to.component.id) {
     return { valid: false, message: 'Cannot connect two terminals on the same component.' };
   }
@@ -212,13 +246,32 @@ export function validateConnectionPair(from: TerminalRef, to: TerminalRef): Conn
     }
   }
 
+  if (existingConnections) {
+    const fromMax = effectiveMaxConnections(from.terminal, commPortFor(from));
+    if (fromMax != null) {
+      const count = countTerminalConnections(existingConnections, from.component.id, from.terminal.id);
+      if (count >= fromMax) {
+        return { valid: false, message: `${terminalName(from)} already has its maximum of ${fromMax} connection${fromMax !== 1 ? 's' : ''}.` };
+      }
+    }
+
+    const toMax = effectiveMaxConnections(to.terminal, commPortFor(to));
+    if (toMax != null) {
+      const count = countTerminalConnections(existingConnections, to.component.id, to.terminal.id);
+      if (count >= toMax) {
+        return { valid: false, message: `${terminalName(to)} already has its maximum of ${toMax} connection${toMax !== 1 ? 's' : ''}.` };
+      }
+    }
+  }
+
   return { valid: true };
 }
 
 export function validateSystemConnection(
   conn: Pick<SystemConnection, 'fromComponentId' | 'fromTerminalId' | 'toComponentId' | 'toTerminalId'>,
   components: SystemComponent[],
-  products: Map<string, Product>
+  products: Map<string, Product>,
+  existingConnections?: Pick<SystemConnection, 'fromComponentId' | 'fromTerminalId' | 'toComponentId' | 'toTerminalId'>[]
 ): ConnectionValidationResult {
   const from = getTerminalRef(components, products, conn.fromComponentId, conn.fromTerminalId);
   const to = getTerminalRef(components, products, conn.toComponentId, conn.toTerminalId);
@@ -227,5 +280,5 @@ export function validateSystemConnection(
     return { valid: false, message: 'Connection references a missing component or terminal.' };
   }
 
-  return validateConnectionPair(from, to);
+  return validateConnectionPair(from, to, existingConnections);
 }

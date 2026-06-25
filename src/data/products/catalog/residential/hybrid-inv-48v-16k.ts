@@ -1,4 +1,4 @@
-import type { Product } from '../../../../types/system';
+﻿import type { Product } from '../../../../types/system';
 
 const product: Product = {
   id: "hybrid-inv-48v-16k",
@@ -25,7 +25,6 @@ const product: Product = {
     {
       id: "dc_pos",
       label: "DC+",
-      electricalType: "dc_pos",
       kind: "dc_power",
       polarity: "positive",
       role: "bidirectional",
@@ -34,14 +33,12 @@ const product: Product = {
       side: "left",
       offsetX: -80,
       offsetY: -10,
-      domain: "dc",
       requiresOvercurrentProtection: true,
       notes: "Battery positive. Requires DC disconnect/fuse between battery and inverter."
     },
     {
       id: "dc_neg",
       label: "DC-",
-      electricalType: "dc_neg",
       kind: "dc_power",
       polarity: "negative",
       role: "bidirectional",
@@ -50,13 +47,11 @@ const product: Product = {
       side: "left",
       offsetX: -80,
       offsetY: 10,
-      domain: "dc",
       notes: "Battery negative."
     },
     {
       id: "pv1_pos",
       label: "PV1+",
-      electricalType: "pv_pos",
       kind: "pv_power",
       polarity: "positive",
       role: "sink",
@@ -65,14 +60,12 @@ const product: Product = {
       side: "top",
       offsetX: -50,
       offsetY: -90,
-      domain: "pv",
       maxCurrentA: 160,
       notes: "MPPT tracker 1 PV positive input."
     },
     {
       id: "pv1_neg",
       label: "PV1-",
-      electricalType: "pv_neg",
       kind: "pv_power",
       polarity: "negative",
       role: "sink",
@@ -81,13 +74,11 @@ const product: Product = {
       side: "top",
       offsetX: -30,
       offsetY: -90,
-      domain: "pv",
       notes: "MPPT tracker 1 PV negative input."
     },
     {
       id: "pv2_pos",
       label: "PV2+",
-      electricalType: "pv_pos",
       kind: "pv_power",
       polarity: "positive",
       role: "sink",
@@ -96,14 +87,12 @@ const product: Product = {
       side: "top",
       offsetX: 30,
       offsetY: -90,
-      domain: "pv",
       maxCurrentA: 160,
       notes: "MPPT tracker 2 PV positive input."
     },
     {
       id: "pv2_neg",
       label: "PV2-",
-      electricalType: "pv_neg",
       kind: "pv_power",
       polarity: "negative",
       role: "sink",
@@ -112,13 +101,11 @@ const product: Product = {
       side: "top",
       offsetX: 50,
       offsetY: -90,
-      domain: "pv",
       notes: "MPPT tracker 2 PV negative input."
     },
     {
       id: "ac_in1_l1",
       label: "AC In 1 L1",
-      electricalType: "ac",
       kind: "ac_power",
       polarity: "line",
       role: "sink",
@@ -127,15 +114,13 @@ const product: Product = {
       side: "right",
       offsetX: 80,
       offsetY: -55,
-      domain: "ac",
       phases: 1,
       maxCurrentA: 80,
-      notes: "AC input 1 (grid) — Line 1."
+      notes: "AC input 1 (grid) â€” Line 1."
     },
     {
       id: "ac_in1_l2",
       label: "AC In 1 L2",
-      electricalType: "ac",
       kind: "ac_power",
       polarity: "line2",
       role: "sink",
@@ -144,15 +129,13 @@ const product: Product = {
       side: "right",
       offsetX: 80,
       offsetY: -40,
-      domain: "ac",
       phases: 1,
       maxCurrentA: 80,
-      notes: "AC input 1 (grid) — Line 2."
+      notes: "AC input 1 (grid) â€” Line 2."
     },
     {
       id: "ac_in1_n",
       label: "AC In 1 N",
-      electricalType: "ac",
       kind: "ac_power",
       polarity: "neutral",
       role: "sink",
@@ -161,13 +144,11 @@ const product: Product = {
       side: "right",
       offsetX: 80,
       offsetY: -25,
-      domain: "ac",
-      notes: "AC input 1 (grid) — Neutral."
+      notes: "AC input 1 (grid) â€” Neutral."
     },
     {
       id: "ac_in2_l1",
       label: "AC In 2 L1",
-      electricalType: "ac",
       kind: "ac_power",
       polarity: "line",
       role: "sink",
@@ -176,15 +157,13 @@ const product: Product = {
       side: "right",
       offsetX: 80,
       offsetY: -5,
-      domain: "ac",
       phases: 1,
       maxCurrentA: 80,
-      notes: "AC input 2 (generator) — Line 1."
+      notes: "AC input 2 (generator) â€” Line 1."
     },
     {
       id: "ac_in2_l2",
       label: "AC In 2 L2",
-      electricalType: "ac",
       kind: "ac_power",
       polarity: "line2",
       role: "sink",
@@ -193,15 +172,13 @@ const product: Product = {
       side: "right",
       offsetX: 80,
       offsetY: 10,
-      domain: "ac",
       phases: 1,
       maxCurrentA: 80,
-      notes: "AC input 2 (generator) — Line 2."
+      notes: "AC input 2 (generator) â€” Line 2."
     },
     {
       id: "ac_in2_n",
       label: "AC In 2 N",
-      electricalType: "ac",
       kind: "ac_power",
       polarity: "neutral",
       role: "sink",
@@ -210,13 +187,11 @@ const product: Product = {
       side: "right",
       offsetX: 80,
       offsetY: 25,
-      domain: "ac",
-      notes: "AC input 2 (generator) — Neutral."
+      notes: "AC input 2 (generator) â€” Neutral."
     },
     {
       id: "ac_out_l1",
       label: "AC Out L1",
-      electricalType: "ac",
       kind: "ac_power",
       polarity: "line",
       role: "source",
@@ -225,15 +200,13 @@ const product: Product = {
       side: "bottom",
       offsetX: -20,
       offsetY: 90,
-      domain: "ac",
       phases: 1,
       maxCurrentA: 67,
-      notes: "AC output — Line 1 (120 V to neutral, 240 V to L2)."
+      notes: "AC output â€” Line 1 (120 V to neutral, 240 V to L2)."
     },
     {
       id: "ac_out_l2",
       label: "AC Out L2",
-      electricalType: "ac",
       kind: "ac_power",
       polarity: "line2",
       role: "source",
@@ -242,15 +215,13 @@ const product: Product = {
       side: "bottom",
       offsetX: -5,
       offsetY: 90,
-      domain: "ac",
       phases: 1,
       maxCurrentA: 67,
-      notes: "AC output — Line 2 (120 V to neutral, 240 V to L1)."
+      notes: "AC output â€” Line 2 (120 V to neutral, 240 V to L1)."
     },
     {
       id: "ac_out_n",
       label: "AC Out N",
-      electricalType: "ac",
       kind: "ac_power",
       polarity: "neutral",
       role: "source",
@@ -259,15 +230,13 @@ const product: Product = {
       side: "bottom",
       offsetX: 10,
       offsetY: 90,
-      domain: "ac",
-      notes: "AC output — Neutral."
+      notes: "AC output â€” Neutral."
     },
     {
       id: "ve_bus",
       label: "VE.Bus",
       kind: "network",
       role: "bidirectional",
-      domain: "communication",
       side: "top",
       offsetX: 0,
       offsetY: -90

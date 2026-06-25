@@ -1,0 +1,101 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="1200" viewBox="0 0 1400 1200" role="img" aria-label="Discover LYNK Lite simplified product asset">
+  <defs>
+    <linearGradient id="frame" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#565a60"/>
+      <stop offset="100%" stop-color="#272b30"/>
+    </linearGradient>
+    <linearGradient id="plate" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#06080a"/>
+      <stop offset="100%" stop-color="#000000"/>
+    </linearGradient>
+    <linearGradient id="metal" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="25%" stop-color="#d7dbe0"/>
+      <stop offset="50%" stop-color="#aeb5bd"/>
+      <stop offset="75%" stop-color="#edf0f3"/>
+      <stop offset="100%" stop-color="#89919a"/>
+    </linearGradient>
+    <linearGradient id="metalDark" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#d8dde1"/>
+      <stop offset="100%" stop-color="#9ca4ac"/>
+    </linearGradient>
+    <linearGradient id="green" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#58b947"/>
+      <stop offset="100%" stop-color="#3f9e38"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#000" flood-opacity="0.18"/>
+    </filter>
+  </defs>
+
+  <g filter="url(#shadow)">
+    <!-- top and bottom mounting flange -->
+    <path d="M432 126 h536 q18 0 30 12 l30 30 v94 h-56 l-10 -20 h-100 l-10 20 h-304 l-10 -20 h-100 l-10 20 h-56 v-94 l30-30 q12-12 30-12z" fill="url(#frame)" stroke="#2c3137" stroke-width="4"/>
+    <path d="M432 938 h536 q18 0 30 12 l30 30 v94 h-56 l-10 -20 h-100 l-10 20 h-304 l-10 -20 h-100 l-10 20 h-56 v-94 l30-30 q12-12 30-12z" fill="url(#frame)" stroke="#2c3137" stroke-width="4"/>
+
+    <!-- flange slots -->
+    <g fill="#f0f1f2">
+      <rect x="514" y="178" width="112" height="28" rx="14"/>
+      <rect x="770" y="178" width="112" height="28" rx="14"/>
+      <circle cx="700" cy="186" r="26" fill="#1a1e23"/>
+      <rect x="514" y="994" width="112" height="28" rx="14"/>
+      <rect x="770" y="994" width="112" height="28" rx="14"/>
+      <circle cx="700" cy="1002" r="26" fill="#1a1e23"/>
+    </g>
+
+    <!-- side connectors -->
+    <g>
+      <rect x="76" y="530" width="64" height="122" rx="8" fill="#1b2025"/>
+      <rect x="100" y="548" width="72" height="86" rx="6" fill="url(#metalDark)" stroke="#848c95" stroke-width="4"/>
+      <path d="M100 548 h60 l12 10 v66 l-12 10 h-60" fill="none" stroke="#eef1f4" stroke-opacity="0.5" stroke-width="4"/>
+      <g stroke="#aab1b8" stroke-width="3">
+        <path d="M112 552 v78"/><path d="M122 550 v82"/><path d="M132 550 v82"/><path d="M142 550 v82"/><path d="M152 552 v78"/>
+      </g>
+      <rect x="1260" y="524" width="64" height="134" rx="8" fill="#1b2025"/>
+      <rect x="1260" y="544" width="86" height="94" rx="6" fill="url(#metalDark)" stroke="#848c95" stroke-width="4"/>
+      <path d="M1264 548 h74 l8 8 v70 l-8 8 h-74" fill="none" stroke="#eef1f4" stroke-opacity="0.45" stroke-width="4"/>
+      <g stroke="#aab1b8" stroke-width="3">
+        <path d="M1274 548 v86"/><path d="M1284 546 v90"/><path d="M1294 546 v90"/><path d="M1304 546 v90"/><path d="M1314 548 v86"/>
+      </g>
+    </g>
+
+    <!-- main enclosure frame and face -->
+    <rect x="120" y="278" width="1160" height="636" rx="44" fill="url(#frame)" stroke="#61656b" stroke-width="4"/>
+    <rect x="140" y="298" width="1120" height="596" rx="28" fill="url(#plate)"/>
+
+    <!-- logo / top left placeholder -->
+    <g fill="#f4f5f6" opacity="0.98">
+      <rect x="190" y="386" width="260" height="28" rx="12"/>
+      <rect x="190" y="430" width="190" height="18" rx="8" opacity="0.85"/>
+      <rect x="190" y="338" width="18" height="90" rx="6" fill="#58b947"/>
+      <rect x="214" y="346" width="18" height="18" rx="4" fill="#58b947"/>
+      <rect x="214" y="374" width="18" height="18" rx="4" fill="#58b947"/>
+      <rect x="214" y="402" width="18" height="18" rx="4" fill="#58b947"/>
+    </g>
+
+    <!-- side vertical labels as small bars -->
+    <g fill="#f2f3f4" opacity="0.92">
+      <rect x="174" y="588" width="14" height="146" rx="7"/>
+      <rect x="1124" y="540" width="14" height="84" rx="7"/>
+      <rect x="1124" y="726" width="14" height="76" rx="7"/>
+    </g>
+
+    <!-- LEDs / port labels -->
+    <g>
+      <rect x="352" y="724" width="120" height="24" rx="10" fill="#f1f3f4" opacity="0.9"/>
+      <circle cx="422" cy="774" r="18" fill="#3cb5eb"/>
+      <rect x="944" y="724" width="78" height="24" rx="10" fill="#f1f3f4" opacity="0.9"/>
+      <circle cx="992" cy="774" r="18" fill="#3cb5eb"/>
+    </g>
+
+    <!-- product title placeholder -->
+    <g fill="#5b6066" opacity="0.95">
+      <rect x="602" y="794" width="430" height="60" rx="14"/>
+    </g>
+
+    <!-- bottom green band and site block placeholders -->
+    <rect x="150" y="882" width="720" height="4" rx="2" fill="url(#green)"/>
+    <rect x="870" y="850" width="300" height="40" rx="2" fill="url(#green)"/>
+    <rect x="928" y="862" width="184" height="18" rx="8" fill="#ecf3e8" opacity="0.86"/>
+  </g>
+</svg>

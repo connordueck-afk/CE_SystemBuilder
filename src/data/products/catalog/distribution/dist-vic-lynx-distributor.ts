@@ -1,4 +1,4 @@
-import type { Product } from '../../../../types/system';
+﻿import type { Product } from '../../../../types/system';
 
 const product: Product = {
   id: "dist-vic-lynx-distributor",
@@ -26,7 +26,6 @@ const product: Product = {
       id: "main_pos",
       label: "Bat+",
       busLinkStandard: "victron-lynx",
-      electricalType: "dc_pos",
       kind: "dc_power",
       polarity: "positive",
       role: "bus",
@@ -34,14 +33,13 @@ const product: Product = {
       side: "left",
       offsetX: -76,
       offsetY: -26,
-      domain: "dc",
+      connector: { kind: 'stud', holeSize: 'M8' },
       notes: "Main positive bus connection (battery side). Bidirectional."
     },
     {
       id: "main_neg",
       label: "Bat-",
       busLinkStandard: "victron-lynx",
-      electricalType: "dc_neg",
       kind: "dc_power",
       polarity: "negative",
       role: "bus",
@@ -49,14 +47,13 @@ const product: Product = {
       side: "left",
       offsetX: -76,
       offsetY: 24,
-      domain: "dc",
+      connector: { kind: 'stud', holeSize: 'M8' },
       notes: "Main negative bus connection (battery side). Bidirectional."
     },
     {
       id: "pass_pos",
       label: "Bus+",
       busLinkStandard: "victron-lynx",
-      electricalType: "dc_pos",
       kind: "dc_power",
       polarity: "positive",
       role: "bus",
@@ -64,14 +61,13 @@ const product: Product = {
       side: "right",
       offsetX: 78,
       offsetY: -24,
-      domain: "dc",
+      connector: { kind: 'stud', holeSize: 'M8' },
       notes: "Unfused positive pass-through to the next Lynx module. Bidirectional."
     },
     {
       id: "pass_neg",
       label: "Bus-",
       busLinkStandard: "victron-lynx",
-      electricalType: "dc_neg",
       kind: "dc_power",
       polarity: "negative",
       role: "bus",
@@ -79,13 +75,12 @@ const product: Product = {
       side: "right",
       offsetX: 76,
       offsetY: 19,
-      domain: "dc",
+      connector: { kind: 'stud', holeSize: 'M8' },
       notes: "Unfused negative pass-through to the next Lynx module. Bidirectional."
     },
     {
       id: "out_pos_1",
       label: "F1+",
-      electricalType: "dc_pos",
       kind: "dc_power",
       polarity: "positive",
       role: "bus",
@@ -93,14 +88,13 @@ const product: Product = {
       side: "bottom",
       offsetX: -28,
       offsetY: 36,
-      domain: "dc",
       requiresOvercurrentProtection: true,
+      connector: { kind: 'stud', holeSize: 'M8' },
       notes: "Fused tap 1 (+), MEGA fuse holder. Source or load depending on topology."
     },
     {
       id: "out_neg_1",
       label: "F1-",
-      electricalType: "dc_neg",
       kind: "dc_power",
       polarity: "negative",
       role: "bus",
@@ -108,13 +102,12 @@ const product: Product = {
       side: "bottom",
       offsetX: -19,
       offsetY: 36,
-      domain: "dc",
+      connector: { kind: 'stud', holeSize: 'M8' },
       notes: "Fused tap 1 (-), paired negative return."
     },
     {
       id: "out_pos_2",
       label: "F2+",
-      electricalType: "dc_pos",
       kind: "dc_power",
       polarity: "positive",
       role: "bus",
@@ -122,14 +115,13 @@ const product: Product = {
       side: "bottom",
       offsetX: -9,
       offsetY: 36,
-      domain: "dc",
       requiresOvercurrentProtection: true,
+      connector: { kind: 'stud', holeSize: 'M8' },
       notes: "Fused tap 2 (+), MEGA fuse holder. Source or load depending on topology."
     },
     {
       id: "out_neg_2",
       label: "F2-",
-      electricalType: "dc_neg",
       kind: "dc_power",
       polarity: "negative",
       role: "bus",
@@ -137,13 +129,12 @@ const product: Product = {
       side: "bottom",
       offsetX: 1,
       offsetY: 36,
-      domain: "dc",
+      connector: { kind: 'stud', holeSize: 'M8' },
       notes: "Fused tap 2 (-), paired negative return."
     },
     {
       id: "out_pos_3",
       label: "F3+",
-      electricalType: "dc_pos",
       kind: "dc_power",
       polarity: "positive",
       role: "bus",
@@ -151,14 +142,13 @@ const product: Product = {
       side: "bottom",
       offsetX: 24,
       offsetY: 38,
-      domain: "dc",
       requiresOvercurrentProtection: true,
+      connector: { kind: 'stud', holeSize: 'M8' },
       notes: "Fused tap 3 (+), MEGA fuse holder. Source or load depending on topology."
     },
     {
       id: "out_neg_3",
       label: "F3-",
-      electricalType: "dc_neg",
       kind: "dc_power",
       polarity: "negative",
       role: "bus",
@@ -166,13 +156,12 @@ const product: Product = {
       side: "bottom",
       offsetX: 34,
       offsetY: 39,
-      domain: "dc",
+      connector: { kind: 'stud', holeSize: 'M8' },
       notes: "Fused tap 3 (-), paired negative return."
     },
     {
       id: "out_pos_4",
       label: "F4+",
-      electricalType: "dc_pos",
       kind: "dc_power",
       polarity: "positive",
       role: "bus",
@@ -180,14 +169,13 @@ const product: Product = {
       side: "bottom",
       offsetX: 44,
       offsetY: 39,
-      domain: "dc",
       requiresOvercurrentProtection: true,
+      connector: { kind: 'stud', holeSize: 'M8' },
       notes: "Fused tap 4 (+), MEGA fuse holder. Source or load depending on topology."
     },
     {
       id: "out_neg_4",
       label: "F4-",
-      electricalType: "dc_neg",
       kind: "dc_power",
       polarity: "negative",
       role: "bus",
@@ -195,7 +183,7 @@ const product: Product = {
       side: "bottom",
       offsetX: 54,
       offsetY: 40,
-      domain: "dc",
+      connector: { kind: 'stud', holeSize: 'M8' },
       notes: "Fused tap 4 (-), paired negative return."
     }
   ],

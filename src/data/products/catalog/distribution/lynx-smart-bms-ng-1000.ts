@@ -1,4 +1,4 @@
-import type { Product } from '../../../../types/system';
+﻿import type { Product } from '../../../../types/system';
 
 const product: Product = {
   id: "lynx-smart-bms-ng-1000",
@@ -14,7 +14,7 @@ const product: Product = {
   ],
   maxCurrentA: 1000,
   msrpUsd: 1300,
-  description: "Victron Lynx Smart BMS NG 1000A — next-generation BMS for large Victron Lithium NG battery banks. VE.Can / Bluetooth.",
+  description: "Victron Lynx Smart BMS NG 1000A â€” next-generation BMS for large Victron Lithium NG battery banks. VE.Can / Bluetooth.",
   partNumber: "Lynx Smart BMS NG 1000",
   source: "Victron 2025",
   dataQuality: "partial",
@@ -25,7 +25,6 @@ const product: Product = {
     {
       id: "bat_pos",
       label: "Bat+",
-      electricalType: "dc_pos",
       kind: "dc_power",
       polarity: "positive",
       role: "bus",
@@ -37,7 +36,6 @@ const product: Product = {
     {
       id: "bat_neg",
       label: "Bat-",
-      electricalType: "dc_neg",
       kind: "dc_power",
       polarity: "negative",
       role: "bus",
@@ -49,7 +47,6 @@ const product: Product = {
     {
       id: "load_pos",
       label: "Load+",
-      electricalType: "dc_pos",
       kind: "dc_power",
       polarity: "positive",
       role: "bus",
@@ -61,7 +58,6 @@ const product: Product = {
     {
       id: "load_neg",
       label: "Load-",
-      electricalType: "dc_neg",
       kind: "dc_power",
       polarity: "negative",
       role: "bus",

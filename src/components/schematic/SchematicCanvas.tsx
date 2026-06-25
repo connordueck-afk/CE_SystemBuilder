@@ -13,6 +13,7 @@ import type { PathMarker } from '../../utils/connectionGeometry';
 import { isVerticalOrientation, transformOrientationOffset } from '../../utils/componentOrientation';
 import { componentScale, scaledProductSize, scaledTerminalOffset } from '../../utils/componentScale';
 import { validateSystemConnection } from '../../utils/connectionRules';
+import { isTerminalFull } from '../../utils/connectorLimits';
 
 interface DragState {
   componentId: string;
@@ -915,6 +916,24 @@ export function SchematicCanvas({
     });
   }, [pendingConn, viewportCenter, viewport.width, viewport.height]);
 
+  const fullTerminals = useMemo<Set<string>>(() => {
+    const full = new Set<string>();
+    for (const comp of system.components) {
+      const product = products.get(comp.productId);
+      if (!product) continue;
+      const effectiveProduct = getEffectiveProductForComponent(comp, product);
+      if (!effectiveProduct) continue;
+      const terminals = getEffectiveTerminals(effectiveProduct, comp);
+      for (const term of terminals) {
+        const commPort = effectiveProduct.communicationPorts?.find((p) => p.id === term.id);
+        if (isTerminalFull(term, commPort, system.connections, comp.id)) {
+          full.add(`${comp.id}:${term.id}`);
+        }
+      }
+    }
+    return full;
+  }, [system.components, system.connections, products]);
+
   const validTargetTerminals = useMemo<Set<string> | null>(() => {
     if (!pendingConn) return null;
     const targets = new Set<string>();
@@ -934,13 +953,14 @@ export function SchematicCanvas({
             toTerminalId: term.id,
           },
           system.components,
-          products
+          products,
+          system.connections
         );
         if (result.valid) targets.add(`${comp.id}:${term.id}`);
       }
     }
     return targets;
-  }, [pendingConn, system.components, products]);
+  }, [pendingConn, system.components, system.connections, products]);
 
   const pendingSourceKey = pendingConn
     ? `${pendingConn.fromComponentId}:${pendingConn.fromTerminalId}`
@@ -970,6 +990,8 @@ export function SchematicCanvas({
       }
       setPendingConn(null);
     } else {
+      // Don't start a new connection from a terminal that's already at capacity
+      if (fullTerminals.has(`${compId}:${termId}`)) return;
       const comp = system.components.find((c) => c.id === compId);
       const prod = comp ? products.get(comp.productId) : undefined;
       const terminal = comp && prod ? getEffectiveTerminal(prod, termId, comp) : undefined;
@@ -981,7 +1003,7 @@ export function SchematicCanvas({
         startY: comp ? comp.y + offset.y : pos.y,
       });
     }
-  }, [pendingConn, validTargetTerminals, onAddConnection, system.components, products]);
+  }, [pendingConn, validTargetTerminals, fullTerminals, onAddConnection, system.components, products]);
 
   const handleCanvasClick = useCallback(() => {
     setComponentContextMenu(null);
@@ -1185,6 +1207,7 @@ export function SchematicCanvas({
           products={products}
           pendingSourceKey={pendingSourceKey}
           validTargetTerminals={validTargetTerminals}
+          fullTerminals={fullTerminals}
           busColors={busColors}
           onTerminalMouseDown={handleTerminalMouseDown}
         />

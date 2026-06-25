@@ -178,6 +178,80 @@ export function productBuilderPlugin(): Plugin {
             return json(res, { ok: true, path: rel });
           }
 
+          // POST /__dev/set-default-system  body: { system: SystemDesign, target: string }
+          // target: 'default' | 'simple-12v' | 'full-12v' | 'offgrid-48v'
+          if (req.method === 'POST' && pathname === '/__dev/set-default-system') {
+            const body = await readBody(req) as { system: unknown; target?: string };
+            if (!body.system) return err(res, 'Missing system', 400);
+
+            const target = body.target ?? 'default';
+
+            if (target === 'default') {
+              const content = [
+                `import type { SystemDesign } from '../types/system';`,
+                ``,
+                `// Last pushed from canvas: ${new Date().toISOString()}`,
+                `export const DEFAULT_SYSTEM: SystemDesign = ${serialize(body.system)};`,
+                ``,
+              ].join('\n');
+              const filePath = path.join(root, 'src', 'data', 'defaultSystem.ts');
+              fs.writeFileSync(filePath, content, 'utf-8');
+              const mod = server.moduleGraph.getModuleById('/src/data/defaultSystem.ts');
+              if (mod) server.moduleGraph.invalidateModule(mod);
+              return json(res, { ok: true });
+            }
+
+            // Preset targets — patch the specific const inside presetSystems.ts
+            const PRESET_CONST_MAP: Record<string, string> = {
+              'simple-12v':  'SIMPLE_12V',
+              'full-12v':    'FULL_12V',
+              'offgrid-48v': 'OFFGRID_48V',
+            };
+            const constName = PRESET_CONST_MAP[target];
+            if (!constName) return err(res, `Unknown target: ${target}`, 400);
+
+            const presetsPath = path.join(root, 'src', 'data', 'presetSystems.ts');
+            let src = fs.readFileSync(presetsPath, 'utf-8');
+
+            // Replace: const NAME: SystemDesign = { ... }; (top-level braces only)
+            const escaped = constName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const regex = new RegExp(`(const ${escaped}: SystemDesign = )\\{[\\s\\S]*?\\n\\};`);
+            const updated = src.replace(regex, `$1${serialize(body.system)};`);
+
+            if (updated === src) return err(res, `Could not find 'const ${constName}: SystemDesign' in presetSystems.ts`, 500);
+
+            fs.writeFileSync(presetsPath, updated, 'utf-8');
+            const mod = server.moduleGraph.getModuleById('/src/data/presetSystems.ts');
+            if (mod) server.moduleGraph.invalidateModule(mod);
+            return json(res, { ok: true });
+          }
+
+          // POST /__dev/products/trim-svg  body: { imageUrl, viewBox: { x, y, w, h } }
+          if (req.method === 'POST' && pathname === '/__dev/products/trim-svg') {
+            const body = await readBody(req) as { imageUrl: string; viewBox: { x: number; y: number; w: number; h: number } };
+            const { imageUrl, viewBox } = body;
+            if (!imageUrl || !viewBox) return err(res, 'Missing imageUrl or viewBox', 400);
+
+            // Strip the /product-images/ prefix and guard against path traversal
+            const relPath = imageUrl.replace(/^\/product-images\//, '');
+            const filePath = path.resolve(imagesRoot, relPath);
+            if (!filePath.startsWith(path.resolve(imagesRoot))) return err(res, 'Invalid path', 400);
+            if (!fs.existsSync(filePath)) return err(res, 'SVG file not found', 404);
+
+            let svg = fs.readFileSync(filePath, 'utf-8');
+            const newVB = `${viewBox.x} ${viewBox.y} ${viewBox.w} ${viewBox.h}`;
+
+            if (/viewBox=/i.test(svg)) {
+              svg = svg.replace(/viewBox=["'][^"']*["']/i, `viewBox="${newVB}"`);
+            } else {
+              // No existing viewBox — inject one into the opening <svg> tag
+              svg = svg.replace(/<svg\b/i, `<svg viewBox="${newVB}"`);
+            }
+
+            fs.writeFileSync(filePath, svg, 'utf-8');
+            return json(res, { ok: true, viewBox: newVB });
+          }
+
           // DELETE /__dev/products/delete  body: { id, subdir }
           if (req.method === 'POST' && pathname === '/__dev/products/delete') {
             const body = await readBody(req) as { id: string; subdir: string };

@@ -22,6 +22,8 @@ interface Props {
   onReset: () => void;
   onShare: () => Promise<void>;
   onOpenBom: () => void;
+  onExportPdf: () => void;
+  onSetDefault?: (target: string, label: string) => void;
 }
 
 export function HeaderBar({
@@ -41,9 +43,13 @@ export function HeaderBar({
   onReset,
   onShare,
   onOpenBom,
+  onExportPdf,
+  onSetDefault,
 }: Props) {
   const [busColorsOpen, setBusColorsOpen] = useState(false);
+  const [setDefaultOpen, setSetDefaultOpen] = useState(false);
   const [shareCopied, setShareCopied] = useState(false);
+  const setDefaultRef = useRef<HTMLDivElement>(null);
 
   const handleShareClick = async () => {
     await onShare();
@@ -75,6 +81,27 @@ export function HeaderBar({
     };
   }, [busColorsOpen]);
 
+  useEffect(() => {
+    if (!setDefaultOpen) return;
+
+    function handlePointerDown(event: PointerEvent) {
+      const target = event.target as Node | null;
+      if (target && setDefaultRef.current?.contains(target)) return;
+      setSetDefaultOpen(false);
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') setSetDefaultOpen(false);
+    }
+
+    window.addEventListener('pointerdown', handlePointerDown);
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('pointerdown', handlePointerDown);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [setDefaultOpen]);
+
   return (
     <header className="header-bar">
       {/* Logo */}
@@ -85,7 +112,7 @@ export function HeaderBar({
         rel="noreferrer"
         title="Open Canadian Energy website"
       >
-        <img className="header-logo-mark" src="/brand/canadian-energy-logo.png" alt="" aria-hidden="true" />
+        <img className="header-logo-mark" src={`${import.meta.env.BASE_URL}brand/canadian-energy-logo.png`} alt="" aria-hidden="true" />
         <span className="header-logo-copy">
           <span className="header-logo-text">Canadian Energy</span>
           <span className="header-logo-sub">System Builder</span>
@@ -193,7 +220,51 @@ export function HeaderBar({
         >
           {shareCopied ? 'Copied!' : 'Share'}
         </button>
+        <button className="btn-header" onClick={onExportPdf} title="Export system as PDF">Export PDF</button>
         <button className="btn-header btn-danger" onClick={onReset} title="Reset to default sample system">Reset</button>
+        {onSetDefault && (
+          <div ref={setDefaultRef} style={{ position: 'relative' }}>
+            <button
+              className={`btn-header ${setDefaultOpen ? 'btn-header-active' : ''}`}
+              onClick={() => setSetDefaultOpen((o) => !o)}
+              title="[Dev] Push current drawing to a default/preset file"
+            >
+              Set Default ▾
+            </button>
+            {setDefaultOpen && (
+              <div style={{
+                position: 'absolute', top: '100%', right: 0, marginTop: 4,
+                background: 'var(--surface)', border: '1px solid var(--border)',
+                borderRadius: 6, boxShadow: '0 4px 12px rgba(0,0,0,0.18)',
+                minWidth: 190, zIndex: 200, overflow: 'hidden',
+              }}>
+                {([
+                  { target: 'default',     label: 'Default System' },
+                  { target: 'simple-12v',  label: 'Simple 12V Solar' },
+                  { target: 'full-12v',    label: 'Full 12V Mobile' },
+                  { target: 'offgrid-48v', label: '48V Off-Grid Cabin' },
+                ] as const).map(({ target, label }) => (
+                  <button
+                    key={target}
+                    style={{
+                      display: 'block', width: '100%', textAlign: 'left',
+                      padding: '8px 14px', background: 'none', border: 'none',
+                      color: 'var(--ink)', fontSize: 13, cursor: 'pointer',
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-hover, var(--border))')}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = 'none')}
+                    onClick={() => {
+                      setSetDefaultOpen(false);
+                      onSetDefault(target, label);
+                    }}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </header>
   );

@@ -1,4 +1,4 @@
-import type { Product } from '../../../../types/system';
+﻿import type { Product } from '../../../../types/system';
 
 const product: Product = {
   id: "victron-lithium-ng-12-100",
@@ -10,7 +10,7 @@ const product: Product = {
   capacityWh: 1280,
   maxCurrentA: 200,
   msrpUsd: 1200,
-  description: "Lithium NG battery 12.8V/100Ah — next-generation Victron lithium with VE.Bus BMS NG / Lynx Smart BMS NG integration",
+  description: "Lithium NG battery 12.8V/100Ah â€” next-generation Victron lithium with VE.Bus BMS NG / Lynx Smart BMS NG integration",
   partNumber: "BAT512110610",
   source: "Victron 2025",
   dataQuality: "partial",
@@ -21,7 +21,6 @@ const product: Product = {
     {
       id: "dc_pos",
       label: "+",
-      electricalType: "dc_pos",
       kind: "dc_power",
       polarity: "positive",
       role: "bidirectional",
@@ -30,15 +29,14 @@ const product: Product = {
       side: "top",
       offsetX: 35,
       offsetY: -45,
-      domain: "dc",
       maxCurrentA: 200,
       requiresOvercurrentProtection: true,
+      connector: { kind: 'stud', holeSize: 'M8' },
       notes: "DC positive terminal. Requires overcurrent protection (fuse/breaker) on the positive conductor."
     },
     {
       id: "dc_neg",
       label: "-",
-      electricalType: "dc_neg",
       kind: "dc_power",
       polarity: "negative",
       role: "bidirectional",
@@ -47,8 +45,8 @@ const product: Product = {
       side: "top",
       offsetX: -41,
       offsetY: -45,
-      domain: "dc",
       maxCurrentA: 200,
+      connector: { kind: 'stud', holeSize: 'M8' },
       notes: "DC negative terminal."
     },
     {
@@ -56,7 +54,6 @@ const product: Product = {
       label: "BMS-Can",
       kind: "network",
       role: "bidirectional",
-      domain: "communication",
       side: "top",
       offsetX: 0,
       offsetY: -49

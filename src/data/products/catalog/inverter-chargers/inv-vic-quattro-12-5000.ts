@@ -1,4 +1,4 @@
-import type { Product } from '../../../../types/system';
+﻿import type { Product } from '../../../../types/system';
 
 const product: Product = {
   id: "inv-vic-quattro-12-5000",
@@ -23,7 +23,6 @@ const product: Product = {
     {
       id: "dc_pos",
       label: "DC+",
-      electricalType: "dc_pos",
       kind: "dc_power",
       polarity: "positive",
       role: "bidirectional",
@@ -31,14 +30,13 @@ const product: Product = {
       side: "bottom",
       offsetX: -20,
       offsetY: 48,
-      domain: "dc",
       requiresOvercurrentProtection: true,
+      connector: { kind: 'stud', holeSize: 'M8' },
       notes: "DC positive bus connection. Requires Class T or ANL fuse between battery and inverter."
     },
     {
       id: "dc_neg",
       label: "DC-",
-      electricalType: "dc_neg",
       kind: "dc_power",
       polarity: "negative",
       role: "bidirectional",
@@ -46,13 +44,12 @@ const product: Product = {
       side: "bottom",
       offsetX: -12,
       offsetY: 48,
-      domain: "dc",
+      connector: { kind: 'stud', holeSize: 'M8' },
       notes: "DC negative bus connection."
     },
     {
       id: "ac_in_l",
       label: "AC In L",
-      electricalType: "ac",
       kind: "ac_power",
       polarity: "line",
       role: "sink",
@@ -61,15 +58,14 @@ const product: Product = {
       side: "bottom",
       offsetX: 2,
       offsetY: 48,
-      domain: "ac",
       phases: 1,
       maxCurrentA: 100,
+      connector: { kind: 'screw_terminal' },
       notes: "AC input Line conductor (shore power or generator)."
     },
     {
       id: "ac_in_n",
       label: "AC In N",
-      electricalType: "ac",
       kind: "ac_power",
       polarity: "neutral",
       role: "sink",
@@ -78,14 +74,13 @@ const product: Product = {
       side: "bottom",
       offsetX: 9,
       offsetY: 48,
-      domain: "ac",
       maxCurrentA: 100,
+      connector: { kind: 'screw_terminal' },
       notes: "AC input Neutral conductor."
     },
     {
       id: "ac_out_l",
       label: "AC Out L",
-      electricalType: "ac",
       kind: "ac_power",
       polarity: "line",
       role: "source",
@@ -94,15 +89,14 @@ const product: Product = {
       side: "bottom",
       offsetX: 16,
       offsetY: 48,
-      domain: "ac",
       phases: 1,
       maxCurrentA: 41,
+      connector: { kind: 'screw_terminal' },
       notes: "AC output Line conductor to AC distribution panel."
     },
     {
       id: "ac_out_n",
       label: "AC Out N",
-      electricalType: "ac",
       kind: "ac_power",
       polarity: "neutral",
       role: "source",
@@ -111,14 +105,13 @@ const product: Product = {
       side: "bottom",
       offsetX: 23,
       offsetY: 48,
-      domain: "ac",
       maxCurrentA: 41,
+      connector: { kind: 'screw_terminal' },
       notes: "AC output Neutral conductor."
     },
     {
       id: "ac_in2_l",
       label: "AC In 2 L",
-      electricalType: "ac",
       kind: "ac_power",
       polarity: "line",
       role: "sink",
@@ -127,15 +120,14 @@ const product: Product = {
       side: "top",
       offsetX: -4,
       offsetY: -48,
-      domain: "ac",
       phases: 1,
       maxCurrentA: 100,
+      connector: { kind: 'screw_terminal' },
       notes: "AC input 2 Line conductor (generator or second grid supply)."
     },
     {
       id: "ac_in2_n",
       label: "AC In 2 N",
-      electricalType: "ac",
       kind: "ac_power",
       polarity: "neutral",
       role: "sink",
@@ -144,8 +136,8 @@ const product: Product = {
       side: "top",
       offsetX: 3,
       offsetY: -48,
-      domain: "ac",
       maxCurrentA: 100,
+      connector: { kind: 'screw_terminal' },
       notes: "AC input 2 Neutral conductor."
     },
     {
@@ -153,7 +145,6 @@ const product: Product = {
       label: "VE.Bus",
       kind: "network",
       role: "bidirectional",
-      domain: "communication",
       side: "top",
       offsetX: 0,
       offsetY: -65

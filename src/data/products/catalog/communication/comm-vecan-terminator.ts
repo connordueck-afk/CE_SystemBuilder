@@ -1,4 +1,4 @@
-import type { Product } from '../../../../types/system';
+﻿import type { Product } from '../../../../types/system';
 
 const product: Product = {
   id: "comm-vecan-terminator",
@@ -28,7 +28,6 @@ const product: Product = {
       label: "Port",
       kind: "network",
       role: "bidirectional",
-      domain: "communication",
       side: "bottom",
       offsetX: 0,
       offsetY: 20

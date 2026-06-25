@@ -50,20 +50,6 @@ export type ProductType =
   | 'commGateway';
 
 // -----------------------------------------------------------
-// Electrical Domains
-// -----------------------------------------------------------
-
-/** The electrical domain a terminal belongs to. */
-export type ElectricalDomain =
-  | 'dc'
-  | 'ac'
-  | 'pv'
-  | 'chassisGround'
-  | 'earthGround'
-  | 'communication'
-  | 'signal';
-
-// -----------------------------------------------------------
 // Terminal Types (existing — preserved)
 // -----------------------------------------------------------
 
@@ -102,19 +88,36 @@ export type CableLengthUnit = 'ft' | 'm';
 // -----------------------------------------------------------
 
 /**
- * How a cable physically terminates at a node (product terminal). Baked into
- * product definitions; not user-editable per placed component.
- * - lug: a ring/lug crimped onto the cable, landing on a stud (carries holeSize).
- * - screw_terminal: a clamp/screw terminal that accepts the bare conductor.
- * - mc4_male / mc4_female: PV MC4 connectors (e.g. solar panel leads).
- * Extensible for further specific connector types later.
+ * Physical connector kind at a device terminal or cable end.
+ *
+ * Device-terminal kinds (what the device has):
+ * - stud: threaded bolt/post — cable end must be a lug whose hole matches the stud diameter.
+ * - screw_terminal: cage/clamp screw — cable end must be a ferrule sized to the conductor.
+ * - mc4: PV MC4 connector on the device body. Use `gender` to specify male/female.
+ *
+ * Cable-end kinds (what the cable carries):
+ * - lug: ring lug crimped onto cable, bolts onto a stud (hole must match stud diameter).
+ * - ferrule: bootlace ferrule crimped onto cable, inserted into a screw terminal.
+ * - mc4: MC4 connector on the cable end. Use `gender` to specify male/female.
  */
-export type ConnectorKind = 'lug' | 'screw_terminal' | 'mc4_male' | 'mc4_female';
+export type ConnectorKind =
+  | 'stud'
+  | 'screw_terminal'
+  | 'mc4'
+  | 'lug'
+  | 'ferrule'
+  | 'comm';
 
 export interface TerminalConnector {
   kind: ConnectorKind;
-  /** Stud/hole size for lug-style connectors, e.g. '1/4', '5/16', '3/8', 'M6', 'M8', 'M10'. */
+  /**
+   * Stud diameter / lug hole size, e.g. 'M6', 'M8', 'M10', '1/4', '5/16', '3/8'.
+   * Required on `stud` device terminals — the cable lug hole must match this diameter.
+   * Also carried on `lug` cable ends to record which stud size they fit.
+   */
   holeSize?: string;
+  /** Connector gender, used for gendered connectors such as MC4. */
+  gender?: 'male' | 'female';
 }
 
 export type ProductCapability =
@@ -145,8 +148,6 @@ export interface TerminalDefinition {
   offsetY: number;
 
   // Extended fields added in catalog refactor (optional — do not break existing products)
-  /** Electrical domain for future validation and cable sizing systems. */
-  domain?: ElectricalDomain;
   /** Whether this terminal must be connected for a valid system. */
   required?: boolean;
   /** Terminal IDs on other products that this terminal can legally connect to. */
@@ -171,6 +172,12 @@ export interface TerminalDefinition {
   powerMaxW?: number;
   /** Default physical connector/termination at this node (overridable per placed component). */
   connector?: TerminalConnector;
+  /**
+   * Maximum simultaneous connections allowed on this terminal. When unset, defaults are
+   * derived from the connector type (RJ45/M12/MC4 → 1, stud/screw_terminal → unlimited).
+   * Set explicitly to override the connector-type default (e.g. an RJ45 splitter port = 4).
+   */
+  maxConnections?: number;
   /**
    * Marks a terminal that bolts directly to another module's matching terminal with no
    * cable (e.g. Victron Lynx modules share a busbar). When a connection joins two terminals
@@ -504,6 +511,8 @@ export interface ProductCommunicationPort {
   id: string;
   name: string;
   connectorType: CommunicationConnectorType;
+  /** Connector gender for gendered comm connectors (M12, Deutsch, JST). */
+  gender?: 'male' | 'female';
   supportedProtocols: CommunicationProtocol[];
   configuredProtocol?: CommunicationProtocol;
   topology?: CommunicationTopologyType;
@@ -561,6 +570,46 @@ export interface PremanufacturedCable {
   currentRatingA?: number;
   price?: number | null;
   partNumber?: string;
+}
+
+/**
+ * A single variant within a product family.
+ * The base Product holds all shared fields (terminals, image, comms ports, etc.).
+ * Each variant overrides only what changes between models in the family.
+ * The catalog loader expands variants into full Product entries at load time.
+ */
+export interface ProductVariant {
+  /** Unique product ID for this variant (e.g. "fuse-mega-generic-58v-100a", "mppt-150-35"). */
+  id: string;
+
+  /**
+   * Full display name for this variant (e.g. "SmartSolar MPPT 150/35").
+   * If omitted, the loader generates "{baseName} {currentRatingA}A".
+   */
+  name?: string;
+
+  /** Primary current rating (A). For fuses/breakers: the fuse rating. For MPPTs: the output current. */
+  currentRatingA: number;
+
+  /** Max PV input voltage (V). MPPTs only. */
+  maxPvVoltageV?: number;
+
+  /** Continuous output power (W). MPPTs only. */
+  continuousPowerW?: number;
+
+  /**
+   * Supported battery system voltages for this variant.
+   * MPPTs only — some models in a family support fewer voltages than others.
+   */
+  nominalVoltage?: NominalVoltage | NominalVoltage[];
+
+  msrpUsd?: number;
+  oemPriceUsd?: number;
+  partNumber?: string;
+  productUrl?: string;
+
+  /** Override image URL when variants in a family use different physical form factors. */
+  imageUrl?: string;
 }
 
 /** Ratings for DC and AC loads. */
@@ -686,6 +735,13 @@ export interface Product {
    * For active gateways: which protocol bridges this component supports.
    */
   commProtocolBridges?: CommunicationProtocolBridge[];
+
+  /**
+   * Variant list for product families that share all attributes except current rating and price.
+   * When present, the catalog loader expands these into individual Product entries in ALL_PRODUCTS.
+   * The base product itself is not added to the catalog — only the resolved variants are.
+   */
+  variants?: ProductVariant[];
 }
 
 // -----------------------------------------------------------

@@ -1,4 +1,4 @@
-import type { Product } from '../../../../types/system';
+﻿import type { Product } from '../../../../types/system';
 
 const product: Product = {
   id: "mk3-usb",
@@ -7,7 +7,7 @@ const product: Product = {
   productType: "accessory",
   category: "Accessories",
   msrpUsd: 84,
-  description: "Victron MK3-USB — VE.Bus to USB interface for programming MultiPlus/Quattro from a PC.",
+  description: "Victron MK3-USB â€” VE.Bus to USB interface for programming MultiPlus/Quattro from a PC.",
   partNumber: "ASS030140000",
   productUrl: "https://www.cdnrg.com/products/veass030140000",
   source: "Victron 2025",
@@ -19,14 +19,12 @@ const product: Product = {
     {
       id: "signal",
       label: "VE.Bus",
-      electricalType: "signal",
       kind: "signal",
       role: "control",
       voltageClass: "signal_low_voltage",
       side: "left",
       offsetX: -30,
       offsetY: 0,
-      domain: "communication"
     }
   ]
 };

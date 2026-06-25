@@ -1,4 +1,4 @@
-import type { Product } from '../../../../types/system';
+﻿import type { Product } from '../../../../types/system';
 
 const product: Product = {
   id: "comm-aebus-splitter",
@@ -48,7 +48,6 @@ const product: Product = {
       label: "Port A",
       kind: "network",
       role: "bidirectional",
-      domain: "communication",
       side: "bottom",
       offsetX: -35,
       offsetY: 25
@@ -58,7 +57,6 @@ const product: Product = {
       label: "Port B",
       kind: "network",
       role: "bidirectional",
-      domain: "communication",
       side: "bottom",
       offsetX: 0,
       offsetY: 25
@@ -68,7 +66,6 @@ const product: Product = {
       label: "Port C",
       kind: "network",
       role: "bidirectional",
-      domain: "communication",
       side: "bottom",
       offsetX: 35,
       offsetY: 25

@@ -85,43 +85,23 @@ export function CoreFieldsForm({ product, onChange }: Props) {
           </Field>
         </div>
 
-        <div className="pb-field-row-3">
-          <Field label="Width (px) *">
-            <input
-              type="number"
-              value={product.width ?? ''}
-              onChange={f('width')}
-              placeholder="128"
-              min={20}
-            />
-          </Field>
-          <Field label="Height (px) *">
-            <input
-              type="number"
-              value={product.height ?? ''}
-              onChange={f('height')}
-              placeholder="80"
-              min={20}
-            />
-          </Field>
-          <Field label="Nominal Voltage">
-            <input
-              type="text"
-              value={String(nominalVoltageValue)}
-              onChange={e => {
-                const raw = e.target.value.trim();
-                if (raw.includes(',')) {
-                  onChange('nominalVoltage', raw.split(',').map(Number).filter(Boolean));
-                } else if (raw === '') {
-                  onChange('nominalVoltage', undefined);
-                } else {
-                  onChange('nominalVoltage', Number(raw));
-                }
-              }}
-              placeholder="12 or 12,24,48"
-            />
-          </Field>
-        </div>
+        <Field label="Nominal Voltage">
+          <input
+            type="text"
+            value={String(nominalVoltageValue)}
+            onChange={e => {
+              const raw = e.target.value.trim();
+              if (raw.includes(',')) {
+                onChange('nominalVoltage', raw.split(',').map(Number).filter(Boolean));
+              } else if (raw === '') {
+                onChange('nominalVoltage', undefined);
+              } else {
+                onChange('nominalVoltage', Number(raw));
+              }
+            }}
+            placeholder="12 or 12,24,48"
+          />
+        </Field>
 
         <Field label="Description">
           <textarea

@@ -1,4 +1,4 @@
-import type { Product } from '../../../../types/system';
+﻿import type { Product } from '../../../../types/system';
 
 const product: Product = {
   id: "smartshunt-2000",
@@ -7,7 +7,7 @@ const product: Product = {
   productType: "monitor",
   category: "Monitoring",
   msrpUsd: 276,
-  description: "Victron SmartShunt 2000A — Bluetooth battery monitor with integrated 2000A/50mV shunt",
+  description: "Victron SmartShunt 2000A â€” Bluetooth battery monitor with integrated 2000A/50mV shunt",
   partNumber: "SHU050220050",
   source: "Victron 2025",
   dataQuality: "partial",
@@ -18,7 +18,6 @@ const product: Product = {
     {
       id: "shunt_pos",
       label: "Shunt+",
-      electricalType: "dc_pos",
       kind: "dc_power",
       polarity: "positive",
       role: "sense",
@@ -26,13 +25,11 @@ const product: Product = {
       side: "left",
       offsetX: -42,
       offsetY: 13,
-      domain: "dc",
       notes: "Battery negative sense terminal (current shunt measures flow across this terminal)."
     },
     {
       id: "shunt_neg",
       label: "Shunt-",
-      electricalType: "dc_neg",
       kind: "dc_power",
       polarity: "negative",
       role: "sense",
@@ -40,7 +37,6 @@ const product: Product = {
       side: "right",
       offsetX: 42,
       offsetY: 13,
-      domain: "dc",
       notes: "Battery negative bus side of shunt."
     },
     {
@@ -48,7 +44,6 @@ const product: Product = {
       label: "VE.Direct",
       kind: "network",
       role: "bidirectional",
-      domain: "communication",
       side: "top",
       offsetX: 0,
       offsetY: -25

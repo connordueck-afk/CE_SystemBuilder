@@ -1,4 +1,4 @@
-import type { Product } from '../../../../types/system';
+﻿import type { Product } from '../../../../types/system';
 
 const product: Product = {
   id: "orion-tr-48-48-2-5-converter",
@@ -21,7 +21,6 @@ const product: Product = {
     {
       id: "in_pos",
       label: "In+",
-      electricalType: "dc_pos",
       kind: "dc_power",
       polarity: "positive",
       role: "sink",
@@ -30,14 +29,13 @@ const product: Product = {
       side: "bottom",
       offsetX: -16,
       offsetY: 24,
-      domain: "dc",
       requiresOvercurrentProtection: true,
+      connector: { kind: 'screw_terminal' },
       notes: "DC input positive. Fuse required on input positive conductor."
     },
     {
       id: "in_neg",
       label: "In-",
-      electricalType: "dc_neg",
       kind: "dc_power",
       polarity: "negative",
       role: "sink",
@@ -46,13 +44,12 @@ const product: Product = {
       side: "bottom",
       offsetX: -5,
       offsetY: 24,
-      domain: "dc",
+      connector: { kind: 'screw_terminal' },
       notes: "DC input negative."
     },
     {
       id: "out_pos",
       label: "Out+",
-      electricalType: "dc_pos",
       kind: "dc_power",
       polarity: "positive",
       role: "source",
@@ -61,15 +58,14 @@ const product: Product = {
       side: "bottom",
       offsetX: 5,
       offsetY: 24,
-      domain: "dc",
       requiresOvercurrentProtection: true,
       maxCurrentA: 3,
+      connector: { kind: 'screw_terminal' },
       notes: "DC output positive. Fuse required on output positive conductor."
     },
     {
       id: "out_neg",
       label: "Out-",
-      electricalType: "dc_neg",
       kind: "dc_power",
       polarity: "negative",
       role: "source",
@@ -78,8 +74,8 @@ const product: Product = {
       side: "bottom",
       offsetX: 16,
       offsetY: 24,
-      domain: "dc",
       maxCurrentA: 3,
+      connector: { kind: 'screw_terminal' },
       notes: "DC output negative."
     }
   ],

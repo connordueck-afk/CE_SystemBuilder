@@ -1,4 +1,4 @@
-import type { Product } from '../../../../types/system';
+﻿import type { Product } from '../../../../types/system';
 
 const product: Product = {
   id: "ve-bus-bms-ng",
@@ -12,7 +12,7 @@ const product: Product = {
     48
   ],
   msrpUsd: 260,
-  description: "Victron VE.Bus BMS NG — battery management system for Victron Lithium NG batteries. VE.Bus / Bluetooth.",
+  description: "Victron VE.Bus BMS NG â€” battery management system for Victron Lithium NG batteries. VE.Bus / Bluetooth.",
   partNumber: "VE.Bus BMS NG",
   source: "Victron 2025",
   dataQuality: "partial",
@@ -23,7 +23,6 @@ const product: Product = {
     {
       id: "bat_pos",
       label: "Bat+",
-      electricalType: "dc_pos",
       kind: "dc_power",
       polarity: "positive",
       role: "bus",
@@ -35,7 +34,6 @@ const product: Product = {
     {
       id: "signal",
       label: "VE.Bus",
-      electricalType: "signal",
       kind: "signal",
       role: "control",
       voltageClass: "signal_low_voltage",

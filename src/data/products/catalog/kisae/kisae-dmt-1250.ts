@@ -1,4 +1,4 @@
-import type { Product } from '../../../../types/system';
+﻿import type { Product } from '../../../../types/system';
 
 const product: Product = {
   id: "kisae-dmt-1250",
@@ -26,7 +26,6 @@ const product: Product = {
     {
       id: "in_pos",
       label: "Alt+",
-      electricalType: "dc_pos",
       kind: "dc_power",
       polarity: "positive",
       role: "sink",
@@ -35,13 +34,11 @@ const product: Product = {
       side: "left",
       offsetX: -42,
       offsetY: -24,
-      domain: "dc",
       requiresOvercurrentProtection: true
     },
     {
       id: "in_neg",
       label: "Alt-",
-      electricalType: "dc_neg",
       kind: "dc_power",
       polarity: "negative",
       role: "sink",
@@ -50,12 +47,10 @@ const product: Product = {
       side: "left",
       offsetX: -42,
       offsetY: -6,
-      domain: "dc"
     },
     {
       id: "pv_pos",
       label: "PV+",
-      electricalType: "pv_pos",
       kind: "pv_power",
       polarity: "positive",
       role: "sink",
@@ -64,12 +59,10 @@ const product: Product = {
       side: "top",
       offsetX: -15,
       offsetY: -56,
-      domain: "pv"
     },
     {
       id: "pv_neg",
       label: "PV-",
-      electricalType: "pv_neg",
       kind: "pv_power",
       polarity: "negative",
       role: "sink",
@@ -78,12 +71,10 @@ const product: Product = {
       side: "top",
       offsetX: 15,
       offsetY: -56,
-      domain: "pv"
     },
     {
       id: "out_pos",
       label: "Bat+",
-      electricalType: "dc_pos",
       kind: "dc_power",
       polarity: "positive",
       role: "source",
@@ -92,13 +83,11 @@ const product: Product = {
       side: "right",
       offsetX: 42,
       offsetY: 24,
-      domain: "dc",
       requiresOvercurrentProtection: true
     },
     {
       id: "out_neg",
       label: "Bat-",
-      electricalType: "dc_neg",
       kind: "dc_power",
       polarity: "negative",
       role: "source",
@@ -107,7 +96,6 @@ const product: Product = {
       side: "right",
       offsetX: 42,
       offsetY: 42,
-      domain: "dc"
     }
   ],
   dcDcChargerRatings: {

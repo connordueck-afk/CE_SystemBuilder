@@ -1,4 +1,4 @@
-import type { Product } from '../../../../types/system';
+﻿import type { Product } from '../../../../types/system';
 
 const product: Product = {
   id: "dist-vic-lynx-power-in",
@@ -27,7 +27,6 @@ const product: Product = {
       id: "main_pos",
       label: "Bat+",
       busLinkStandard: "victron-lynx",
-      electricalType: "dc_pos",
       kind: "dc_power",
       polarity: "positive",
       role: "bus",
@@ -35,14 +34,13 @@ const product: Product = {
       side: "left",
       offsetX: -76,
       offsetY: -28,
-      domain: "dc",
+      connector: { kind: 'stud', holeSize: 'M8' },
       notes: "Main positive input (battery side). Bidirectional."
     },
     {
       id: "main_neg",
       label: "Bat-",
       busLinkStandard: "victron-lynx",
-      electricalType: "dc_neg",
       kind: "dc_power",
       polarity: "negative",
       role: "bus",
@@ -50,14 +48,13 @@ const product: Product = {
       side: "left",
       offsetX: -76,
       offsetY: 23,
-      domain: "dc",
+      connector: { kind: 'stud', holeSize: 'M8' },
       notes: "Main negative input (battery side). Bidirectional."
     },
     {
       id: "pass_pos",
       label: "Bus+",
       busLinkStandard: "victron-lynx",
-      electricalType: "dc_pos",
       kind: "dc_power",
       polarity: "positive",
       role: "bus",
@@ -65,14 +62,13 @@ const product: Product = {
       side: "right",
       offsetX: 70,
       offsetY: -24,
-      domain: "dc",
+      connector: { kind: 'stud', holeSize: 'M8' },
       notes: "Unfused positive pass-through to the next Lynx module. Bidirectional."
     },
     {
       id: "pass_neg",
       label: "Bus-",
       busLinkStandard: "victron-lynx",
-      electricalType: "dc_neg",
       kind: "dc_power",
       polarity: "negative",
       role: "bus",
@@ -80,13 +76,12 @@ const product: Product = {
       side: "right",
       offsetX: 71,
       offsetY: 20,
-      domain: "dc",
+      connector: { kind: 'stud', holeSize: 'M8' },
       notes: "Unfused negative pass-through to the next Lynx module. Bidirectional."
     },
     {
       id: "out_pos_1",
       label: "+1",
-      electricalType: "dc_pos",
       kind: "dc_power",
       polarity: "positive",
       role: "bus",
@@ -94,13 +89,12 @@ const product: Product = {
       side: "bottom",
       offsetX: -32,
       offsetY: 31,
-      domain: "dc",
+      connector: { kind: 'stud', holeSize: 'M8' },
       notes: "Unfused positive bus connection. Source or load depending on topology."
     },
     {
       id: "out_neg_1",
       label: "-1",
-      electricalType: "dc_neg",
       kind: "dc_power",
       polarity: "negative",
       role: "bus",
@@ -108,13 +102,12 @@ const product: Product = {
       side: "bottom",
       offsetX: 6,
       offsetY: 38,
-      domain: "dc",
+      connector: { kind: 'stud', holeSize: 'M8' },
       notes: "Unfused negative bus connection. Source or load depending on topology."
     },
     {
       id: "out_pos_2",
       label: "+2",
-      electricalType: "dc_pos",
       kind: "dc_power",
       polarity: "positive",
       role: "bus",
@@ -122,13 +115,12 @@ const product: Product = {
       side: "bottom",
       offsetX: -18,
       offsetY: 31,
-      domain: "dc",
+      connector: { kind: 'stud', holeSize: 'M8' },
       notes: "Unfused positive bus connection. Source or load depending on topology."
     },
     {
       id: "out_pos_3",
       label: "+3",
-      electricalType: "dc_pos",
       kind: "dc_power",
       polarity: "positive",
       role: "bus",
@@ -136,13 +128,12 @@ const product: Product = {
       side: "bottom",
       offsetX: 29,
       offsetY: 34,
-      domain: "dc",
+      connector: { kind: 'stud', holeSize: 'M8' },
       notes: "Unfused positive bus connection. Source or load depending on topology."
     },
     {
       id: "out_pos_4",
       label: "+4",
-      electricalType: "dc_pos",
       kind: "dc_power",
       polarity: "positive",
       role: "bus",
@@ -150,7 +141,7 @@ const product: Product = {
       side: "bottom",
       offsetX: 45,
       offsetY: 34,
-      domain: "dc",
+      connector: { kind: 'stud', holeSize: 'M8' },
       notes: "Unfused positive bus connection. Source or load depending on topology."
     }
   ],

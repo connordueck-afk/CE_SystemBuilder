@@ -6,7 +6,7 @@ import type {
   TerminalConnector,
 } from '../types/system';
 import { selectLug, lugKey, type LugSpec } from '../data/lugs';
-import { connectorLabel, getEffectiveConnector } from './terminalConnectors';
+import { connectorLabel, getEffectiveConnector, getMatingConnector } from './terminalConnectors';
 import { BUS_DEFAULT_COLOR, BUS_DEFAULT_TYPE } from './cableDefaults';
 
 function effectiveCableColor(connection: SystemConnection): string {
@@ -144,9 +144,23 @@ function resolveTermination(
 ): CableEndTermination {
   if (!product || !component) return { label: '—' };
 
-  const connector = getEffectiveConnector(product, terminalId, component);
-  if (!connector) return { label: '—' };
+  // Communication/network terminals: use the port's physical connector type (RJ45, M12, etc.)
+  const commPort = product.communicationPorts?.find(p => p.id === terminalId);
+  if (commPort) {
+    // holeSize carries the connector type string so the connector summary can label it correctly.
+    // Gender is inverted: the cable-end connector must mate with the port (female port → male cable end).
+    const matingGender = commPort.gender === 'female' ? 'male'
+                       : commPort.gender === 'male' ? 'female'
+                       : undefined;
+    const connector = { kind: 'comm' as const, holeSize: commPort.connectorType, gender: matingGender };
+    return { connector, label: connectorLabel(connector) };
+  }
 
+  const deviceConnector = getEffectiveConnector(product, terminalId, component);
+  if (!deviceConnector) return { label: '—' };
+
+  // Derive the cable-end connector from the device terminal's physical connection type.
+  const connector = getMatingConnector(deviceConnector);
   const lug = connector.kind === 'lug' ? selectLug(gauge, connector.holeSize) : undefined;
   return { connector, lug, label: connectorLabel(connector) };
 }
@@ -230,7 +244,7 @@ export function buildConnectorSummary(rows: CableBomRow[]): ConnectorSummaryItem
       estUnit = end.lug.estMsrpUsd;
     } else {
       // Aggregate other countable terminations (screw terminals, ferrules, etc.)
-      key = `${end.connector.kind}|${end.connector.holeSize ?? ''}`;
+      key = `${end.connector.kind}|${end.connector.holeSize ?? ''}|${end.connector.gender ?? ''}`;
       label = connectorLabel(end.connector);
       holeSize = end.connector.holeSize;
       estUnit = null;

@@ -1,4 +1,4 @@
-import type { Product } from '../../../../types/system';
+﻿import type { Product } from '../../../../types/system';
 
 const product: Product = {
   id: "kisae-ic122055",
@@ -24,7 +24,6 @@ const product: Product = {
     {
       id: "dc_pos",
       label: "DC+",
-      electricalType: "dc_pos",
       kind: "dc_power",
       polarity: "positive",
       role: "bidirectional",
@@ -33,13 +32,11 @@ const product: Product = {
       side: "left",
       offsetX: -70,
       offsetY: -18,
-      domain: "dc",
       requiresOvercurrentProtection: true
     },
     {
       id: "dc_neg",
       label: "DC-",
-      electricalType: "dc_neg",
       kind: "dc_power",
       polarity: "negative",
       role: "bidirectional",
@@ -48,12 +45,10 @@ const product: Product = {
       side: "left",
       offsetX: -70,
       offsetY: 18,
-      domain: "dc"
     },
     {
       id: "ac_in_l",
       label: "AC In L",
-      electricalType: "ac",
       kind: "ac_power",
       polarity: "line",
       role: "sink",
@@ -62,12 +57,10 @@ const product: Product = {
       side: "right",
       offsetX: 70,
       offsetY: -30,
-      domain: "ac"
     },
     {
       id: "ac_in_n",
       label: "AC In N",
-      electricalType: "ac",
       kind: "ac_power",
       polarity: "neutral",
       role: "sink",
@@ -76,12 +69,10 @@ const product: Product = {
       side: "right",
       offsetX: 70,
       offsetY: -10,
-      domain: "ac"
     },
     {
       id: "ac_out_l",
       label: "AC Out L",
-      electricalType: "ac",
       kind: "ac_power",
       polarity: "line",
       role: "source",
@@ -90,12 +81,10 @@ const product: Product = {
       side: "right",
       offsetX: 70,
       offsetY: 10,
-      domain: "ac"
     },
     {
       id: "ac_out_n",
       label: "AC Out N",
-      electricalType: "ac",
       kind: "ac_power",
       polarity: "neutral",
       role: "source",
@@ -104,14 +93,12 @@ const product: Product = {
       side: "right",
       offsetX: 70,
       offsetY: 30,
-      domain: "ac"
     },
     {
       id: "ve_bus",
       label: "VE.Bus",
       kind: "network",
       role: "bidirectional",
-      domain: "communication",
       side: "top",
       offsetX: 0,
       offsetY: -50

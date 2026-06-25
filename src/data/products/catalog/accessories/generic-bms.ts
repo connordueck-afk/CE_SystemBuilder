@@ -1,4 +1,4 @@
-import type { Product } from '../../../../types/system';
+﻿import type { Product } from '../../../../types/system';
 
 const product: Product = {
   id: "generic-bms",
@@ -16,14 +16,12 @@ const product: Product = {
     {
       id: "signal",
       label: "Signal",
-      electricalType: "signal",
       kind: "signal",
       role: "control",
       voltageClass: "signal_low_voltage",
       side: "left",
       offsetX: -40,
       offsetY: 0,
-      domain: "signal"
     }
   ]
 };

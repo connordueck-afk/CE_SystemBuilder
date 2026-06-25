@@ -1,4 +1,4 @@
-import type { Product } from '../../../../types/system';
+﻿import type { Product } from '../../../../types/system';
 
 const product: Product = {
   id: "comm-can-splitter-4port",
@@ -66,7 +66,6 @@ const product: Product = {
       label: "Port A",
       kind: "network",
       role: "bidirectional",
-      domain: "communication",
       side: "bottom",
       offsetX: -40,
       offsetY: 25
@@ -76,7 +75,6 @@ const product: Product = {
       label: "Port B",
       kind: "network",
       role: "bidirectional",
-      domain: "communication",
       side: "bottom",
       offsetX: -13.333333333333336,
       offsetY: 25
@@ -86,7 +84,6 @@ const product: Product = {
       label: "Port C",
       kind: "network",
       role: "bidirectional",
-      domain: "communication",
       side: "bottom",
       offsetX: 13.333333333333329,
       offsetY: 25
@@ -96,7 +93,6 @@ const product: Product = {
       label: "Port D",
       kind: "network",
       role: "bidirectional",
-      domain: "communication",
       side: "bottom",
       offsetX: 40,
       offsetY: 25
