@@ -44,6 +44,9 @@ export function Terminal({ terminal, componentId, componentLabel, isHighlighted,
         e.stopPropagation();
         onMouseDown(componentId, terminal.id, e);
       }}
+      // Keep the click from reaching the canvas, which would cancel the
+      // pending connection we just started on mousedown.
+      onClick={(e) => e.stopPropagation()}
     >
       <title>{tooltip}</title>
       {isCommPort ? (

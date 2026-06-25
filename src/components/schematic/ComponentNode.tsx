@@ -7,27 +7,18 @@ import { LynxDistributionSymbol } from './symbols/LynxDistributionSymbol';
 import { FuseSymbol } from './symbols/FuseSymbol';
 import { GenericSymbol } from './symbols/GenericSymbol';
 import { ConnectionPointSymbol } from './symbols/ConnectionPointSymbol';
-import { Terminal } from './Terminal';
-import { getEffectiveTerminals } from '../../utils/effectiveTerminals';
 import { getProductDisplayImageUrl, resolveProductImageUrl } from '../../utils/productImages';
-import type { BusColorMap } from '../../utils/busColors';
 import { orientationTransform } from '../../utils/componentOrientation';
 import { getDcBusNominalVoltage, isDcBusProduct } from '../../utils/dcBusVoltage';
-import { componentScale, scaledProductSize, scaledTerminalOffset } from '../../utils/componentScale';
+import { componentScale, scaledProductSize } from '../../utils/componentScale';
 
 interface Props {
   component: SystemComponent;
   product: Product;
   selected: boolean;
-  /** Key of the terminal that initiated the pending connection ("compId:termId"), or null. */
-  pendingSourceKey: string | null;
-  /** Set of "compId:termId" keys that are valid targets for the pending connection, or null when not connecting. */
-  validTargetTerminals: Set<string> | null;
-  busColors: BusColorMap;
   onSelect: (id: string) => void;
   onDragStart: (id: string, e: React.MouseEvent) => void;
   onContextMenu: (id: string, e: React.MouseEvent) => void;
-  onTerminalMouseDown: (compId: string, termId: string, e: React.MouseEvent) => void;
   onScaleHandleMouseDown: (id: string, e: React.MouseEvent) => void;
 }
 
@@ -44,8 +35,9 @@ function Symbol({
   const { width: w, height: h } = scaledProductSize(product, scale);
   const scaledProduct = { ...product, width: w, height: h };
   // Fused distribution modules are drawn as schematic symbols (not the product
-  // photo) so every tap/passthrough terminal lands exactly on the drawn shape.
-  const useSchematicSymbol = product.distributionTopology != null;
+  // photo) so every tap/passthrough terminal lands exactly on the drawn shape —
+  // unless the product provides an explicit SVG, in which case that wins.
+  const useSchematicSymbol = product.distributionTopology != null && !product.imageUrl;
   const imageUrl = useSchematicSymbol
     ? undefined
     : resolveProductImageUrl(getProductDisplayImageUrl(product));
@@ -108,13 +100,9 @@ export function ComponentNode({
   component,
   product,
   selected,
-  pendingSourceKey,
-  validTargetTerminals,
-  busColors,
   onSelect,
   onDragStart,
   onContextMenu,
-  onTerminalMouseDown,
   onScaleHandleMouseDown,
 }: Props) {
   const label = component.label ?? product.name;
@@ -122,7 +110,6 @@ export function ComponentNode({
   const rotation = component.rotationDeg ?? 0;
   const scale = componentScale(component);
   const { width: scaledWidth, height: scaledHeight } = scaledProductSize(product, scale);
-  const terminals = getEffectiveTerminals(product, component);
   const ratingLabel = product.productType === 'fuse' || product.productType === 'breaker'
     ? protectionRatingLabel(product)
     : '';
@@ -170,28 +157,8 @@ export function ComponentNode({
           </g>
         )}
 
-        {/* Terminals */}
-        {terminals.map((t) => {
-          const offset = scaledTerminalOffset(component, t);
-          const key = `${component.id}:${t.id}`;
-          const isSource = pendingSourceKey === key;
-          const isHighlighted = !isSource && (validTargetTerminals?.has(key) ?? false);
-          const isDisabled = validTargetTerminals !== null && !isSource && !isHighlighted;
-          return (
-            <Terminal
-              key={t.id}
-              terminal={{ ...t, ...offset }}
-              componentId={component.id}
-              componentLabel={label}
-              isHighlighted={isHighlighted}
-              isPending={false}
-              isSource={isSource}
-              isDisabled={isDisabled}
-              busColors={busColors}
-              onMouseDown={onTerminalMouseDown}
-            />
-          );
-        })}
+        {/* Terminals (connection nodes) are rendered in TerminalLayer, above the
+            cables, so they stay clickable when wires cross over them. */}
 
         {/* Scale handle — bottom-right corner of bounding box */}
         {selected && (

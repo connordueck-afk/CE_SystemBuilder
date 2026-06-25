@@ -32,8 +32,8 @@ const product: Product = {
       role: "bus",
       voltageClass: "dc_low_voltage",
       side: "left",
-      offsetX: -110,
-      offsetY: -20,
+      offsetX: -76,
+      offsetY: -26,
       domain: "dc",
       notes: "Main positive bus connection (battery side). Bidirectional."
     },
@@ -47,8 +47,8 @@ const product: Product = {
       role: "bus",
       voltageClass: "dc_low_voltage",
       side: "left",
-      offsetX: -110,
-      offsetY: 20,
+      offsetX: -76,
+      offsetY: 24,
       domain: "dc",
       notes: "Main negative bus connection (battery side). Bidirectional."
     },
@@ -62,8 +62,8 @@ const product: Product = {
       role: "bus",
       voltageClass: "dc_low_voltage",
       side: "right",
-      offsetX: 110,
-      offsetY: -20,
+      offsetX: 78,
+      offsetY: -24,
       domain: "dc",
       notes: "Unfused positive pass-through to the next Lynx module. Bidirectional."
     },
@@ -77,8 +77,8 @@ const product: Product = {
       role: "bus",
       voltageClass: "dc_low_voltage",
       side: "right",
-      offsetX: 110,
-      offsetY: 20,
+      offsetX: 76,
+      offsetY: 19,
       domain: "dc",
       notes: "Unfused negative pass-through to the next Lynx module. Bidirectional."
     },
@@ -91,8 +91,8 @@ const product: Product = {
       role: "bus",
       voltageClass: "dc_low_voltage",
       side: "bottom",
-      offsetX: -88,
-      offsetY: 50,
+      offsetX: -28,
+      offsetY: 36,
       domain: "dc",
       requiresOvercurrentProtection: true,
       notes: "Fused tap 1 (+), MEGA fuse holder. Source or load depending on topology."
@@ -106,8 +106,8 @@ const product: Product = {
       role: "bus",
       voltageClass: "dc_low_voltage",
       side: "bottom",
-      offsetX: -63,
-      offsetY: 50,
+      offsetX: -19,
+      offsetY: 36,
       domain: "dc",
       notes: "Fused tap 1 (-), paired negative return."
     },
@@ -120,8 +120,8 @@ const product: Product = {
       role: "bus",
       voltageClass: "dc_low_voltage",
       side: "bottom",
-      offsetX: -38,
-      offsetY: 50,
+      offsetX: -9,
+      offsetY: 36,
       domain: "dc",
       requiresOvercurrentProtection: true,
       notes: "Fused tap 2 (+), MEGA fuse holder. Source or load depending on topology."
@@ -135,8 +135,8 @@ const product: Product = {
       role: "bus",
       voltageClass: "dc_low_voltage",
       side: "bottom",
-      offsetX: -13,
-      offsetY: 50,
+      offsetX: 1,
+      offsetY: 36,
       domain: "dc",
       notes: "Fused tap 2 (-), paired negative return."
     },
@@ -149,8 +149,8 @@ const product: Product = {
       role: "bus",
       voltageClass: "dc_low_voltage",
       side: "bottom",
-      offsetX: 13,
-      offsetY: 50,
+      offsetX: 24,
+      offsetY: 38,
       domain: "dc",
       requiresOvercurrentProtection: true,
       notes: "Fused tap 3 (+), MEGA fuse holder. Source or load depending on topology."
@@ -164,8 +164,8 @@ const product: Product = {
       role: "bus",
       voltageClass: "dc_low_voltage",
       side: "bottom",
-      offsetX: 38,
-      offsetY: 50,
+      offsetX: 34,
+      offsetY: 39,
       domain: "dc",
       notes: "Fused tap 3 (-), paired negative return."
     },
@@ -178,8 +178,8 @@ const product: Product = {
       role: "bus",
       voltageClass: "dc_low_voltage",
       side: "bottom",
-      offsetX: 63,
-      offsetY: 50,
+      offsetX: 44,
+      offsetY: 39,
       domain: "dc",
       requiresOvercurrentProtection: true,
       notes: "Fused tap 4 (+), MEGA fuse holder. Source or load depending on topology."
@@ -193,8 +193,8 @@ const product: Product = {
       role: "bus",
       voltageClass: "dc_low_voltage",
       side: "bottom",
-      offsetX: 88,
-      offsetY: 50,
+      offsetX: 54,
+      offsetY: 40,
       domain: "dc",
       notes: "Fused tap 4 (-), paired negative return."
     }
@@ -278,7 +278,8 @@ const product: Product = {
         maxFuseA: 500
       }
     ]
-  }
+  },
+  imageUrl: "/product-images/victron_lynx_distributor.svg"
 };
 
 export default product;

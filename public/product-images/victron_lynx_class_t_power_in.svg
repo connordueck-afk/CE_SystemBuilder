@@ -1,0 +1,146 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1500" height="900" viewBox="0 0 1500 900" role="img" aria-label="Victron Lynx Class-T Power In simplified product asset">
+  <defs>
+    <linearGradient id="victronBlue" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#22a9df"/>
+      <stop offset="55%" stop-color="#0f98d0"/>
+      <stop offset="100%" stop-color="#0775ad"/>
+    </linearGradient>
+    <linearGradient id="victronBlueDark" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#1597cf"/>
+      <stop offset="100%" stop-color="#076ca2"/>
+    </linearGradient>
+    <linearGradient id="sideCap" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#2bb3e8"/>
+      <stop offset="100%" stop-color="#0678b0"/>
+    </linearGradient>
+    <linearGradient id="orange" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ff8f29"/>
+      <stop offset="100%" stop-color="#e65e00"/>
+    </linearGradient>
+    <linearGradient id="slot" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#171b20"/>
+      <stop offset="100%" stop-color="#020304"/>
+    </linearGradient>
+    <linearGradient id="steel" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#f3f3f3"/>
+      <stop offset="48%" stop-color="#9fa6ad"/>
+      <stop offset="100%" stop-color="#565e66"/>
+    </linearGradient>
+    <linearGradient id="redInsulator" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#e84738"/>
+      <stop offset="100%" stop-color="#9e1716"/>
+    </linearGradient>
+    <linearGradient id="screw" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#7d878f"/>
+      <stop offset="100%" stop-color="#303840"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#000" flood-opacity="0.18"/>
+    </filter>
+  </defs>
+
+  <g filter="url(#shadow)">
+    <!-- left external Class-T bus tabs -->
+    <g>
+      <rect x="16" y="134" width="154" height="148" rx="3" fill="url(#steel)" stroke="#555c64" stroke-width="4"/>
+      <circle cx="86" cy="208" r="38" fill="#ffffff" stroke="#8d959e" stroke-width="6"/>
+      <rect x="16" y="578" width="154" height="148" rx="3" fill="url(#steel)" stroke="#555c64" stroke-width="4"/>
+      <circle cx="86" cy="652" r="38" fill="#ffffff" stroke="#8d959e" stroke-width="6"/>
+      <rect x="142" y="126" width="34" height="160" rx="10" fill="url(#redInsulator)"/>
+      <rect x="142" y="572" width="34" height="160" rx="10" fill="#111418"/>
+    </g>
+
+    <!-- main blue housing -->
+    <rect x="140" y="76" width="1218" height="696" rx="34" fill="url(#victronBlue)" stroke="#0575ac" stroke-width="5"/>
+
+    <!-- side caps -->
+    <path d="M140 78 h130 q-38 42-38 126 v468 q0 74 38 98 h-130 q-50 0-50-50 v-592 q0-50 50-50z" fill="url(#sideCap)" stroke="#0878b0" stroke-width="4"/>
+    <path d="M1222 78 h136 q50 0 50 50 v592 q0 50-50 50 h-136 q38-24 38-98 v-468 q0-84-38-126z" fill="url(#sideCap)" stroke="#0878b0" stroke-width="4"/>
+
+    <!-- top and bottom contour lips -->
+    <path d="M260 78 h964 l26 24 h-1016z" fill="#28aee5" opacity="0.72"/>
+    <path d="M232 742 h1020 l-26 30 h-968z" fill="#0478b2" opacity="0.55"/>
+
+    <!-- top ventilation slots -->
+    <g fill="url(#slot)">
+      <rect x="290" y="124" width="124" height="18" rx="9"/>
+      <rect x="442" y="124" width="178" height="18" rx="9"/>
+      <rect x="664" y="124" width="142" height="18" rx="9"/>
+      <rect x="850" y="124" width="138" height="18" rx="9"/>
+      <rect x="1032" y="124" width="178" height="18" rx="9"/>
+      <rect x="1244" y="124" width="110" height="18" rx="9"/>
+
+      <rect x="290" y="166" width="128" height="18" rx="9"/>
+      <rect x="442" y="166" width="182" height="18" rx="9"/>
+      <rect x="664" y="166" width="138" height="18" rx="9"/>
+      <rect x="850" y="166" width="138" height="18" rx="9"/>
+      <rect x="1030" y="166" width="180" height="18" rx="9"/>
+      <rect x="1244" y="166" width="110" height="18" rx="9"/>
+    </g>
+
+    <!-- orange label strip -->
+    <rect x="310" y="344" width="990" height="40" rx="2" fill="url(#orange)"/>
+    <path d="M318 350 h972" stroke="#ffb36c" stroke-opacity="0.35" stroke-width="4"/>
+
+    <!-- logo area as non-readable placeholders -->
+    <g fill="#eef9fc" opacity="0.94">
+      <path d="M330 238 q-20-22 0-42 q18-18 36 0 q18-18 36 0 q20 20 0 42 q-18 22-36 0 q-18 22-36 0z"/>
+      <rect x="424" y="206" width="190" height="18" rx="9"/>
+      <rect x="424" y="238" width="116" height="8" rx="4" opacity="0.85"/>
+    </g>
+
+    <!-- white arrows and guide line -->
+    <polygon points="300,430 332,396 332,464" fill="#eaf7fb"/>
+    <polygon points="1300,430 1268,396 1268,464" fill="#eaf7fb"/>
+    <rect x="330" y="468" width="940" height="4" rx="2" fill="#e7f7fb" opacity="0.86"/>
+
+    <!-- product text represented by non-readable placeholder bars -->
+    <g fill="#f2fbff" opacity="0.96">
+      <rect x="330" y="500" width="246" height="32" rx="9"/>
+      <rect x="592" y="502" width="456" height="28" rx="9" opacity="0.75"/>
+      <rect x="330" y="552" width="154" height="60" rx="12"/>
+      <rect x="330" y="636" width="946" height="5" rx="2"/>
+      <rect x="1120" y="660" width="102" height="28" rx="8"/>
+      <rect x="1240" y="664" width="52" height="18" rx="6" opacity="0.82"/>
+    </g>
+
+    <!-- side cap screw holes -->
+    <circle cx="210" cy="430" r="28" fill="#00649a" opacity="0.85"/>
+    <circle cx="210" cy="430" r="16" fill="#10161a"/>
+    <circle cx="1326" cy="430" r="28" fill="#00649a" opacity="0.85"/>
+    <circle cx="1326" cy="430" r="16" fill="#10161a"/>
+
+    <!-- bottom ventilation block -->
+    <path d="M392 704 h816 q20 0 20 20 v100 q0 20-20 20 h-816 q-20 0-20-20 v-100 q0-20 20-20z" fill="url(#victronBlueDark)"/>
+    <g fill="url(#slot)">
+      <rect x="290" y="724" width="118" height="22" rx="11"/>
+      <rect x="438" y="724" width="184" height="22" rx="11"/>
+      <rect x="664" y="724" width="146" height="22" rx="11"/>
+      <rect x="846" y="724" width="146" height="22" rx="11"/>
+      <rect x="1034" y="724" width="184" height="22" rx="11"/>
+      <rect x="1250" y="724" width="112" height="22" rx="11"/>
+
+      <rect x="290" y="772" width="118" height="22" rx="11"/>
+      <rect x="438" y="772" width="184" height="22" rx="11"/>
+      <rect x="664" y="772" width="146" height="22" rx="11"/>
+      <rect x="846" y="772" width="146" height="22" rx="11"/>
+      <rect x="1034" y="772" width="184" height="22" rx="11"/>
+      <rect x="1250" y="772" width="112" height="22" rx="11"/>
+
+      <rect x="438" y="820" width="184" height="20" rx="10"/>
+      <rect x="664" y="820" width="146" height="20" rx="10"/>
+      <rect x="846" y="820" width="146" height="20" rx="10"/>
+      <rect x="1034" y="820" width="112" height="20" rx="10"/>
+    </g>
+
+    <!-- lower screw holes -->
+    <circle cx="450" cy="824" r="18" fill="#00649a"/>
+    <circle cx="450" cy="824" r="10" fill="#111418"/>
+    <circle cx="1160" cy="824" r="18" fill="#00649a"/>
+    <circle cx="1160" cy="824" r="10" fill="#111418"/>
+
+    <!-- side highlight strokes -->
+    <path d="M178 96 q34 24 34 98 v470 q0 72-34 92" stroke="#79d3f3" stroke-width="5" stroke-opacity="0.22" fill="none"/>
+    <path d="M1320 96 q-34 24-34 98 v470 q0 72 34 92" stroke="#79d3f3" stroke-width="5" stroke-opacity="0.22" fill="none"/>
+  </g>
+</svg>

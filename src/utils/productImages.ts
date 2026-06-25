@@ -174,6 +174,11 @@ function discoverFamilyImageUrl(product: Product): string | undefined {
 }
 
 export function getProductDisplayImageUrl(product: Product): string | undefined {
+  // An explicit imageUrl on the product (e.g. set via the Product Builder) always
+  // wins, so editing a product's image takes effect everywhere. The manufacturer
+  // part-number / name maps below are only fallbacks when no image is set.
+  if (product.imageUrl) return product.imageUrl;
+
   if (product.manufacturer === 'Victron') {
     const assetId = product.partNumber ? VICTRON_PART_IMAGE_MAP[product.partNumber] : undefined;
     if (assetId) return victronImage(assetId);
@@ -189,7 +194,6 @@ export function getProductDisplayImageUrl(product: Product): string | undefined 
     const imageUrl = discoverFamilyImageUrl(product);
     if (imageUrl) return imageUrl;
   }
-  if (product.imageUrl) return product.imageUrl;
   return getProductImageUrl(product.productType);
 }
 

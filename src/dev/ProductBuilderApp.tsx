@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import type { Product, ProductType, TerminalDefinition } from '../types/system';
+import type { Product, ProductType, TerminalDefinition, ProductCommunicationPort } from '../types/system';
 import { getProductDisplayImageUrl } from '../utils/productImages';
 import { Sidebar } from './components/Sidebar';
 import { CoreFieldsForm } from './components/CoreFieldsForm';
@@ -109,6 +109,17 @@ async function loadProductFile(id: string, subdir: string): Promise<Product> {
   return mod.default as Product;
 }
 
+async function uploadSvg(filename: string, subdir: string, content: string): Promise<string> {
+  const r = await fetch('/__dev/products/upload-svg', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ filename, subdir, content }),
+  });
+  const data = await r.json();
+  if (!r.ok) throw new Error(data.error ?? 'Upload failed');
+  return data.path as string;
+}
+
 async function saveProduct(id: string, subdir: string, product: Partial<Product>): Promise<void> {
   const r = await fetch('/__dev/products/save', {
     method: 'POST',
@@ -133,6 +144,7 @@ export function ProductBuilderApp() {
   const [showSvgPicker, setShowSvgPicker] = useState(false);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
   const [isDirty, setIsDirty] = useState(false);
+  const [activeTab, setActiveTab] = useState<'core' | 'visual'>('core');
 
   // Load product list and SVG list on mount
   useEffect(() => {
@@ -174,23 +186,67 @@ export function ProductBuilderApp() {
   }, []);
 
   const updateTerminal = useCallback((id: string, changes: Partial<TerminalDefinition>) => {
-    setProduct(prev => ({
-      ...prev,
-      terminals: (prev.terminals ?? []).map((t: TerminalDefinition) =>
+    const renamedTo = changes.id && changes.id !== id ? changes.id : undefined;
+    setProduct(prev => {
+      const terminals = (prev.terminals ?? []).map((t: TerminalDefinition) =>
         t.id === id ? { ...t, ...changes } : t
-      ),
-    }));
+      );
+      // Keep a matching communication port's id in sync when the terminal is renamed.
+      const communicationPorts = renamedTo && prev.communicationPorts
+        ? prev.communicationPorts.map(p => (p.id === id ? { ...p, id: renamedTo } : p))
+        : prev.communicationPorts;
+      return { ...prev, terminals, communicationPorts };
+    });
+    if (renamedTo && selectedTerminalId === id) setSelectedTerminalId(renamedTo);
     setIsDirty(true);
-  }, []);
+  }, [selectedTerminalId]);
 
   const removeTerminal = useCallback((id: string) => {
-    setProduct(prev => ({
-      ...prev,
-      terminals: (prev.terminals ?? []).filter((t: TerminalDefinition) => t.id !== id),
-    }));
+    setProduct(prev => {
+      const communicationPorts = prev.communicationPorts?.filter(p => p.id !== id);
+      return {
+        ...prev,
+        terminals: (prev.terminals ?? []).filter((t: TerminalDefinition) => t.id !== id),
+        communicationPorts: communicationPorts?.length ? communicationPorts : undefined,
+      };
+    });
     if (selectedTerminalId === id) setSelectedTerminalId(null);
     setIsDirty(true);
   }, [selectedTerminalId]);
+
+  // Upsert (changes) or remove (null) the communication port matched to a terminal by id.
+  const upsertCommPort = useCallback((portId: string, changes: Partial<ProductCommunicationPort> | null) => {
+    setProduct(prev => {
+      const ports = (prev.communicationPorts ?? []) as ProductCommunicationPort[];
+      let next: ProductCommunicationPort[];
+      if (changes === null) {
+        next = ports.filter(p => p.id !== portId);
+      } else if (ports.some(p => p.id === portId)) {
+        next = ports.map(p => (p.id === portId ? { ...p, ...changes } : p));
+      } else {
+        const term = (prev.terminals ?? []).find((t: TerminalDefinition) => t.id === portId);
+        next = [...ports, {
+          id: portId,
+          name: term?.label || portId,
+          connectorType: 'RJ45',
+          supportedProtocols: [],
+          ...changes,
+        } as ProductCommunicationPort];
+      }
+      return { ...prev, communicationPorts: next.length ? next : undefined };
+    });
+    setIsDirty(true);
+  }, []);
+
+  // ---- Import an SVG into public/product-images and select it ----
+
+  const handleImportSvg = useCallback(async (file: File, subdir: string): Promise<void> => {
+    const content = await file.text();
+    const rel = await uploadSvg(file.name, subdir, content);
+    const list = await fetchSvgList();
+    setSvgList(list);
+    updateProduct('imageUrl', `/product-images/${rel}`);
+  }, [updateProduct]);
 
   // ---- Load existing product ----
 
@@ -250,15 +306,20 @@ export function ProductBuilderApp() {
   // ---- Derived state ----
 
   const selectedTerminal = terminals.find(t => t.id === selectedTerminalId) ?? null;
+  const selectedPort = selectedTerminal
+    ? (product.communicationPorts ?? []).find(p => p.id === selectedTerminal.id)
+    : undefined;
   const width = Number(product.width) || 120;
   const height = Number(product.height) || 80;
 
-  // Resolve display image: explicit imageUrl first, then auto-detect by manufacturer/type
+  // Resolve display image: an explicitly chosen imageUrl always wins in the
+  // builder; otherwise fall back to manufacturer/type auto-detection.
   const displayImageUrl = useMemo(() => {
+    if (product.imageUrl) return product.imageUrl;
     if (product.id && product.productType) {
       return getProductDisplayImageUrl(product as Product);
     }
-    return product.imageUrl;
+    return undefined;
   }, [product]);
 
   const statusLabel = saveStatus === 'saving' ? 'Saving…'
@@ -308,105 +369,137 @@ export function ProductBuilderApp() {
       {/* Main */}
       <div className="pb-main">
 
-        {/* Left: form + terminal editor when active */}
-        <div className="pb-form-col">
-          <CoreFieldsForm
-            product={product}
-            onChange={(key, value) => {
-              if (key === 'productType') {
-                handleTypeChange(key, value);
-              } else {
-                updateProduct(key, value);
-              }
-            }}
-          />
-          <RatingsForm
-            productType={product.productType as ProductType | undefined}
-            product={product}
-            onRatingsChange={updateRatings}
-          />
-          {selectedTerminal && (
-            <TerminalEditorPanel
-              terminal={selectedTerminal}
-              onChange={changes => updateTerminal(selectedTerminal.id, changes)}
-              onDelete={() => removeTerminal(selectedTerminal.id)}
-              onClose={() => setSelectedTerminalId(null)}
-            />
-          )}
+        {/* Tab bar */}
+        <div className="pb-tabs">
+          <button
+            className={`pb-tab${activeTab === 'core' ? ' active' : ''}`}
+            onClick={() => setActiveTab('core')}
+          >
+            Core Features
+          </button>
+          <button
+            className={`pb-tab${activeTab === 'visual' ? ' active' : ''}`}
+            onClick={() => setActiveTab('visual')}
+          >
+            Image &amp; Terminals
+          </button>
         </div>
 
-        {/* Right: SVG placer + terminal list — stays fully visible */}
-        <div className="pb-right-col">
+        {/* Tab content — scrollable */}
+        <div className="pb-tab-content">
 
-          {/* SVG + terminal placer */}
-          <div className="pb-section">
-            <div className="pb-section-header">
-              <span>Visual / Terminals</span>
-              <button
-                className="pb-btn pb-btn-ghost pb-btn-sm"
-                onClick={() => setShowSvgPicker(true)}
-              >
-                Pick SVG
-              </button>
-            </div>
-            <div className="pb-section-body" style={{ alignItems: 'center' }}>
-              <TerminalPlacer
-                width={width}
-                height={height}
-                imageUrl={displayImageUrl}
-                terminals={terminals}
-                selectedId={selectedTerminalId}
-                onPlaceTerminal={addTerminal}
-                onSelectTerminal={setSelectedTerminalId}
-                onMoveTerminal={(id, x, y) => updateTerminal(id, { offsetX: x, offsetY: y })}
+          {activeTab === 'core' && (
+            <>
+              <CoreFieldsForm
+                product={product}
+                onChange={(key, value) => {
+                  if (key === 'productType') {
+                    handleTypeChange(key, value);
+                  } else {
+                    updateProduct(key, value);
+                  }
+                }}
               />
-              <div style={{ fontSize: 11, color: 'var(--muted)', textAlign: 'center' }}>
-                Click canvas to add terminal · drag dots to reposition
-              </div>
-            </div>
-          </div>
+              <RatingsForm
+                productType={product.productType as ProductType | undefined}
+                product={product}
+                onRatingsChange={updateRatings}
+              />
+            </>
+          )}
 
-          {/* Terminal list */}
-          <div className="pb-section">
-            <div className="pb-section-header">
-              <span>Terminals ({terminals.length})</span>
-              <button
-                className="pb-btn pb-btn-ghost pb-btn-sm"
-                onClick={() => addTerminal(0, 0)}
-              >
-                + Add
-              </button>
-            </div>
-            <div className="pb-section-body" style={{ gap: 4 }}>
-              {terminals.length === 0 && (
-                <div className="pb-empty">No terminals — click the canvas above to place one</div>
-              )}
-              {terminals.map(t => (
-                <div
-                  key={t.id}
-                  className={`pb-terminal-row${t.id === selectedTerminalId ? ' selected' : ''}`}
-                  onClick={() => setSelectedTerminalId(t.id === selectedTerminalId ? null : t.id)}
-                >
-                  <div
-                    className="pb-terminal-dot-inline"
-                    style={{ background: KIND_COLORS[t.kind] ?? '#bdbdbd' }}
-                  />
-                  <div className="pb-terminal-info">
-                    <div className="pb-terminal-id">{t.id}</div>
-                    <div className="pb-terminal-meta">
-                      {t.kind} · {t.side} · ({t.offsetX}, {t.offsetY})
+          {activeTab === 'visual' && (
+            <div className="pb-visual-split">
+
+              {/* Left column: image / terminal placer */}
+              <div className="pb-visual-col">
+                <div className="pb-section">
+                  <div className="pb-section-header">
+                    <span>Image</span>
+                    <button
+                      className="pb-btn pb-btn-ghost pb-btn-sm"
+                      onClick={() => setShowSvgPicker(true)}
+                    >
+                      Pick SVG
+                    </button>
+                  </div>
+                  <div className="pb-section-body" style={{ alignItems: 'center' }}>
+                    <TerminalPlacer
+                      width={width}
+                      height={height}
+                      imageUrl={displayImageUrl}
+                      terminals={terminals}
+                      selectedId={selectedTerminalId}
+                      onPlaceTerminal={addTerminal}
+                      onSelectTerminal={setSelectedTerminalId}
+                      onMoveTerminal={(id, x, y) => updateTerminal(id, { offsetX: x, offsetY: y })}
+                    />
+                    <div style={{ fontSize: 11, color: 'var(--muted)', textAlign: 'center' }}>
+                      Click canvas to add terminal · drag dots to reposition
                     </div>
                   </div>
-                  <button
-                    className="pb-btn pb-btn-danger pb-btn-sm"
-                    onClick={e => { e.stopPropagation(); removeTerminal(t.id); }}
-                  >
-                    ×
-                  </button>
                 </div>
-              ))}
+              </div>
+
+              {/* Right column: terminal editor + list */}
+              <div className="pb-visual-col">
+                {/* Terminal editor — shown when a terminal is selected */}
+                {selectedTerminal && (
+                  <TerminalEditorPanel
+                    terminal={selectedTerminal}
+                    port={selectedPort}
+                    onChange={changes => updateTerminal(selectedTerminal.id, changes)}
+                    onPortChange={changes => upsertCommPort(selectedTerminal.id, changes)}
+                    onDelete={() => removeTerminal(selectedTerminal.id)}
+                    onClose={() => setSelectedTerminalId(null)}
+                  />
+                )}
+
+                {/* Terminal list */}
+                <div className="pb-section">
+                  <div className="pb-section-header">
+                    <span>Terminals ({terminals.length})</span>
+                    <button
+                      className="pb-btn pb-btn-ghost pb-btn-sm"
+                      onClick={() => addTerminal(0, 0)}
+                    >
+                      + Add
+                    </button>
+                  </div>
+                  <div className="pb-section-body" style={{ gap: 4 }}>
+                    {terminals.length === 0 && (
+                      <div className="pb-empty">No terminals — click the canvas to place one</div>
+                    )}
+                    {terminals.map(t => (
+                      <div
+                        key={t.id}
+                        className={`pb-terminal-row${t.id === selectedTerminalId ? ' selected' : ''}`}
+                        onClick={() => setSelectedTerminalId(t.id === selectedTerminalId ? null : t.id)}
+                      >
+                        <div
+                          className="pb-terminal-dot-inline"
+                          style={{ background: KIND_COLORS[t.kind] ?? '#bdbdbd' }}
+                        />
+                        <div className="pb-terminal-info">
+                          <div className="pb-terminal-id">{t.id}</div>
+                          <div className="pb-terminal-meta">
+                            {t.kind} · {t.side} · ({t.offsetX}, {t.offsetY})
+                          </div>
+                        </div>
+                        <button
+                          className="pb-btn pb-btn-danger pb-btn-sm"
+                          onClick={e => { e.stopPropagation(); removeTerminal(t.id); }}
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
             </div>
-          </div>
+          )}
 
         </div>
       </div>
@@ -417,6 +510,7 @@ export function ProductBuilderApp() {
           svgList={svgList}
           currentUrl={product.imageUrl}
           onSelect={url => { updateProduct('imageUrl', url); }}
+          onImport={handleImportSvg}
           onClose={() => setShowSvgPicker(false)}
         />
       )}

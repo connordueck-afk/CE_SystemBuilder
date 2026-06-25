@@ -21,7 +21,7 @@ const product: Product = {
   source: "Victron 2025",
   dataQuality: "partial",
   notes: "Placeholder pricing/specs.",
-  imageUrl: "/product-images/victron-smartsolar-mppt.svg",
+  imageUrl: "/product-images/victron/smartsolar_mppt_large_mc4.svg",
   width: 80,
   height: 112,
   terminals: [

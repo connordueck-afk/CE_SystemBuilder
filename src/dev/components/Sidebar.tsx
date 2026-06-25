@@ -11,6 +11,8 @@ interface Props {
 
 export function Sidebar({ products, currentId, onSelect, onNew }: Props) {
   const [query, setQuery] = useState('');
+  // Categories collapsed by default; this Set holds the ones the user expanded.
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
   const filtered = useMemo(() => {
     const q = query.toLowerCase();
@@ -25,6 +27,22 @@ export function Sidebar({ products, currentId, onSelect, onNew }: Props) {
     }
     return [...map.entries()].sort((a, b) => a[0].localeCompare(b[0]));
   }, [filtered]);
+
+  const toggle = (subdir: string) => {
+    setExpanded(prev => {
+      const next = new Set(prev);
+      if (next.has(subdir)) next.delete(subdir);
+      else next.add(subdir);
+      return next;
+    });
+  };
+
+  const searching = query.trim().length > 0;
+
+  // A category is open when searching, when manually expanded, or when it
+  // contains the currently-loaded product.
+  const isOpen = (subdir: string, items: ProductListEntry[]) =>
+    searching || expanded.has(subdir) || items.some(p => p.id === currentId);
 
   return (
     <div className="pb-sidebar">
@@ -44,21 +62,32 @@ export function Sidebar({ products, currentId, onSelect, onNew }: Props) {
         {grouped.length === 0 && (
           <div className="pb-empty">No products found</div>
         )}
-        {grouped.map(([subdir, items]) => (
-          <div key={subdir}>
-            <div className="pb-subdir-label">{subdir}</div>
-            {items.map(p => (
+        {grouped.map(([subdir, items]) => {
+          const open = isOpen(subdir, items);
+          return (
+            <div key={subdir}>
               <div
-                key={p.id}
-                className={`pb-product-item${p.id === currentId ? ' active' : ''}`}
-                onClick={() => onSelect(p.id, p.subdir)}
-                title={p.id}
+                className="pb-subdir-header"
+                onClick={() => toggle(subdir)}
+                title={open ? 'Collapse' : 'Expand'}
               >
-                {p.id}
+                <span className="pb-subdir-caret">{open ? '▾' : '▸'}</span>
+                <span className="pb-subdir-name">{subdir}</span>
+                <span className="pb-subdir-count">{items.length}</span>
               </div>
-            ))}
-          </div>
-        ))}
+              {open && items.map(p => (
+                <div
+                  key={p.id}
+                  className={`pb-product-item${p.id === currentId ? ' active' : ''}`}
+                  onClick={() => onSelect(p.id, p.subdir)}
+                  title={p.id}
+                >
+                  {p.id}
+                </div>
+              ))}
+            </div>
+          );
+        })}
       </div>
     </div>
   );

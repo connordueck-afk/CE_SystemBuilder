@@ -5,6 +5,7 @@ const product: Product = {
   manufacturer: "Victron",
   name: "Lynx Power In",
   productType: "dc_distribution",
+  imageUrl: "/product-images/victron_lynx_class_t_power_in.svg",
   category: "Distribution",
   nominalVoltage: [
     12,
@@ -32,8 +33,8 @@ const product: Product = {
       role: "bus",
       voltageClass: "dc_low_voltage",
       side: "left",
-      offsetX: -110,
-      offsetY: -20,
+      offsetX: -76,
+      offsetY: -28,
       domain: "dc",
       notes: "Main positive input (battery side). Bidirectional."
     },
@@ -47,8 +48,8 @@ const product: Product = {
       role: "bus",
       voltageClass: "dc_low_voltage",
       side: "left",
-      offsetX: -110,
-      offsetY: 20,
+      offsetX: -76,
+      offsetY: 23,
       domain: "dc",
       notes: "Main negative input (battery side). Bidirectional."
     },
@@ -62,8 +63,8 @@ const product: Product = {
       role: "bus",
       voltageClass: "dc_low_voltage",
       side: "right",
-      offsetX: 110,
-      offsetY: -20,
+      offsetX: 70,
+      offsetY: -24,
       domain: "dc",
       notes: "Unfused positive pass-through to the next Lynx module. Bidirectional."
     },
@@ -77,7 +78,7 @@ const product: Product = {
       role: "bus",
       voltageClass: "dc_low_voltage",
       side: "right",
-      offsetX: 110,
+      offsetX: 71,
       offsetY: 20,
       domain: "dc",
       notes: "Unfused negative pass-through to the next Lynx module. Bidirectional."
@@ -91,8 +92,8 @@ const product: Product = {
       role: "bus",
       voltageClass: "dc_low_voltage",
       side: "bottom",
-      offsetX: -88,
-      offsetY: 50,
+      offsetX: -32,
+      offsetY: 31,
       domain: "dc",
       notes: "Unfused positive bus connection. Source or load depending on topology."
     },
@@ -105,8 +106,8 @@ const product: Product = {
       role: "bus",
       voltageClass: "dc_low_voltage",
       side: "bottom",
-      offsetX: -63,
-      offsetY: 50,
+      offsetX: 6,
+      offsetY: 38,
       domain: "dc",
       notes: "Unfused negative bus connection. Source or load depending on topology."
     },
@@ -119,24 +120,10 @@ const product: Product = {
       role: "bus",
       voltageClass: "dc_low_voltage",
       side: "bottom",
-      offsetX: -38,
-      offsetY: 50,
+      offsetX: -18,
+      offsetY: 31,
       domain: "dc",
       notes: "Unfused positive bus connection. Source or load depending on topology."
-    },
-    {
-      id: "out_neg_2",
-      label: "-2",
-      electricalType: "dc_neg",
-      kind: "dc_power",
-      polarity: "negative",
-      role: "bus",
-      voltageClass: "dc_low_voltage",
-      side: "bottom",
-      offsetX: -13,
-      offsetY: 50,
-      domain: "dc",
-      notes: "Unfused negative bus connection. Source or load depending on topology."
     },
     {
       id: "out_pos_3",
@@ -147,24 +134,10 @@ const product: Product = {
       role: "bus",
       voltageClass: "dc_low_voltage",
       side: "bottom",
-      offsetX: 13,
-      offsetY: 50,
+      offsetX: 29,
+      offsetY: 34,
       domain: "dc",
       notes: "Unfused positive bus connection. Source or load depending on topology."
-    },
-    {
-      id: "out_neg_3",
-      label: "-3",
-      electricalType: "dc_neg",
-      kind: "dc_power",
-      polarity: "negative",
-      role: "bus",
-      voltageClass: "dc_low_voltage",
-      side: "bottom",
-      offsetX: 38,
-      offsetY: 50,
-      domain: "dc",
-      notes: "Unfused negative bus connection. Source or load depending on topology."
     },
     {
       id: "out_pos_4",
@@ -175,24 +148,10 @@ const product: Product = {
       role: "bus",
       voltageClass: "dc_low_voltage",
       side: "bottom",
-      offsetX: 63,
-      offsetY: 50,
+      offsetX: 45,
+      offsetY: 34,
       domain: "dc",
       notes: "Unfused positive bus connection. Source or load depending on topology."
-    },
-    {
-      id: "out_neg_4",
-      label: "-4",
-      electricalType: "dc_neg",
-      kind: "dc_power",
-      polarity: "negative",
-      role: "bus",
-      voltageClass: "dc_low_voltage",
-      side: "bottom",
-      offsetX: 88,
-      offsetY: 50,
-      domain: "dc",
-      notes: "Unfused negative bus connection. Source or load depending on topology."
     }
   ],
   busbarRatings: {

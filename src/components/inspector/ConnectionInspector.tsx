@@ -261,6 +261,36 @@ export function ConnectionInspector({
         <div className="inspector-section">
           <div className="inspector-label">Communication Wire</div>
           <Row label="Network Type" value={derivedProtocol ?? 'Unknown'} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '8px 0 4px' }}>
+            <span className="connection-row-label" style={{ flex: 1 }}>Length</span>
+            <input
+              type="number"
+              className="inspector-input"
+              style={{ width: 58 }}
+              value={cableLength.feet}
+              min={0}
+              step={1}
+              onChange={(e) => {
+                const v = parseInt(e.target.value, 10);
+                if (!isNaN(v)) updateCableLength({ feet: v });
+              }}
+            />
+            <span style={{ color: 'var(--muted)', fontSize: 12, fontWeight: 600 }}>ft</span>
+            <input
+              type="number"
+              className="inspector-input"
+              style={{ width: 58 }}
+              value={cableLength.inches}
+              min={0}
+              max={11}
+              step={1}
+              onChange={(e) => {
+                const v = parseInt(e.target.value, 10);
+                if (!isNaN(v)) updateCableLength({ inches: v });
+              }}
+            />
+            <span style={{ color: 'var(--muted)', fontSize: 12, fontWeight: 600 }}>in</span>
+          </div>
           <div style={{ color: 'var(--muted)', fontSize: 11, marginTop: 4 }}>
             Determined by the connected devices. Configure a device's protocol on its component panel.
             Communication wires have no current rating and do not affect cable/fuse sizing.

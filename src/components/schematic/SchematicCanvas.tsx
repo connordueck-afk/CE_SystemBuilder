@@ -2,6 +2,7 @@ import { useRef, useState, useCallback, useEffect, useMemo } from 'react';
 import type { SystemDesign, SystemComponent, Product } from '../../types/system';
 import { ComponentNode } from './ComponentNode';
 import { ConnectionLayer } from './ConnectionLayer';
+import { TerminalLayer } from './TerminalLayer';
 import { TextAnnotationNode } from './TextAnnotationNode';
 import { ShapeAnnotationNode } from './ShapeAnnotationNode';
 import { getEffectiveTerminal, getEffectiveTerminals } from '../../utils/effectiveTerminals';
@@ -1103,16 +1104,12 @@ export function SchematicCanvas({
               component={comp}
               product={product}
               selected={comp.id === selectedComponentId || selectedComponentIds.includes(comp.id)}
-              pendingSourceKey={pendingSourceKey}
-              validTargetTerminals={validTargetTerminals}
-              busColors={busColors}
               onSelect={(id) => {
                 setFusePrompt(null);
                 onSelectComponent(id);
               }}
               onDragStart={handleDragStart}
               onContextMenu={handleComponentContextMenu}
-              onTerminalMouseDown={handleTerminalMouseDown}
               onScaleHandleMouseDown={handleScaleDragStart}
             />
           );
@@ -1179,6 +1176,17 @@ export function SchematicCanvas({
           onMoveConnectionRoute={onMoveConnectionRoute}
           pendingLine={pendingLine}
           layer="interactive"
+        />
+
+        {/* Connection nodes — topmost, above the cable hit areas, so terminals
+            stay clickable when starting or completing a connection. */}
+        <TerminalLayer
+          components={system.components}
+          products={products}
+          pendingSourceKey={pendingSourceKey}
+          validTargetTerminals={validTargetTerminals}
+          busColors={busColors}
+          onTerminalMouseDown={handleTerminalMouseDown}
         />
 
         {selectionBox && (

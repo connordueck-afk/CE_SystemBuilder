@@ -5,6 +5,7 @@ const product: Product = {
   manufacturer: "Victron",
   name: "Lynx Smart BMS NG 500",
   productType: "dc_distribution",
+  imageUrl: "/product-images/victron/lynx_smart_bms_500.svg",
   category: "Distribution",
   nominalVoltage: [
     12,

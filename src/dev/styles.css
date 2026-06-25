@@ -127,12 +127,40 @@ body {
   padding: 4px 0;
 }
 
-.pb-subdir-label {
-  padding: 6px var(--gap) 3px;
+.pb-subdir-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px var(--gap);
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--muted);
+  cursor: pointer;
+  user-select: none;
+}
+
+.pb-subdir-header:hover { background: var(--bg3); color: var(--text); }
+
+.pb-subdir-caret {
+  width: 10px;
+  flex-shrink: 0;
+  font-size: 9px;
+}
+
+.pb-subdir-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pb-subdir-count {
+  flex-shrink: 0;
+  background: var(--bg3);
+  border-radius: 999px;
+  padding: 1px 6px;
+  font-size: 9px;
 }
 
 .pb-product-item {
@@ -152,13 +180,49 @@ body {
 /* ---- Main area ---- */
 
 .pb-main {
-  display: grid;
-  grid-template-columns: 1fr 440px;
-  grid-template-rows: 1fr;
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
+  min-height: 0;
 }
 
-.pb-form-col {
+/* ---- Tabs ---- */
+
+.pb-tabs {
+  flex-shrink: 0;
+  display: flex;
+  gap: 2px;
+  padding: 8px 16px 0;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+}
+
+.pb-tab {
+  padding: 8px 16px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-bottom: none;
+  border-radius: var(--radius) var(--radius) 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  font-family: inherit;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+}
+
+.pb-tab:hover { color: var(--text); }
+
+.pb-tab.active {
+  background: var(--bg2);
+  border-color: var(--border);
+  color: var(--accent);
+  margin-bottom: -1px;
+}
+
+.pb-tab-content {
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
   padding: 16px;
   display: flex;
@@ -166,13 +230,20 @@ body {
   gap: 16px;
 }
 
-.pb-right-col {
-  border-left: 1px solid var(--border);
-  overflow-y: auto;
-  padding: 16px;
+/* ---- Image tab: two-column split ---- */
+
+.pb-visual-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.pb-visual-col {
   display: flex;
   flex-direction: column;
   gap: 16px;
+  min-width: 0;
 }
 
 /* ---- Sections ---- */
@@ -182,6 +253,9 @@ body {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   overflow: hidden;
+  /* Keep natural height inside the flex columns so the column scrolls
+     instead of compressing/clipping sections into each other. */
+  flex-shrink: 0;
 }
 
 .pb-section-header {
@@ -396,6 +470,15 @@ textarea { resize: vertical; min-height: 56px; }
   display: flex;
   align-items: center;
   justify-content: space-between;
+}
+
+.pb-modal-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg3);
 }
 
 .pb-modal-body {

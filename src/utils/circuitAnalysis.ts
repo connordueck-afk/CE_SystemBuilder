@@ -119,6 +119,8 @@ export interface ConnectionCircuitAnalysis {
   effectiveBranchLimitA?: number;
   recommendedCableAwg?: string;
   selectedCableAwg?: string;
+  /** Current used to pick the cable ampacity (continuous-load and fuse aware). */
+  cableSizingCurrentA?: number;
   voltageDropV?: number;
   voltageDropPercent?: number;
   errors: BranchValidationIssue[];
@@ -152,6 +154,21 @@ function isCollectorProduct(product: Product | undefined): boolean {
 function isConductivePassThroughProduct(product: Product): boolean {
   if (hasDistributionTopology(product)) return false;
   return CONDUCTIVE_PASS_THROUGH_TYPES.has(product.productType) || isDynamicSingleConductorProduct(product);
+}
+
+/**
+ * A "leaf" power device terminates a branch with its own positive and negative
+ * leads (battery, load, MPPT, inverter/charger, etc.) — as opposed to busbars,
+ * distributors, pass-throughs, and protection devices that just relay a bus. Its
+ * supply and return conductors form a pair that must be sized to the same current.
+ */
+function isLeafPowerDevice(product: Product | undefined): boolean {
+  if (!product) return false;
+  if (isProtectionProduct(product)) return false;
+  if (isCollectorProduct(product)) return false;
+  if (hasDistributionTopology(product)) return false;
+  if (isConductivePassThroughProduct(product)) return false;
+  return true;
 }
 
 function normalizeConductorToken(value: string): string {
@@ -1295,7 +1312,8 @@ function analyzeConnection(
   productsByComponent: Map<string, Product | undefined>,
   componentsById: Map<string, SystemComponent>,
   inferredDesignCurrentA?: number,
-  inferredVoltageV?: number
+  inferredVoltageV?: number,
+  cableSizingCurrentFloorA?: number
 ): ConnectionCircuitAnalysis {
   const fromKey = terminalKey(connection.fromComponentId, connection.fromTerminalId);
   const toKey = terminalKey(connection.toComponentId, connection.toTerminalId);
@@ -1412,7 +1430,10 @@ function analyzeConnection(
   const cableSizingCurrentA = Math.max(
     designCurrentA * continuousFactor,
     targetFuseA ?? 0,
-    maxSelectedFuseA ?? 0
+    maxSelectedFuseA ?? 0,
+    // A return/supply conductor is sized to match its paired leg so a fuse that
+    // upsizes one side upsizes the other (both carry the same branch current).
+    cableSizingCurrentFloorA ?? 0
   );
   const autoCable = cableForAmpacityAndDrop(
     cableSizingCurrentA,
@@ -1528,11 +1549,75 @@ function analyzeConnection(
     effectiveBranchLimitA,
     recommendedCableAwg: selectedAwg,
     selectedCableAwg: selectedAwg,
+    cableSizingCurrentA,
     voltageDropV: parseFloat(dropV.toFixed(3)),
     voltageDropPercent: parseFloat(dropPercent.toFixed(2)),
     errors,
     warnings,
   };
+}
+
+/**
+ * Sizing floors that pair each leaf device's positive and negative DC leads so the
+ * return conductor is never smaller than the supply (and vice versa). Returns a map
+ * of connectionId → minimum cable-sizing current, derived from a first analysis pass.
+ */
+function buildPairedConductorSizingFloors(
+  system: SystemDesign,
+  nodes: Map<string, TerminalNode>,
+  productsByComponent: Map<string, Product | undefined>,
+  analyses: Map<string, ConnectionCircuitAnalysis>
+): Map<string, number> {
+  interface Lead { connectionId: string; busType: BusType; sizingA: number; }
+  const leadsByDevice = new Map<string, Lead[]>();
+
+  for (const connection of system.connections) {
+    if (connection.wireKind === 'communication' || connection.busLink) continue;
+    const analysis = analyses.get(connection.id);
+    if (!analysis) continue;
+    const sizingA = analysis.cableSizingCurrentA ?? 0;
+
+    const endpoints: Array<[string, string]> = [
+      [connection.fromComponentId, connection.fromTerminalId],
+      [connection.toComponentId, connection.toTerminalId],
+    ];
+    for (const [componentId, terminalId] of endpoints) {
+      const node = nodes.get(terminalKey(componentId, terminalId));
+      if (!node || (node.busType !== 'dc_pos' && node.busType !== 'dc_neg')) continue;
+      if (!isLeafPowerDevice(productsByComponent.get(componentId))) continue;
+      const list = leadsByDevice.get(componentId) ?? [];
+      list.push({ connectionId: connection.id, busType: node.busType, sizingA });
+      leadsByDevice.set(componentId, list);
+    }
+  }
+
+  const floors = new Map<string, number>();
+  const raise = (connectionId: string, valueA: number) => {
+    if (valueA <= 0) return;
+    floors.set(connectionId, Math.max(floors.get(connectionId) ?? 0, valueA));
+  };
+
+  for (const [componentId, leads] of leadsByDevice) {
+    const posLeads = leads.filter((lead) => lead.busType === 'dc_pos');
+    const negLeads = leads.filter((lead) => lead.busType === 'dc_neg');
+    if (posLeads.length === 0 || negLeads.length === 0) continue;
+
+    const posMaxA = Math.max(...posLeads.map((lead) => lead.sizingA));
+    const negMaxA = Math.max(...negLeads.map((lead) => lead.sizingA));
+
+    // The return conductor carries the same current as the supply, so size it to at
+    // least the supply leg (e.g. when a fuse upsizes the positive side).
+    for (const lead of negLeads) raise(lead.connectionId, posMaxA);
+
+    // The supply leg should likewise match the return — except for batteries, whose
+    // parallel-bank shared negative return legitimately carries more current than an
+    // individual battery's positive lead (sized by the parallel-return override).
+    if (!isBatteryProduct(productsByComponent.get(componentId))) {
+      for (const lead of posLeads) raise(lead.connectionId, negMaxA);
+    }
+  }
+
+  return floors;
 }
 
 export function analyzeSystemCircuits(system: SystemDesign, products: Map<string, Product>): SystemCircuitAnalysis {
@@ -1566,6 +1651,7 @@ export function analyzeSystemCircuits(system: SystemDesign, products: Map<string
     }
   }
 
+  const connectionById = new Map(system.connections.map((connection) => [connection.id, connection]));
   const connections = new Map<string, ConnectionCircuitAnalysis>();
   for (const connection of system.connections) {
     connections.set(
@@ -1580,6 +1666,32 @@ export function analyzeSystemCircuits(system: SystemDesign, products: Map<string
         componentsById,
         inferredDesignCurrents.get(connection.id),
         inferredVoltages.get(connection.id)
+      )
+    );
+  }
+
+  // Second pass: pair each leaf device's supply/return legs so a fuse that upsizes
+  // one conductor upsizes its mate (both carry the same branch current). Only the
+  // smaller conductor of a pair is re-sized, so this never shrinks a cable.
+  const sizingFloors = buildPairedConductorSizingFloors(system, nodes, productsByComponent, connections);
+  for (const [connectionId, floorA] of sizingFloors) {
+    const existing = connections.get(connectionId);
+    const connection = connectionById.get(connectionId);
+    if (!existing || !connection) continue;
+    if ((existing.cableSizingCurrentA ?? 0) >= floorA) continue;
+    connections.set(
+      connectionId,
+      analyzeConnection(
+        connection,
+        edgesByConnectionId.get(connectionId),
+        nodes,
+        adjacency,
+        system,
+        productsByComponent,
+        componentsById,
+        inferredDesignCurrents.get(connectionId),
+        inferredVoltages.get(connectionId),
+        floorA
       )
     );
   }

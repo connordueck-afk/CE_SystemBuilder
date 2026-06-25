@@ -54,6 +54,16 @@ const product: Product = {
       domain: "dc",
       maxCurrentA: 200,
       notes: "DC negative output. Confirm actual Helios field terminal location."
+    },
+    {
+      id: "can_out",
+      label: "CAN",
+      kind: "network",
+      role: "bidirectional",
+      domain: "communication",
+      side: "top",
+      offsetX: 0,
+      offsetY: -72
     }
   ],
   batteryRatings: {
@@ -73,7 +83,23 @@ const product: Product = {
     hasInternalBms: true,
     seriesAllowed: false,
     parallelAllowed: true
-  }
+  },
+  communicationPorts: [
+    {
+      id: "can_out",
+      name: "CAN Output",
+      connectorType: "RJ45",
+      supportedProtocols: [
+        "CANopen",
+        "J1939",
+        "VE.Can",
+        "AEbus"
+      ],
+      configuredProtocol: "CANopen",
+      isConfigurable: true,
+      notes: "Closed-loop CAN; protocol selectable for inverter compatibility (CANopen or J1939)."
+    }
+  ]
 };
 
 export default product;

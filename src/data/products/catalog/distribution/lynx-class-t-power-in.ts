@@ -5,6 +5,7 @@ const product: Product = {
   manufacturer: "Victron",
   name: "Lynx Class-T Power In",
   productType: "dc_distribution",
+  imageUrl: "/product-images/victron_lynx_power_in.svg",
   category: "Distribution",
   nominalVoltage: [
     12,

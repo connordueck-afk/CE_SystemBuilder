@@ -21,7 +21,7 @@ const product: Product = {
   productUrl: "https://www.cdnrg.com/products/vevescc125110441",
   source: "Victron 2024",
   dataQuality: "partial",
-  imageUrl: "/product-images/victron-smartsolar-mppt.svg",
+  imageUrl: "/product-images/victron/smartsolar_mppt_large_tr.svg",
   width: 80,
   height: 112,
   terminals: [

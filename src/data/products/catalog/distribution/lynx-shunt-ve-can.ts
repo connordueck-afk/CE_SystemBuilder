@@ -5,6 +5,7 @@ const product: Product = {
   manufacturer: "Victron",
   name: "Lynx Shunt VE.Can",
   productType: "dc_distribution",
+  imageUrl: "/product-images/victron/lynx_shunt_ve_can.svg",
   category: "Distribution",
   nominalVoltage: [
     12,

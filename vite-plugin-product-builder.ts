@@ -144,6 +144,40 @@ export function productBuilderPlugin(): Plugin {
             return json(res, { ok: true, path: filePath });
           }
 
+          // POST /__dev/products/upload-svg  body: { filename, subdir?, content }
+          if (req.method === 'POST' && pathname === '/__dev/products/upload-svg') {
+            const body = await readBody(req) as { filename: string; subdir?: string; content: string };
+            const { content } = body;
+
+            if (!body.filename || !content) return err(res, 'Missing filename or content', 400);
+            if (!content.includes('<svg')) return err(res, 'File does not look like an SVG', 400);
+
+            // Sanitize filename: strip any path, force .svg extension
+            let filename = path.basename(body.filename);
+            if (!filename.toLowerCase().endsWith('.svg')) filename += '.svg';
+
+            // Sanitize subdir: allow nested folders but no traversal
+            const subdir = (body.subdir ?? '')
+              .replace(/\\/g, '/')
+              .split('/')
+              .map(seg => seg.replace(/[^a-zA-Z0-9_-]/g, ''))
+              .filter(Boolean)
+              .join('/');
+
+            const destDir = subdir ? path.join(imagesRoot, subdir) : imagesRoot;
+            // Guard against escaping the images root
+            if (!path.resolve(destDir).startsWith(path.resolve(imagesRoot))) {
+              return err(res, 'Invalid subdir', 400);
+            }
+
+            fs.mkdirSync(destDir, { recursive: true });
+            const filePath = path.join(destDir, filename);
+            fs.writeFileSync(filePath, content, 'utf-8');
+
+            const rel = subdir ? `${subdir}/${filename}` : filename;
+            return json(res, { ok: true, path: rel });
+          }
+
           // DELETE /__dev/products/delete  body: { id, subdir }
           if (req.method === 'POST' && pathname === '/__dev/products/delete') {
             const body = await readBody(req) as { id: string; subdir: string };

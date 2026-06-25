@@ -2,6 +2,7 @@ import type {
   TerminalDefinition, ConnectionPointKind, ConnectionPolarity,
   ConnectionRole, TerminalSide, ElectricalDomain, ElectricalType,
   VoltageClass, ConnectorKind,
+  ProductCommunicationPort, CommunicationProtocol, CommunicationConnectorType,
 } from '../../types/system';
 
 interface Props {
@@ -9,6 +10,10 @@ interface Props {
   onChange: (changes: Partial<TerminalDefinition>) => void;
   onDelete: () => void;
   onClose: () => void;
+  /** Communication port (matched to this terminal by shared id), if one exists. */
+  port?: ProductCommunicationPort;
+  /** Upsert (changes) or remove (null) the matching communication port. */
+  onPortChange?: (changes: Partial<ProductCommunicationPort> | null) => void;
 }
 
 const KINDS: ConnectionPointKind[] = ['dc_power', 'pv_power', 'ac_power', 'signal', 'network', 'chassis_ground', 'generic'];
@@ -19,6 +24,8 @@ const DOMAINS: ElectricalDomain[] = ['dc', 'ac', 'pv', 'chassisGround', 'earthGr
 const ETYPES: ElectricalType[] = ['dc_pos', 'dc_neg', 'pv_pos', 'pv_neg', 'ac', 'signal', 'generic'];
 const VCLASSES: VoltageClass[] = ['dc_low_voltage', 'pv_high_voltage', 'ac_120v', 'ac_240v', 'signal_low_voltage'];
 const CONNECTOR_KINDS: ConnectorKind[] = ['lug', 'screw_terminal', 'mc4_male', 'mc4_female'];
+const PROTOCOLS: CommunicationProtocol[] = ['CANopen', 'J1939', 'VE.Bus', 'VE.Direct', 'VE.Can', 'BMS-Can', 'AEbus', 'RS485', 'Ethernet', 'Other'];
+const COMM_CONNECTORS: CommunicationConnectorType[] = ['RJ45', 'M12', 'Deutsch', 'TerminalBlock', 'JST', 'VE.Direct', 'Other'];
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -29,7 +36,28 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
-export function TerminalEditorPanel({ terminal: t, onChange, onDelete, onClose }: Props) {
+export function TerminalEditorPanel({ terminal: t, onChange, onDelete, onClose, port, onPortChange }: Props) {
+  const isCommNode = t.kind === 'network' || t.domain === 'communication';
+  const supported = port?.supportedProtocols ?? [];
+
+  const toggleProtocol = (proto: CommunicationProtocol) => {
+    if (!onPortChange) return;
+    const nextList = supported.includes(proto)
+      ? supported.filter(p => p !== proto)
+      : [...supported, proto];
+    if (nextList.length === 0) {
+      // No protocols left → drop the port entirely.
+      onPortChange(null);
+      return;
+    }
+    const changes: Partial<ProductCommunicationPort> = { supportedProtocols: nextList };
+    // Keep the default protocol valid against the new list.
+    if (port?.configuredProtocol && !nextList.includes(port.configuredProtocol)) {
+      changes.configuredProtocol = nextList[0];
+    }
+    onPortChange(changes);
+  };
+
   const s = <K extends keyof TerminalDefinition>(key: K) =>
     (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
       const el = e.target as HTMLInputElement;
@@ -197,6 +225,72 @@ export function TerminalEditorPanel({ terminal: t, onChange, onDelete, onClose }
             placeholder="Optional notes about this terminal"
           />
         </Field>
+
+        {isCommNode && onPortChange && (
+          <>
+            <hr />
+            <div className="pb-field">
+              <label>Supported Protocols</label>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2px 12px' }}>
+                {PROTOCOLS.map(proto => (
+                  <div key={proto} className="pb-checkbox-row">
+                    <input
+                      id={`proto_${proto}`}
+                      type="checkbox"
+                      checked={supported.includes(proto)}
+                      onChange={() => toggleProtocol(proto)}
+                    />
+                    <label htmlFor={`proto_${proto}`}>{proto}</label>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {supported.length > 0 && (
+              <>
+                <div className="pb-field-row">
+                  <Field label="Port Name">
+                    <input
+                      type="text"
+                      value={port?.name ?? ''}
+                      onChange={e => onPortChange({ name: e.target.value || undefined })}
+                      placeholder={t.label || t.id}
+                    />
+                  </Field>
+                  <Field label="Connector">
+                    <select
+                      value={port?.connectorType ?? 'RJ45'}
+                      onChange={e => onPortChange({ connectorType: e.target.value as CommunicationConnectorType })}
+                    >
+                      {COMM_CONNECTORS.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                  </Field>
+                </div>
+
+                <div className="pb-field-row">
+                  <div className="pb-checkbox-row">
+                    <input
+                      id="port_configurable"
+                      type="checkbox"
+                      checked={port?.isConfigurable ?? false}
+                      onChange={e => onPortChange({ isConfigurable: e.target.checked || undefined })}
+                    />
+                    <label htmlFor="port_configurable">User-configurable</label>
+                  </div>
+                  <Field label="Default Protocol">
+                    <select
+                      value={port?.configuredProtocol ?? ''}
+                      onChange={e => onPortChange({ configuredProtocol: (e.target.value || undefined) as CommunicationProtocol | undefined })}
+                    >
+                      <option value="">—</option>
+                      {supported.map(p => <option key={p} value={p}>{p}</option>)}
+                    </select>
+                  </Field>
+                </div>
+              </>
+            )}
+          </>
+        )}
 
       </div>
     </div>
