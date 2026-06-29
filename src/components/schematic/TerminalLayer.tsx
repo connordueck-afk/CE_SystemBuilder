@@ -2,9 +2,12 @@ import type { SystemComponent, Product } from '../../types/system';
 import { Terminal } from './Terminal';
 import { getEffectiveTerminals } from '../../utils/effectiveTerminals';
 import { getEffectiveProductForComponent } from '../../utils/solarCalculations';
-import { orientationTransform } from '../../utils/componentOrientation';
+import { orientationTransform, inverseOrientationTransform, transformOrientationSide } from '../../utils/componentOrientation';
 import { scaledTerminalOffset } from '../../utils/componentScale';
 import type { BusColorMap } from '../../utils/busColors';
+import { busTypeFromTerminal } from '../../utils/electricalNetlist';
+import { linkGroupKey } from '../../utils/portLinks';
+import type { EffectiveTerminal } from '../../types/system';
 
 interface Props {
   components: SystemComponent[];
@@ -36,14 +39,43 @@ export function TerminalLayer({
         const product = getEffectiveProductForComponent(component, products.get(component.productId));
         if (!product) return null;
         const rotation = component.rotationDeg ?? 0;
+        const inverseTransform = inverseOrientationTransform(rotation);
         const label = component.label ?? product.name;
         const terminals = getEffectiveTerminals(product, component);
+        const offsets = new Map(terminals.map((t) => [t.id, scaledTerminalOffset(component, t)]));
+
+        // Group internally-bonded jacks so we can draw a rail showing they're one node.
+        const linkGroups = new Map<string, EffectiveTerminal[]>();
+        for (const t of terminals) {
+          const groupKey = linkGroupKey(product, t);
+          if (!groupKey) continue;
+          linkGroups.set(groupKey, [...(linkGroups.get(groupKey) ?? []), t]);
+        }
 
         return (
           <g key={component.id} transform={`translate(${component.x}, ${component.y})`}>
             <g transform={orientationTransform(rotation)}>
+              {[...linkGroups.values()].map((group) => {
+                if (group.length < 2) return null;
+                const points = group
+                  .map((t) => offsets.get(t.id)!)
+                  .sort((a, b) => (a.offsetX - b.offsetX) || (a.offsetY - b.offsetY));
+                const d = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.offsetX} ${p.offsetY}`).join(' ');
+                return (
+                  <path
+                    key={linkGroupKey(product, group[0])}
+                    d={d}
+                    fill="none"
+                    stroke={busColors[busTypeFromTerminal(group[0])]}
+                    strokeWidth={3}
+                    strokeLinecap="round"
+                    opacity={0.3}
+                    style={{ pointerEvents: 'none' }}
+                  />
+                );
+              })}
               {terminals.map((t) => {
-                const offset = scaledTerminalOffset(component, t);
+                const offset = offsets.get(t.id)!;
                 const key = `${component.id}:${t.id}`;
                 const isSource = pendingSourceKey === key;
                 const isHighlighted = !isSource && (validTargetTerminals?.has(key) ?? false);
@@ -61,6 +93,8 @@ export function TerminalLayer({
                     isDisabled={isDisabled}
                     isFull={isFull}
                     busColors={busColors}
+                    inverseTransform={inverseTransform}
+                    labelSide={transformOrientationSide(rotation, t.side)}
                     onMouseDown={onTerminalMouseDown}
                   />
                 );

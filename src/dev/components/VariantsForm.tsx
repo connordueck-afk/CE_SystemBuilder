@@ -1,4 +1,5 @@
 import type { Product, ProductVariant, NominalVoltage } from '../../types/system';
+import { CollapsibleSection } from './CollapsibleSection';
 
 interface Props {
   product: Partial<Product>;
@@ -48,12 +49,11 @@ function ProtectionVariantsTable({ variants, baseId, onChange }: {
   }
 
   return (
-    <div className="pb-section">
-      <div className="pb-section-header">
-        <span>Variants ({variants.length})</span>
-        <button className="pb-btn pb-btn-ghost pb-btn-sm" onClick={add}>+ Add</button>
-      </div>
-      <div className="pb-section-body" style={{ padding: 0 }}>
+    <CollapsibleSection
+      title={`Variants (${variants.length})`}
+      actions={<button className="pb-btn pb-btn-ghost pb-btn-sm" onClick={add}>+ Add</button>}
+      bodyStyle={{ padding: 0 }}
+    >
         {variants.length === 0 ? (
           <div className="pb-empty">No variants — click Add to define per-rating entries</div>
         ) : (
@@ -82,8 +82,7 @@ function ProtectionVariantsTable({ variants, baseId, onChange }: {
             </tbody>
           </table>
         )}
-      </div>
-    </div>
+    </CollapsibleSection>
   );
 }
 
@@ -113,12 +112,11 @@ function MpptVariantsTable({ variants, baseId, onChange }: {
   }
 
   return (
-    <div className="pb-section">
-      <div className="pb-section-header">
-        <span>Variants ({variants.length})</span>
-        <button className="pb-btn pb-btn-ghost pb-btn-sm" onClick={add}>+ Add</button>
-      </div>
-      <div className="pb-section-body" style={{ padding: 0, overflowX: 'auto' }}>
+    <CollapsibleSection
+      title={`Variants (${variants.length})`}
+      actions={<button className="pb-btn pb-btn-ghost pb-btn-sm" onClick={add}>+ Add</button>}
+      bodyStyle={{ padding: 0, overflowX: 'auto' }}
+    >
         {variants.length === 0 ? (
           <div className="pb-empty">No variants — click Add to define per-model entries</div>
         ) : (
@@ -164,8 +162,7 @@ function MpptVariantsTable({ variants, baseId, onChange }: {
             </tbody>
           </table>
         )}
-      </div>
-    </div>
+    </CollapsibleSection>
   );
 }
 

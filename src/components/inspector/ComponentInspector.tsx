@@ -8,6 +8,7 @@ import {
   getSolarPanelUnitRatings,
 } from '../../utils/solarCalculations';
 import { isDcBusProduct } from '../../utils/dcBusVoltage';
+import { terminalKind, terminalRole } from '../../utils/portSpecs';
 import { getFuseHolderForProduct } from '../../utils/fuseHolders';
 import { fuseRatingsForStyle, findFuseProductByStyleRating } from '../../utils/fuseSelection';
 import {
@@ -26,9 +27,9 @@ const AC_SOURCE_TYPES: AcSourceType[] = ['Generic', 'Shore Power', 'Generator', 
 function getSourceLoadKind(product: Product): SourceLoadKind | null {
   if (product.productType === 'dc_load') return 'dc_load';
   if (product.productType === 'ac_load') return 'ac_load';
-  const hasAcSource = product.terminals.some((t) => t.role === 'source' && t.kind === 'ac_power');
+  const hasAcSource = product.terminals.some((t) => terminalRole(product, t) === 'source' && terminalKind(product, t) === 'ac_power');
   if (hasAcSource && product.productType === 'shorePowerInlet') return 'ac_source';
-  const hasDcSource = product.terminals.some((t) => t.role === 'source' && t.kind === 'dc_power');
+  const hasDcSource = product.terminals.some((t) => terminalRole(product, t) === 'source' && terminalKind(product, t) === 'dc_power');
   if (hasDcSource && product.productType === 'accessory' && product.dataQuality === 'placeholder') return 'dc_source';
   return null;
 }
@@ -111,7 +112,7 @@ export function ComponentInspector({
   const imageScale = componentScale(component);
   const productMaxCableAwg = (() => {
     const awgs = product.terminals
-      .filter((t) => ['dc_power', 'pv_power', 'ac_power'].includes(t.kind) && t.maxCableAwg)
+      .filter((t) => ['dc_power', 'pv_power', 'ac_power'].includes(terminalKind(product, t)) && t.maxCableAwg)
       .map((t) => t.maxCableAwg!);
     if (awgs.length === 0) return null;
     const minIdx = Math.min(...awgs.map((awg) => CABLE_TABLE.findIndex((c) => c.awg === awg)).filter((i) => i >= 0));

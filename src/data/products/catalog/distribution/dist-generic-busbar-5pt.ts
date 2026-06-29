@@ -1,4 +1,4 @@
-﻿import type { Product } from '../../../../types/system';
+import type { Product } from '../../../../types/system';
 
 const product: Product = {
   id: "dist-generic-busbar-5pt",
@@ -23,63 +23,96 @@ const product: Product = {
     {
       id: "terminal_1",
       label: "T1",
-      kind: "generic",
-      role: "bus",
       side: "bottom",
       offsetX: -52,
       offsetY: 30,
-      connector: { kind: 'stud', holeSize: 'M8' },
-      notes: "Bus connection point. Polarity determined by component busPolarity assignment."
+      connector: {
+        kind: "stud",
+        holeSize: "M8"
+      },
+      notes: "Bus connection point. Polarity determined by component busPolarity assignment.",
+      terminalGroupId: "bus"
     },
     {
       id: "terminal_2",
       label: "T2",
-      kind: "generic",
-      role: "bus",
       side: "bottom",
       offsetX: -26,
       offsetY: 30,
-      connector: { kind: 'stud', holeSize: 'M8' },
-      notes: "Bus connection point. Polarity determined by component busPolarity assignment."
+      connector: {
+        kind: "stud",
+        holeSize: "M8"
+      },
+      notes: "Bus connection point. Polarity determined by component busPolarity assignment.",
+      terminalGroupId: "bus"
     },
     {
       id: "terminal_3",
       label: "T3",
-      kind: "generic",
-      role: "bus",
       side: "bottom",
       offsetX: 0,
       offsetY: 30,
-      connector: { kind: 'stud', holeSize: 'M8' },
-      notes: "Bus connection point. Polarity determined by component busPolarity assignment."
+      connector: {
+        kind: "stud",
+        holeSize: "M8"
+      },
+      notes: "Bus connection point. Polarity determined by component busPolarity assignment.",
+      terminalGroupId: "bus"
     },
     {
       id: "terminal_4",
       label: "T4",
-      kind: "generic",
-      role: "bus",
       side: "bottom",
       offsetX: 26,
       offsetY: 30,
-      connector: { kind: 'stud', holeSize: 'M8' },
-      notes: "Bus connection point. Polarity determined by component busPolarity assignment."
+      connector: {
+        kind: "stud",
+        holeSize: "M8"
+      },
+      notes: "Bus connection point. Polarity determined by component busPolarity assignment.",
+      terminalGroupId: "bus"
     },
     {
       id: "terminal_5",
       label: "T5",
-      kind: "generic",
-      role: "bus",
       side: "bottom",
       offsetX: 52,
       offsetY: 30,
-      connector: { kind: 'stud', holeSize: 'M8' },
-      notes: "Bus connection point. Polarity determined by component busPolarity assignment."
+      connector: {
+        kind: "stud",
+        holeSize: "M8"
+      },
+      notes: "Bus connection point. Polarity determined by component busPolarity assignment.",
+      terminalGroupId: "bus"
+    }
+  ],
+  terminalGroups: [
+    {
+      id: "bus",
+      portId: "main",
+      label: "Bus",
+      groupType: "power_conductor",
+      internallyCommon: true,
+      maxCurrentA: 600,
+      notes: "All studs share one internal bus node. Polarity set per placed component (busPolarity)."
     }
   ],
   busbarRatings: {
     currentRatingA: 600,
     connectionCount: 5
-  }
+  },
+  ports: [
+    {
+      id: "main",
+      kind: "generic",
+      topology: "bus",
+      label: "Main",
+      nominalVoltageV: 12,
+      maxCurrentA: 600,
+      role: "bus",
+      direction: "bidirectional"
+    }
+  ]
 };
 
 export default product;

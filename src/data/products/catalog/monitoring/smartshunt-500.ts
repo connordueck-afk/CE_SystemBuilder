@@ -1,4 +1,4 @@
-﻿import type { Product } from '../../../../types/system';
+import type { Product } from '../../../../types/system';
 
 const product: Product = {
   id: "smartshunt-500",
@@ -6,44 +6,75 @@ const product: Product = {
   name: "SmartShunt 500A/50mV",
   productType: "monitor",
   category: "Monitoring",
+  maxCurrentA: 500,
   msrpUsd: 123,
-  description: "Victron SmartShunt 500A â€” Bluetooth battery monitor with integrated 500A/50mV shunt",
+  description: "Victron SmartShunt 500A Bluetooth battery monitor with integrated 500A/50mV shunt.",
   partNumber: "SHU050150050",
   source: "Victron 2025",
   dataQuality: "partial",
-  notes: "Placeholder pricing/specs.",
+  notes: "Simplified as a 500A negative-leg pass-through shunt with VE.Direct communication.",
   width: 100,
   height: 50,
+  terminalGroups: [
+    {
+      id: "shunt_batt_side",
+      portId: "main",
+      label: "Battery Minus",
+      groupType: "power_conductor",
+      polarity: "negative",
+      internallyCommon: false,
+      maxCurrentA: 500
+    },
+    {
+      id: "shunt_bus_side",
+      portId: "main",
+      label: "System Minus",
+      groupType: "power_conductor",
+      polarity: "negative",
+      internallyCommon: false,
+      maxCurrentA: 500
+    },
+    {
+      id: "ve_direct_iface",
+      portId: "ve_direct",
+      label: "VE.Direct Interface",
+      groupType: "communication_interface",
+      internallyCommon: false
+    }
+  ],
   terminals: [
     {
       id: "shunt_pos",
-      label: "Shunt+",
-      kind: "dc_power",
-      polarity: "positive",
-      role: "sense",
-      voltageClass: "dc_low_voltage",
+      terminalGroupId: "shunt_batt_side",
+      label: "BATT-",
       side: "left",
       offsetX: -42,
       offsetY: 13,
-      notes: "Battery negative sense terminal (current shunt measures flow across this terminal)."
+      maxCurrentA: 500,
+      connector: {
+        kind: "stud",
+        holeSize: "M10"
+      },
+      notes: "Battery negative side of the 500A shunt."
     },
     {
       id: "shunt_neg",
-      label: "Shunt-",
-      kind: "dc_power",
-      polarity: "negative",
-      role: "sense",
-      voltageClass: "dc_low_voltage",
+      terminalGroupId: "shunt_bus_side",
+      label: "SYS-",
       side: "right",
       offsetX: 42,
       offsetY: 13,
-      notes: "Battery negative bus side of shunt."
+      maxCurrentA: 500,
+      connector: {
+        kind: "stud",
+        holeSize: "M10"
+      },
+      notes: "System/load negative side of the 500A shunt."
     },
     {
       id: "ve_direct",
+      terminalGroupId: "ve_direct_iface",
       label: "VE.Direct",
-      kind: "network",
-      role: "bidirectional",
       side: "top",
       offsetX: 0,
       offsetY: -25
@@ -58,6 +89,25 @@ const product: Product = {
         "VE.Direct"
       ],
       configuredProtocol: "VE.Direct"
+    }
+  ],
+  ports: [
+    {
+      id: "main",
+      kind: "dc",
+      topology: "pass_through",
+      label: "Main",
+      voltageClass: "dc_low_voltage",
+      maxCurrentA: 500,
+      role: "pass_through"
+    },
+    {
+      id: "ve_direct",
+      kind: "comm",
+      label: "VE.Direct",
+      topology: "pass_through",
+      role: "bidirectional",
+      direction: "bidirectional"
     }
   ]
 };

@@ -6,7 +6,7 @@ import type {
   ProductCommunicationPort,
   SystemComponent,
   SystemConnection,
-  TerminalDefinition,
+  EffectiveTerminal,
 } from '../types/system';
 import { getEffectiveTerminal, isDynamicSingleConductorProduct } from './effectiveTerminals';
 import { canProvidePower, canReceivePower, terminalDirectionLabel } from './terminalDirection';
@@ -16,7 +16,7 @@ import { effectiveMaxConnections, countTerminalConnections } from './connectorLi
 export interface TerminalRef {
   component: SystemComponent;
   product: Product;
-  terminal: TerminalDefinition;
+  terminal: EffectiveTerminal;
 }
 
 export interface ConnectionValidationResult {
@@ -40,7 +40,7 @@ function roleCompatible(a: ConnectionRole, b: ConnectionRole): boolean {
   return false;
 }
 
-function directionCompatible(a: TerminalDefinition, b: TerminalDefinition): boolean {
+function directionCompatible(a: EffectiveTerminal, b: EffectiveTerminal): boolean {
   return (canProvidePower(a) && canReceivePower(b)) || (canProvidePower(b) && canReceivePower(a));
 }
 
@@ -138,7 +138,7 @@ function canInferDynamicConductor(from: TerminalRef, to: TerminalRef): boolean {
 export function inferDynamicConnectionConductor(
   ref: TerminalRef,
   other: TerminalRef
-): { kind: ConnectionPointKind; polarity: ConnectionPolarity; voltageClass: TerminalDefinition['voltageClass'] } | undefined {
+): { kind: ConnectionPointKind; polarity: ConnectionPolarity; voltageClass: EffectiveTerminal['voltageClass'] } | undefined {
   if (!isUnassignedDynamicConductor(ref) || !POWER_KINDS.includes(other.terminal.kind) || !other.terminal.polarity) {
     return undefined;
   }

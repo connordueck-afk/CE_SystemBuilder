@@ -1,0 +1,107 @@
+import type { Product } from '../../../../types/system';
+
+const product: Product = {
+  id: "mon-vic-bmv-712",
+  manufacturer: "Victron",
+  name: "BMV-712 Battery Monitor",
+  productType: "monitor",
+  category: "Monitoring",
+  msrpUsd: 149,
+  oemPriceUsd: 104,
+  description: "Victron BMV-712 Smart battery monitor with Bluetooth and VE.Direct support.",
+  partNumber: "BAM010712000",
+  productUrl: "https://www.victronenergy.com/battery-monitors/bmv-712-smart",
+  source: "Victron 2024",
+  dataQuality: "complete",
+  notes: "Rebuilt as a negative-leg shunt monitor with explicit VE.Direct communication port.",
+  width: 80,
+  height: 60,
+  terminalGroups: [
+    { id: "shunt_batt_side", portId: "dc", label: "Battery Minus", groupType: "power_conductor", kind: "dc_power", polarity: "negative", internallyCommon: false, maxCurrentA: 500 },
+    { id: "shunt_bus_side", portId: "dc", label: "System Minus", groupType: "power_conductor", kind: "dc_power", polarity: "negative", internallyCommon: false, maxCurrentA: 500 },
+    { id: "ve_direct_iface", portId: "ve_direct", label: "VE.Direct Interface", groupType: "communication_interface", internallyCommon: false },
+  ],
+  terminals: [
+    {
+      id: "shunt_pos",
+      terminalGroupId: "shunt_batt_side",
+      label: "BATT-",
+      polarity: "negative",
+      role: "pass_through",
+      direction: "bidirectional",
+      voltageClass: "dc_low_voltage",
+      side: "left",
+      offsetX: -42,
+      offsetY: 13,
+      maxCurrentA: 500,
+      connector: {
+        kind: "stud",
+        holeSize: "M10",
+      },
+      notes: "Battery negative side of the integrated 500A shunt.",
+      portId: "dc",
+    },
+    {
+      id: "shunt_neg",
+      terminalGroupId: "shunt_bus_side",
+      label: "SYS-",
+      polarity: "negative",
+      role: "pass_through",
+      direction: "bidirectional",
+      voltageClass: "dc_low_voltage",
+      side: "right",
+      offsetX: 42,
+      offsetY: 13,
+      maxCurrentA: 500,
+      connector: {
+        kind: "stud",
+        holeSize: "M10",
+      },
+      notes: "System/load negative side of the integrated 500A shunt.",
+      portId: "dc",
+    },
+    {
+      id: "ve_direct",
+      terminalGroupId: "ve_direct_iface",
+      label: "VE.Direct",
+      role: "bidirectional",
+      side: "top",
+      offsetX: 0,
+      offsetY: -25,
+      connector: {
+        kind: "comm",
+      },
+      notes: "VE.Direct communication interface.",
+      portId: "ve_direct",
+    },
+  ],
+  communicationPorts: [
+    {
+      id: "ve_direct",
+      name: "VE.Direct",
+      connectorType: "VE.Direct",
+      supportedProtocols: [
+        "VE.Direct",
+      ],
+      configuredProtocol: "VE.Direct",
+    },
+  ],
+  ports: [
+    {
+      id: "dc",
+      kind: "dc",
+      topology: "pass_through",
+      label: "Main",
+      voltageClass: "dc_low_voltage",
+      maxCurrentA: 500,
+    },
+    {
+      id: "ve_direct",
+      kind: "comm",
+      label: "VE.Direct",
+      topology: "pass_through",
+    },
+  ],
+};
+
+export default product;

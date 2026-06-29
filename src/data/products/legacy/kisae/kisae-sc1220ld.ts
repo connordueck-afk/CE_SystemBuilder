@@ -1,0 +1,159 @@
+import type { Product } from '../../../../types/system';
+
+const product: Product = {
+  id: "kisae-sc1220ld",
+  manufacturer: "KISAE",
+  name: "SC1220LD Solar Charge Controller",
+  productType: "mppt",
+  category: "Charging",
+  nominalVoltage: [
+    12,
+    24
+  ],
+  maxCurrentA: 20,
+  maxPvCurrentA: 20,
+  capabilities: [
+    "mppt",
+    "pv-input",
+    "battery-charger"
+  ],
+  description: "KISAE solar charge controller, 20A.",
+  partNumber: "SC1220LD",
+  productUrl: "https://www.cdnrg.com/products/sc1220ld",
+  source: "Canadian Energy product index",
+  dataQuality: "partial",
+  width: 96,
+  height: 72,
+  terminals: [
+    {
+      id: "pv_pos",
+      label: "PV+",
+      polarity: "positive",
+      role: "sink",
+      direction: "input",
+      voltageClass: "pv_high_voltage",
+      side: "left",
+      offsetX: -48,
+      offsetY: -16,
+      portId: "pv"
+    },
+    {
+      id: "pv_neg",
+      label: "PV-",
+      polarity: "negative",
+      role: "sink",
+      direction: "input",
+      voltageClass: "pv_high_voltage",
+      side: "left",
+      offsetX: -48,
+      offsetY: 16,
+      portId: "pv"
+    },
+    {
+      id: "bat_pos",
+      label: "Bat+",
+      polarity: "positive",
+      role: "source",
+      direction: "output",
+      voltageClass: "dc_low_voltage",
+      side: "right",
+      offsetX: 48,
+      offsetY: -16,
+      requiresOvercurrentProtection: true,
+      portId: "dc_out"
+    },
+    {
+      id: "bat_neg",
+      label: "Bat-",
+      polarity: "negative",
+      role: "source",
+      direction: "output",
+      voltageClass: "dc_low_voltage",
+      side: "right",
+      offsetX: 48,
+      offsetY: 16,
+      portId: "dc_out"
+    },
+    {
+      id: "ve_can",
+      label: "VE.Can",
+      role: "bidirectional",
+      side: "top",
+      offsetX: -48,
+      offsetY: -36,
+      portId: "ve_can"
+    },
+    {
+      id: "ve_direct",
+      label: "VE.Direct",
+      role: "bidirectional",
+      side: "top",
+      offsetX: 48,
+      offsetY: -36,
+      portId: "ve_direct"
+    }
+  ],
+  imageUrl: "/product-images/kisae-mppt.svg",
+  mpptRatings: {
+    batteryVoltagesV: [
+      12,
+      24
+    ],
+    maxPvVoltageV: 100,
+    maxPvCurrentA: 20,
+    maxOutputCurrentA: 20,
+    efficiencyPct: 95
+  },
+  communicationPorts: [
+    {
+      id: "ve_can",
+      name: "VE.Can",
+      connectorType: "RJ45",
+      supportedProtocols: [
+        "VE.Can"
+      ],
+      configuredProtocol: "VE.Can"
+    },
+    {
+      id: "ve_direct",
+      name: "VE.Direct",
+      connectorType: "VE.Direct",
+      supportedProtocols: [
+        "VE.Direct"
+      ],
+      configuredProtocol: "VE.Direct"
+    }
+  ],
+  ports: [
+    {
+      id: "pv",
+      kind: "pv",
+      topology: "two_pole",
+      label: "PV",
+      voltageMaxV: 100,
+      maxCurrentA: 20
+    },
+    {
+      id: "dc_out",
+      kind: "dc",
+      topology: "two_pole",
+      label: "DC Output",
+      nominalVoltageV: 12,
+      maxCurrentA: 20
+    },
+    {
+      id: "ve_can",
+      kind: "comm",
+      label: "VE.Can",
+      topology: "two_pole"
+    },
+    {
+      id: "ve_direct",
+      kind: "comm",
+      label: "VE.Direct",
+      topology: "two_pole"
+    }
+  ]
+};
+
+export default product;

@@ -269,7 +269,69 @@ body {
   border-bottom: 1px solid var(--border);
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 8px;
+}
+
+.pb-section.collapsed > .pb-section-header {
+  border-bottom: none;
+}
+
+.pb-section-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pb-section-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.pb-collapse-toggle {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg2);
+  color: var(--muted);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 10px;
+  line-height: 1;
+}
+
+.pb-collapse-toggle:hover {
+  color: var(--text);
+  border-color: var(--accent);
+}
+
+.pb-collapse-arrow {
+  display: block;
+  width: 10px;
+  text-align: center;
+}
+
+.pb-inline-section {
+  background: transparent;
+}
+
+.pb-inline-section > .pb-section-header {
+  padding: 6px 8px;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--text);
+}
+
+.pb-inline-section > .pb-section-body {
+  padding: 8px 10px;
 }
 
 .pb-section-body {

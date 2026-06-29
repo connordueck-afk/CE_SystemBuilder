@@ -1,12 +1,16 @@
 import { useState, useEffect, useCallback } from 'react';
 import type {
-  TerminalDefinition, ConnectionPointKind, ConnectionPolarity,
-  ConnectionRole, TerminalSide, VoltageClass, ConnectorKind,
+  TerminalDefinition, ConnectionPointKind,
+  TerminalSide, ConnectorKind,
   ProductCommunicationPort, CommunicationProtocol, CommunicationConnectorType,
+  ProductPort, TerminalGroupDefinition,
 } from '../../types/system';
+import { CollapsibleSection } from './CollapsibleSection';
 
 interface Props {
   terminal: TerminalDefinition;
+  /** Kind resolved port-first (port-owned model), shown read-only on the terminal. */
+  resolvedKind: ConnectionPointKind;
   onChange: (changes: Partial<TerminalDefinition>) => void;
   onDelete: () => void;
   onClose: () => void;
@@ -14,14 +18,14 @@ interface Props {
   port?: ProductCommunicationPort;
   /** Upsert (changes) or remove (null) the matching communication port. */
   onPortChange?: (changes: Partial<ProductCommunicationPort> | null) => void;
+  /** Internal circuit ports used to resolve the terminal group's port. */
+  availablePorts?: ProductPort[];
+  /** Terminal groups the terminal can be assigned to via `terminalGroupId`. */
+  availableGroups?: TerminalGroupDefinition[];
 }
 
-const KINDS: ConnectionPointKind[] = ['dc_power', 'pv_power', 'ac_power', 'signal', 'network', 'chassis_ground', 'generic'];
-const POLARITIES: ConnectionPolarity[] = ['positive', 'negative', 'line', 'line2', 'neutral', 'ground'];
-const ROLES: ConnectionRole[] = ['source', 'sink', 'bidirectional', 'pass_through', 'bus', 'sense', 'control'];
 const SIDES: TerminalSide[] = ['top', 'bottom', 'left', 'right'];
-const VCLASSES: VoltageClass[] = ['dc_low_voltage', 'pv_high_voltage', 'ac_120v', 'ac_240v', 'signal_low_voltage'];
-const CONNECTOR_KINDS: ConnectorKind[] = ['stud', 'screw_terminal', 'mc4', 'lug', 'ferrule'];
+const CONNECTOR_KINDS: ConnectorKind[] = ['stud', 'screw_terminal', 'mc4', 'lug', 'helios_orng', 'helios_blk', 'ferrule'];
 const GENDERED_CONNECTOR_KINDS: ConnectorKind[] = ['mc4'];
 const GENDERED_COMM_CONNECTORS: CommunicationConnectorType[] = ['RJ45', 'M12', 'Deutsch', 'JST'];
 const PROTOCOLS: CommunicationProtocol[] = ['CANopen', 'J1939', 'VE.Bus', 'VE.Direct', 'VE.Can', 'BMS-Can', 'AEbus', 'RS485', 'Ethernet', 'Other'];
@@ -36,8 +40,22 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
-export function TerminalEditorPanel({ terminal: t, onChange, onDelete, onClose, port, onPortChange }: Props) {
-  const isCommNode = t.kind === 'network';
+function directionFromRole(role: ProductPort['role'] | undefined): ProductPort['direction'] {
+  if (role === 'source') return 'output';
+  if (role === 'sink' || role === 'sense') return 'input';
+  if (role === 'bidirectional' || role === 'bus' || role === 'control') return 'bidirectional';
+  return undefined;
+}
+
+export function TerminalEditorPanel({ terminal: t, resolvedKind, onChange, onDelete, onClose, port, onPortChange, availablePorts = [], availableGroups = [] }: Props) {
+  // Kind is owned by the terminal's port; polarity by its group — both shown read-only here.
+  const assignedGroup = availableGroups.find((g) => g.id === t.terminalGroupId);
+  const resolvedPortId = assignedGroup?.portId;
+  const assignedPort = availablePorts.find((p) => p.id === resolvedPortId);
+  const groupPolarity = assignedGroup?.polarity;
+  const resolvedRole = assignedPort?.role;
+  const resolvedDirection = assignedPort?.direction ?? directionFromRole(assignedPort?.role);
+  const isCommNode = assignedPort?.kind === 'comm';
   const supported = port?.supportedProtocols ?? [];
 
   // Buffer the ID locally so intermediate keystrokes don't get committed to state.
@@ -73,35 +91,34 @@ export function TerminalEditorPanel({ terminal: t, onChange, onDelete, onClose, 
     onPortChange(changes);
   };
 
-  const s = <K extends keyof TerminalDefinition>(key: K) =>
-    (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  function s<K extends keyof TerminalDefinition>(key: K) {
+    return (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
       const el = e.target as HTMLInputElement;
       const val = el.type === 'number' ? Number(el.value) : el.value || undefined;
       onChange({ [key]: val });
     };
+  }
 
-  const num = <K extends keyof TerminalDefinition>(key: K) =>
-    (e: React.ChangeEvent<HTMLInputElement>) =>
+  function num<K extends keyof TerminalDefinition>(key: K) {
+    return (e: React.ChangeEvent<HTMLInputElement>) =>
       onChange({ [key]: e.target.value === '' ? undefined : Number(e.target.value) } as Partial<TerminalDefinition>);
+  }
 
-  const bool = <K extends keyof TerminalDefinition>(key: K) =>
-    (e: React.ChangeEvent<HTMLInputElement>) =>
-      onChange({ [key]: e.target.checked } as Partial<TerminalDefinition>);
-
-  const opt = (key: keyof TerminalDefinition) =>
-    (e: React.ChangeEvent<HTMLSelectElement>) =>
+  function opt(key: keyof TerminalDefinition) {
+    return (e: React.ChangeEvent<HTMLSelectElement>) =>
       onChange({ [key]: e.target.value || undefined } as Partial<TerminalDefinition>);
+  }
 
   return (
-    <div className="pb-section">
-      <div className="pb-section-header">
-        <span>Terminal: {t.id || '(new)'}</span>
+    <CollapsibleSection
+      title={`Terminal: ${t.id || '(new)'}`}
+      actions={
         <div className="pb-row" style={{ gap: 6 }}>
           <button className="pb-btn pb-btn-danger pb-btn-sm" onClick={onDelete}>Delete</button>
           <button className="pb-btn pb-btn-ghost pb-btn-sm" onClick={onClose}>Close</button>
         </div>
-      </div>
-      <div className="pb-section-body">
+      }
+    >
 
         <div className="pb-field-row">
           <Field label="ID *">
@@ -120,32 +137,55 @@ export function TerminalEditorPanel({ terminal: t, onChange, onDelete, onClose, 
         </div>
 
         <div className="pb-field-row">
-          <Field label="Kind *">
-            <select value={t.kind ?? ''} onChange={e => onChange({ kind: e.target.value as ConnectionPointKind })}>
-              <option value="">—</option>
-              {KINDS.map(k => <option key={k} value={k}>{k}</option>)}
-            </select>
+          <Field label="Kind (from group port)">
+            <input
+              type="text"
+              value={resolvedKind}
+              readOnly
+              title="Electrical kind is owned by the terminal group's port — set it on the group, not the terminal."
+              style={{ opacity: 0.75, cursor: 'not-allowed' }}
+            />
           </Field>
-          <Field label="Role *">
-            <select value={t.role ?? ''} onChange={e => onChange({ role: e.target.value as ConnectionRole })}>
-              <option value="">—</option>
-              {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
-            </select>
+          <Field label="Role (from port)">
+            <input
+              type="text"
+              value={resolvedRole ?? '-'}
+              readOnly
+              title="Role is owned by the terminal group's port."
+              style={{ opacity: 0.75, cursor: 'not-allowed' }}
+            />
+          </Field>
+          <Field label="Direction (from port)">
+            <input
+              type="text"
+              value={resolvedDirection ?? 'auto'}
+              readOnly
+              title="Direction is owned by the terminal group's port. When unset, it is inferred from the port role."
+              style={{ opacity: 0.75, cursor: 'not-allowed' }}
+            />
           </Field>
         </div>
+        {!t.terminalGroupId && (
+          <div className="pb-empty" style={{ marginTop: -2 }}>
+            Not assigned to a terminal group yet — kind falls back to <code>generic</code>. Assign a Group below to give it an electrical kind.
+          </div>
+        )}
 
         <div className="pb-field-row">
           <Field label="Side *">
             <select value={t.side ?? ''} onChange={e => onChange({ side: e.target.value as TerminalSide })}>
-              <option value="">—</option>
+              <option value="">-</option>
               {SIDES.map(s => <option key={s} value={s}>{s}</option>)}
             </select>
           </Field>
-          <Field label="Polarity">
-            <select value={t.polarity ?? ''} onChange={opt('polarity')}>
-              <option value="">—</option>
-              {POLARITIES.map(p => <option key={p} value={p}>{p}</option>)}
-            </select>
+          <Field label="Polarity (from group)">
+            <input
+              type="text"
+              value={groupPolarity ?? '—'}
+              readOnly
+              title="Polarity is owned by the terminal's group — set it on the group."
+              style={{ opacity: 0.75, cursor: 'not-allowed' }}
+            />
           </Field>
         </div>
 
@@ -160,45 +200,19 @@ export function TerminalEditorPanel({ terminal: t, onChange, onDelete, onClose, 
 
         <hr />
 
+        {/* Per-jack connector ratings (the conductor/service specs live on the port & group). */}
         <div className="pb-field-row">
-          <Field label="Voltage Class">
-            <select value={t.voltageClass ?? ''} onChange={opt('voltageClass')}>
-              <option value="">—</option>
-              {VCLASSES.map(v => <option key={v} value={v}>{v}</option>)}
-            </select>
-          </Field>
-          <Field label="Max Current (A)">
+          <Field label="Max Current (A) — per jack">
             <input type="number" value={t.maxCurrentA ?? ''} onChange={num('maxCurrentA')} min={0} />
           </Field>
-        </div>
-
-        <div className="pb-field-row">
-          <div className="pb-checkbox-row">
+          <Field label="Max Connections">
             <input
-              id="t_requiresOcp"
-              type="checkbox"
-              checked={t.requiresOvercurrentProtection ?? false}
-              onChange={bool('requiresOvercurrentProtection')}
+              type="number"
+              value={t.maxConnections ?? ''}
+              onChange={e => onChange({ maxConnections: e.target.value ? Number(e.target.value) : undefined })}
+              min={1}
+              placeholder="auto"
             />
-            <label htmlFor="t_requiresOcp">Requires OCP</label>
-          </div>
-          <div className="pb-checkbox-row">
-            <input
-              id="t_requiresDisc"
-              type="checkbox"
-              checked={t.requiresDisconnect ?? false}
-              onChange={bool('requiresDisconnect')}
-            />
-            <label htmlFor="t_requiresDisc">Requires Disconnect</label>
-          </div>
-        </div>
-
-        <div className="pb-field-row">
-          <Field label="Recommended Fuse (A)">
-            <input type="number" value={t.recommendedFuseA ?? ''} onChange={num('recommendedFuseA')} min={0} />
-          </Field>
-          <Field label="Max Fuse (A)">
-            <input type="number" value={t.maxFuseA ?? ''} onChange={num('maxFuseA')} min={0} />
           </Field>
         </div>
 
@@ -216,10 +230,10 @@ export function TerminalEditorPanel({ terminal: t, onChange, onDelete, onClose, 
               {GENDERED_COMM_CONNECTORS.includes(port?.connectorType ?? 'RJ45' as CommunicationConnectorType) && (
                 <Field label="Gender">
                   <select
-                    value={port?.gender ?? ''}
-                    onChange={e => onPortChange?.({ gender: (e.target.value || undefined) as 'male' | 'female' | undefined })}
-                  >
-                    <option value="">—</option>
+                  value={port?.gender ?? ''}
+                  onChange={e => onPortChange?.({ gender: (e.target.value || undefined) as 'male' | 'female' | undefined })}
+                >
+                    <option value="">-</option>
                     <option value="male">Male</option>
                     <option value="female">Female</option>
                   </select>
@@ -233,7 +247,7 @@ export function TerminalEditorPanel({ terminal: t, onChange, onDelete, onClose, 
                   value={t.connector?.kind ?? ''}
                   onChange={e => onChange({ connector: e.target.value ? { kind: e.target.value as ConnectorKind } : undefined })}
                 >
-                  <option value="">—</option>
+                  <option value="">-</option>
                   {CONNECTOR_KINDS.map(k => <option key={k} value={k}>{k}</option>)}
                 </select>
               </Field>
@@ -243,7 +257,7 @@ export function TerminalEditorPanel({ terminal: t, onChange, onDelete, onClose, 
                     value={t.connector?.gender ?? ''}
                     onChange={e => onChange({ connector: { ...t.connector!, gender: (e.target.value || undefined) as 'male' | 'female' | undefined } })}
                   >
-                    <option value="">—</option>
+                    <option value="">-</option>
                     <option value="male">Male</option>
                     <option value="female">Female</option>
                   </select>
@@ -264,13 +278,28 @@ export function TerminalEditorPanel({ terminal: t, onChange, onDelete, onClose, 
         </div>
 
         <div className="pb-field-row">
-          <Field label="Max Connections">
+          <Field label="Terminal Group">
+            <select value={t.terminalGroupId ?? ''} onChange={opt('terminalGroupId')}>
+              <option value="">-</option>
+              {availableGroups.map(g => (
+                <option key={g.id} value={g.id}>{g.label ? `${g.id} (${g.label})` : g.id}</option>
+              ))}
+              {t.terminalGroupId && !availableGroups.some(g => g.id === t.terminalGroupId) && (
+                <option value={t.terminalGroupId}>{t.terminalGroupId} (missing)</option>
+              )}
+            </select>
+          </Field>
+          <Field label="Port (from group)">
             <input
-              type="number"
-              value={t.maxConnections ?? ''}
-              onChange={e => onChange({ maxConnections: e.target.value ? Number(e.target.value) : undefined })}
-              min={1}
-              placeholder="auto"
+              type="text"
+              value={assignedPort
+                ? `${assignedPort.id}${assignedPort.label ? ` (${assignedPort.label})` : ''}`
+                : resolvedPortId
+                ? `${resolvedPortId} (missing)`
+                : '—'}
+              readOnly
+              title="Ports are inherited from the assigned terminal group."
+              style={{ opacity: 0.75, cursor: 'not-allowed' }}
             />
           </Field>
         </div>
@@ -332,7 +361,7 @@ export function TerminalEditorPanel({ terminal: t, onChange, onDelete, onClose, 
                       value={port?.configuredProtocol ?? ''}
                       onChange={e => onPortChange({ configuredProtocol: (e.target.value || undefined) as CommunicationProtocol | undefined })}
                     >
-                      <option value="">—</option>
+                      <option value="">-</option>
                       {supported.map(p => <option key={p} value={p}>{p}</option>)}
                     </select>
                   </Field>
@@ -342,7 +371,6 @@ export function TerminalEditorPanel({ terminal: t, onChange, onDelete, onClose, 
           </>
         )}
 
-      </div>
-    </div>
+    </CollapsibleSection>
   );
 }

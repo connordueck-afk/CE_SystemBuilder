@@ -1,10 +1,10 @@
-import type { Product, SystemConnection, SystemDesign, TerminalDefinition } from '../types/system';
+import type { ConnectionPolarity, Product, SystemConnection, SystemDesign } from '../types/system';
 import { DEFAULT_ASSUMPTIONS } from '../data/electricalRules';
 import { getEffectiveTerminal } from './effectiveTerminals';
 
 export interface BatteryInterconnect {
   connectionId: string;
-  polarity: TerminalDefinition['polarity'];
+  polarity: ConnectionPolarity;
   batteryComponentIds: [string, string];
   cableLengthFt: number;
   maxLengthFt: number;

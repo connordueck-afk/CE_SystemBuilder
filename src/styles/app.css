@@ -143,6 +143,18 @@ textarea {
 .header-logo-text { font-size: 17px; font-weight: 700; color: var(--ink); }
 .header-logo-sub  { margin-top: 2px; color: var(--blue); font-size: 11px; font-weight: 700; letter-spacing: 0; text-transform: uppercase; }
 
+.header-version {
+  align-self: flex-end;
+  margin-bottom: 3px;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.65;
+  user-select: none;
+  white-space: nowrap;
+}
+
 .header-name-input,
 .inspector-input,
 .category-select {

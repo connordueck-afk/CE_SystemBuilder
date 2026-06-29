@@ -24,6 +24,24 @@ export function orientationTransform(rotationDeg = 0): string {
   }
 }
 
+/**
+ * Inverse of orientationTransform. Wrap upright-content (e.g. hover labels) in a
+ * group with this transform so it cancels the parent orientation and renders
+ * screen-upright regardless of how the component is rotated.
+ */
+export function inverseOrientationTransform(rotationDeg = 0): string {
+  switch (normalizedOrientation(rotationDeg)) {
+    case 90:
+      return 'matrix(0 -1 1 0 0 0)';
+    case 180:
+      return 'matrix(-1 0 0 1 0 0)';
+    case 270:
+      return 'matrix(0 -1 -1 0 0 0)';
+    default:
+      return 'matrix(1 0 0 1 0 0)';
+  }
+}
+
 export function transformOrientationOffset(rotationDeg: number | undefined, offsetX: number, offsetY: number) {
   switch (normalizedOrientation(rotationDeg)) {
     case 90:

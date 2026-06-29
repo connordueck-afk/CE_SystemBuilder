@@ -1,4 +1,4 @@
-import type { TerminalDefinition } from '../types/system';
+import type { EffectiveTerminal } from '../types/system';
 
 /**
  * Resolves the effective current limit for a terminal at a given system voltage.
@@ -17,7 +17,7 @@ import type { TerminalDefinition } from '../types/system';
  * product-level estimation in that case.
  */
 export function resolveTerminalCurrentA(
-  terminal: TerminalDefinition,
+  terminal: Pick<EffectiveTerminal, 'maxCurrentA' | 'maxPowerW'>,
   systemVoltageV: number
 ): number | undefined {
   const fromCurrent = terminal.maxCurrentA;

@@ -1,8 +1,8 @@
 import type {
+  BuilderIssue,
   SystemComponent,
   SystemConnection,
   Product,
-  SystemWarning,
   FuseSlotState,
   NominalVoltage,
   SolarWiringMode,
@@ -31,7 +31,7 @@ interface Props {
   annotations: SystemDiagramAnnotation[];
   products: Map<string, Product>;
   systemVoltage: NominalVoltage;
-  warnings: SystemWarning[];
+  issues: BuilderIssue[];
   protectionRecommendations: ProtectionRecommendation[];
   collapsed: boolean;
   onToggleCollapsed: () => void;
@@ -79,7 +79,7 @@ export function RightInspector({
   annotations,
   products,
   systemVoltage,
-  warnings,
+  issues,
   protectionRecommendations,
   collapsed,
   onToggleCollapsed,
@@ -135,23 +135,23 @@ export function RightInspector({
     ? components.find((c) => c.id === selectedConnection.toComponentId)
     : undefined;
 
-  const componentWarnings = selectedComponentId
-    ? warnings.filter((w) => w.componentId === selectedComponentId)
+  const componentIssues = selectedComponentId
+    ? issues.filter((issue) => issue.componentId === selectedComponentId)
     : [];
-  const connectionWarnings = selectedConnectionId
-    ? warnings.filter((w) => w.connectionId === selectedConnectionId)
+  const connectionIssues = selectedConnectionId
+    ? issues.filter((issue) => issue.connectionId === selectedConnectionId)
     : [];
   const connectionProtectionRecommendations = selectedConnectionId
     ? protectionRecommendations.filter((recommendation) => recommendation.connectionId === selectedConnectionId)
     : [];
-  const visibleWarnings = selectedComponentId
-    ? componentWarnings
+  const visibleIssues = selectedComponentId
+    ? componentIssues
     : selectedConnectionId
-    ? connectionWarnings
-    : warnings;
-  const errorCount = visibleWarnings.filter((w) => w.severity === 'error').length;
-  const warnCount = visibleWarnings.filter((w) => w.severity === 'warning').length;
-  const infoCount = visibleWarnings.filter((w) => w.severity === 'info').length;
+    ? connectionIssues
+    : issues;
+  const errorCount = visibleIssues.filter((issue) => issue.severity === 'error').length;
+  const warnCount = visibleIssues.filter((issue) => issue.severity === 'warning').length;
+  const infoCount = visibleIssues.filter((issue) => issue.severity === 'info').length;
   const selectedType = selectedComponent
     ? 'C'
     : selectedConnection
@@ -162,15 +162,30 @@ export function RightInspector({
 
   const isFuseOrBreaker = selectedProduct?.productType === 'fuse' || selectedProduct?.productType === 'breaker';
   const fuseFamily = selectedProduct?.category;
+  // The Rating dropdown only changes the rating WITHIN the currently selected
+  // fuse family. A family is uniquely identified by category + manufacturer +
+  // voltage rating (e.g. "Littelfuse MEGA 58V" vs "Littelfuse MEGA 125V"). If we
+  // keyed on category alone, every MEGA family would pool together and ratings
+  // shared across families (e.g. 100 A) would appear as duplicate menu entries.
   const availableFuseProducts: Array<{ ratingA: number; productId: string }> = (isFuseOrBreaker && fuseFamily && selectedProduct)
-    ? Array.from(products.values())
-        .filter((p) => p.productType === selectedProduct.productType && p.category === fuseFamily && p.protectionRatings?.currentRatingA != null)
-        .map((p) => ({ ratingA: p.protectionRatings!.currentRatingA, productId: p.id }))
-        .sort((a, b) => a.ratingA - b.ratingA)
+    ? (() => {
+        const seenRatings = new Set<number>();
+        return Array.from(products.values())
+          .filter((p) =>
+            p.productType === selectedProduct.productType &&
+            p.category === fuseFamily &&
+            p.manufacturer === selectedProduct.manufacturer &&
+            p.protectionRatings?.voltageRatingV === selectedProduct.protectionRatings?.voltageRatingV &&
+            p.protectionRatings?.currentRatingA != null
+          )
+          .map((p) => ({ ratingA: p.protectionRatings!.currentRatingA, productId: p.id }))
+          .sort((a, b) => a.ratingA - b.ratingA)
+          .filter(({ ratingA }) => (seenRatings.has(ratingA) ? false : (seenRatings.add(ratingA), true)));
+      })()
     : [];
 
-  const hasFuseSizingError = isFuseOrBreaker && componentWarnings.some((w) =>
-    w.code === 'FUSE_UNDER_RATED' || w.code === 'FUSE_OVER_RATED'
+  const hasFuseSizingError = isFuseOrBreaker && componentIssues.some((issue) =>
+    issue.code === 'FUSE_UNDER_RATED' || issue.code === 'FUSE_OVER_RATED'
   );
 
   let autoSizedProductId: string | null = null;
@@ -240,7 +255,7 @@ export function RightInspector({
               <span>{infoCount}</span>
             </div>
           )}
-          {visibleWarnings.length === 0 && (
+          {visibleIssues.length === 0 && (
             <div className="inspector-rail-badge inspector-rail-badge-ok" title="No issues detected">
               ok
             </div>
@@ -258,7 +273,7 @@ export function RightInspector({
           <div className="inspector-section">
             <div className="inspector-label">System Issues</div>
             <WarningList
-              warnings={warnings}
+              issues={issues}
               onSelectComponent={onSelectComponent}
               onSelectConnection={onSelectConnection}
             />
@@ -268,11 +283,10 @@ export function RightInspector({
 
       {selectedComponent && selectedProduct && (
         <>
-          {componentWarnings.length > 0 && (
-            <div style={{ padding: '8px 16px 8px 8px', borderBottom: '1px solid #dbe2ec' }}>
-              <WarningList warnings={componentWarnings} />
-            </div>
-          )}
+          <div style={{ padding: '8px 16px 8px 8px', borderBottom: '1px solid #dbe2ec' }}>
+            <div style={{ color: '#6d7b90', fontSize: 11, fontWeight: 700, marginBottom: 6 }}>Issues</div>
+            <WarningList issues={componentIssues} />
+          </div>
           <ComponentInspector
             component={selectedComponent}
             product={selectedProduct}
@@ -303,11 +317,10 @@ export function RightInspector({
 
       {selectedConnection && (
         <>
-          {connectionWarnings.length > 0 && (
-            <div style={{ padding: '8px 16px 8px 8px', borderBottom: '1px solid #dbe2ec' }}>
-              <WarningList warnings={connectionWarnings} />
-            </div>
-          )}
+          <div style={{ padding: '8px 16px 8px 8px', borderBottom: '1px solid #dbe2ec' }}>
+            <div style={{ color: '#6d7b90', fontSize: 11, fontWeight: 700, marginBottom: 6 }}>Issues</div>
+            <WarningList issues={connectionIssues} />
+          </div>
           <ConnectionInspector
             connection={selectedConnection}
             fromComponent={fromComp}

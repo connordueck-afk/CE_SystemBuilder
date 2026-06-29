@@ -106,6 +106,8 @@ export type ConnectorKind =
   | 'mc4'
   | 'lug'
   | 'ferrule'
+  | 'helios_orng'
+  | 'helios_blk'
   | 'comm';
 
 export interface TerminalConnector {
@@ -130,74 +132,219 @@ export type ProductCapability =
   | 'pv-input'
   | 'battery-charger';
 
-/** Existing terminal definition (preserved). Canvas positioning included. */
+/**
+ * Physical connection point exposed on a product.
+ *
+ * A terminal owns physical/jack properties only. Electrical behavior is resolved
+ * from its terminal group and port:
+ * - port: medium, topology, role/direction, voltage/current/power boundary
+ * - terminal group: conductor/interface, polarity, internal commoning, OCP/fuse
+ * - terminal: label, placement, connector, per-jack physical limits
+ */
 export interface TerminalDefinition {
   id: string;
   label: string;
-  electricalType?: ElectricalType;
-  kind: ConnectionPointKind;
-  polarity?: ConnectionPolarity;
-  role: ConnectionRole;
-  /** Electrical power-flow direction at this connection point. */
-  direction?: TerminalDirection;
-  voltageClass?: VoltageClass;
-  maxVoltageV?: number;
+  /** Per-jack/contact current rating (A), not the circuit operating current. */
   maxCurrentA?: number;
   side: TerminalSide;
   offsetX: number;
   offsetY: number;
-
-  // Extended fields added in catalog refactor (optional — do not break existing products)
   /** Whether this terminal must be connected for a valid system. */
   required?: boolean;
   /** Terminal IDs on other products that this terminal can legally connect to. */
   connectableTo?: string[];
-  /** Whether overcurrent protection is required on this terminal's circuit. */
-  requiresOvercurrentProtection?: boolean;
-  /** Manufacturer-recommended fuse rating for this terminal. */
-  recommendedFuseA?: number;
-  /** Maximum allowable fuse rating for this terminal's circuit. */
-  maxFuseA?: number;
   /** Largest cable this terminal can physically accept, e.g. "6" or "1/0". */
   maxCableAwg?: string;
-  /** Whether a disconnect switch is required on this terminal's circuit. */
-  requiresDisconnect?: boolean;
-  /** Nominal voltage at this terminal. */
-  voltageNominalV?: number;
-  /** Minimum allowable voltage at this terminal. */
-  voltageMinV?: number;
-  /** Maximum allowable voltage at this terminal. */
-  voltageMaxV?: number;
-  /** Maximum continuous power at this terminal (W). */
-  powerMaxW?: number;
   /** Default physical connector/termination at this node (overridable per placed component). */
   connector?: TerminalConnector;
   /**
    * Maximum simultaneous connections allowed on this terminal. When unset, defaults are
-   * derived from the connector type (RJ45/M12/MC4 → 1, stud/screw_terminal → unlimited).
-   * Set explicitly to override the connector-type default (e.g. an RJ45 splitter port = 4).
+   * derived from the connector type (RJ45/M12/MC4 -> 1, stud/screw_terminal -> unlimited).
    */
   maxConnections?: number;
   /**
    * Marks a terminal that bolts directly to another module's matching terminal with no
-   * cable (e.g. Victron Lynx modules share a busbar). When a connection joins two terminals
-   * that declare the same non-empty standard, it defaults to a cableless bus link.
-   * Brand-agnostic: any bolt-together busbar opts in by declaring the same string.
+   * cable. Matching standards default to a cableless bus link.
    */
   busLinkStandard?: string;
-  /** Number of AC phases (1, 2, or 3). */
-  phases?: 1 | 2 | 3;
-  /** Total number of conductors at this terminal. */
-  conductorCount?: number;
+  /** Internal group / interface this physical terminal belongs to. */
+  terminalGroupId?: string;
   /** Human-readable notes about this terminal. */
   notes?: string;
-  /**
-   * Power ceiling for this terminal (W). When set alongside maxCurrentA, the engine
-   * resolves effective current as min(maxCurrentA, maxPowerW / systemVoltage).
-   * Use this for conversion products whose output current varies with system voltage
-   * (e.g. an MPPT rated 1200W outputs 100A at 12V but only 25A at 48V).
-   */
+}
+
+/**
+ * A terminal as returned by getEffectiveTerminals. Physical terminal data is
+ * augmented with electrical facts resolved from its terminal group and port.
+ */
+export type EffectiveTerminal = TerminalDefinition & {
+  kind: ConnectionPointKind;
+  polarity?: ConnectionPolarity;
+  role: ConnectionRole;
+  direction: TerminalDirection;
+  voltageClass?: VoltageClass;
+  electricalType?: ElectricalType;
+  portId?: string;
+  nominalVoltageV?: number;
+  voltageMinV?: number;
+  voltageMaxV?: number;
+  requiresOvercurrentProtection?: boolean;
+  requiresDisconnect?: boolean;
+  recommendedFuseA?: number;
+  maxFuseA?: number;
   maxPowerW?: number;
+  phases?: 1 | 2 | 3;
+};
+
+/**
+ * Electrical/communication character of a port — what kind of circuit it is.
+ * The port owns this; terminals are just the physical connectors on the port.
+ */
+export type PortKind = 'dc' | 'ac' | 'pv' | 'comm' | 'ground' | 'signal' | 'generic';
+
+/**
+ * Circuit shape of a port — orthogonal to `kind` (the electrical medium). Drives
+ * bonding, DC+/DC- return pairing, and pass-through current semantics:
+ * - `two_pole`: a complete circuit with opposite-polarity poles (battery, inverter
+ *   DC, DC-DC side). Same-polarity jacks bond; a connected pole requires its return.
+ * - `bus`: a single-polarity shared node with many connectors (busbar, battery posts).
+ *   All connectors bond into one node; no +/- pairing required.
+ * - `pass_through`: a series element whose terminals are distinct nodes with the
+ *   device between them (fuse, breaker, shunt, disconnect). Terminals never bond;
+ *   current in equals current out; no +/- pairing required.
+ */
+export type PortTopology = 'two_pole' | 'bus' | 'pass_through';
+
+/**
+ * Logical character of a terminal group — what the internal common node / interface is.
+ * Drives how the validation engine treats the group:
+ * - `power_conductor`: an internal power node (battery DC+ common, busbar stud group).
+ *   Carries `kind`/`polarity` and an internal `maxCurrentA` bus rating.
+ * - `communication_interface`: one logical comm interface (e.g. a CAN interface exposed
+ *   as two RJ45 jacks). Modelled at protocol level, never as individual CAN-H/CAN-L pins.
+ * - `signal_interface`: a low-voltage sense/control interface.
+ * - `ground_reference`: a chassis/earth reference node.
+ */
+export type TerminalGroupType =
+  | 'power_conductor'
+  | 'communication_interface'
+  | 'signal_interface'
+  | 'ground_reference';
+
+/**
+ * An internal common node or logical interface behind one or more terminals.
+ *
+ * For power, this is where conductor-level internal commoning and internal bus limits
+ * live — e.g. a battery's four DC+ posts are one `power_conductor` group with an
+ * `internallyCommon` 400 A bus, while each physical post is rated 250 A on its terminal.
+ * For communication, this is one logical protocol interface, not individual conductor pins.
+ *
+ * Every active product terminal references an explicit group.
+ */
+export interface TerminalGroupDefinition {
+  /** Stable id, referenced by `TerminalDefinition.terminalGroupId`. */
+  id: string;
+  /** Port this group belongs to (matches `ProductPort.id`). */
+  portId: string;
+  label?: string;
+
+  groupType: TerminalGroupType;
+
+  /** Conductor polarity for power conductors. */
+  polarity?: ConnectionPolarity;
+
+  /** True when all terminals in this group are the same internal node. */
+  internallyCommon: boolean;
+
+  /** Internal bus/common-node current rating (A) — may exceed the device source rating. */
+  maxCurrentA?: number;
+
+  /** Internal voltage rating (V) if applicable. */
+  maxVoltageV?: number;
+
+  // --- Circuit protection requirements (apply per-pole to this group's conductors) ---
+  /** Whether this group's conductor requires overcurrent protection (a fuse/breaker). */
+  requiresOvercurrentProtection?: boolean;
+  /** Whether this group's conductor requires a disconnect. */
+  requiresDisconnect?: boolean;
+  /** Manufacturer-recommended fuse rating for this group's conductor (A). */
+  recommendedFuseA?: number;
+  /** Maximum allowable fuse rating for this group's conductor (A). */
+  maxFuseA?: number;
+
+  notes?: string;
+}
+
+/**
+ * A device-internal port/circuit referenced by terminal groups.
+ * Groups the terminals of one circuit (e.g. a battery's "main", a DC-DC
+ * converter's "input"/"output", or a comm bus with several connectors) and
+ * owns the boundary specs (voltage, current, kind) for that circuit.
+ *
+ * Ports own electrical boundary specs. Terminals are physical jacks; terminal
+ * groups assign those jacks to conductor/interface groups on a port.
+ */
+export interface ProductPort {
+  /** Stable id matched by `TerminalGroupDefinition.portId`. */
+  id: string;
+  /** Human-readable name (e.g. "Battery", "Input", "Output"). */
+  label?: string;
+
+  /** Electrical medium of this port. Owns kind for all its terminals. */
+  kind: PortKind;
+  /**
+   * Circuit shape: drives bonding, +/- pairing, and pass-through semantics.
+   * Orthogonal to `kind`.
+   */
+  topology: PortTopology;
+  /** Whole-port power-flow role (e.g. an input port is a `sink`). */
+  role: ConnectionRole;
+  /** Whole-port power-flow direction. */
+  direction?: TerminalDirection;
+
+  // --- Electrical boundary specs (dc / ac / pv / generic) ---
+  /**
+   * Voltage class / service of this port: the compatibility band two ports must
+   * share to be wired together (AC 120 V vs 240 V, DC low voltage, PV high voltage).
+   * The port owns this; its terminals are conductors within the service, identified
+   * by `polarity` (line/line2/neutral/ground or DC +/-). The actual voltage between
+   * two conductors is derived from this class plus the two polarities.
+   */
+  voltageClass?: VoltageClass;
+  /** Nominal voltage at this port (V). Falls back to device nominalVoltage when unset. */
+  nominalVoltageV?: number;
+  /** Minimum allowable voltage at this port (V). */
+  voltageMinV?: number;
+  /** Maximum allowable voltage at this port (V) — e.g. PV Voc. */
+  voltageMaxV?: number;
+  /**
+   * Maximum current the device's internal busbar for this port can carry,
+   * including pass-through current from daisy-chained parallel devices. May
+   * exceed the device's own source rating. When unset, no bus limit is enforced.
+   */
+  maxCurrentA?: number;
+  /** Maximum power through this port (W) — e.g. PV input power. */
+  maxPowerW?: number;
+  /**
+   * Maximum power through this port keyed by system (battery) voltage, in W.
+   * For MPPT PV ports, max PV array power is voltage-dependent — e.g.
+   * `{ 12: 500, 24: 1000, 48: 2000 }`. When present, prefer this over the
+   * scalar `maxPowerW`; resolve via the actual system voltage and fall back to
+   * `maxPowerW` for voltages not listed.
+   */
+  maxPowerByVoltageW?: Partial<Record<number, number>>;
+  /** Number of AC phases at this port (AC ports only). */
+  phases?: 1 | 2 | 3;
+
+  // --- Communication boundary specs (comm ports only) ---
+  connectorType?: CommunicationConnectorType;
+  supportedProtocols?: CommunicationProtocol[];
+  configuredProtocol?: CommunicationProtocol;
+  isConfigurable?: boolean;
+  /** Network topology of the comm bus (bus/daisy-chain/star) — distinct from circuit `topology`. */
+  commTopology?: CommunicationTopologyType;
+  /** Connector gender for gendered comm connectors (M12, Deutsch, JST). */
+  gender?: 'male' | 'female';
 }
 
 // -----------------------------------------------------------
@@ -258,8 +405,14 @@ export interface MpptRatings {
   maxPvCurrentA: number;
   /** Maximum battery charge output current (A). */
   maxOutputCurrentA: number;
-  /** Maximum PV power input (W). */
+  /** Maximum PV power input (W). For voltage-dependent ratings, see maxPvPowerByVoltageW. */
   maxPvPowerW?: number;
+  /**
+   * Maximum PV power input keyed by battery/system voltage, in W — e.g.
+   * `{ 12: 500, 24: 1000, 48: 2000 }`. Victron MPPTs rate max PV power per
+   * system voltage; prefer this over the scalar `maxPvPowerW` when present.
+   */
+  maxPvPowerByVoltageW?: Partial<Record<number, number>>;
   /** Peak conversion efficiency (%). */
   efficiencyPct?: number;
 }
@@ -705,6 +858,22 @@ export interface Product {
   busbarRatings?: BusbarRatings;
   protectionRatings?: ProtectionRatings;
   distributionTopology?: DistributionTopology;
+  /**
+   * Internal port/circuit definitions referenced by terminal groups.
+   * A port groups the terminals of one circuit and can declare the rating of the
+   * device's internal busbar for that circuit — which may exceed the device's own
+   * source rating to allow pass-through (e.g. a battery sources 200A but its
+   * internal busbar carries 400A so a second battery can be daisy-chained through
+   * it). Per-jack limits live on each terminal's `maxCurrentA`.
+   */
+  ports?: ProductPort[];
+  /**
+   * Explicit terminal groups (internal common nodes / logical interfaces) referenced by
+   * `TerminalDefinition.terminalGroupId`. This is where internal power-conductor commoning
+   * and internal bus current limits live (e.g. a battery's DC+ posts sharing a 400 A
+   * internal bus). Active products declare these explicitly.
+   */
+  terminalGroups?: TerminalGroupDefinition[];
   solarPanelRatings?: SolarPanelRatings;
   solarCombinerRatings?: SolarCombinerRatings;
   loadRatings?: LoadRatings;
@@ -988,4 +1157,16 @@ export interface SystemWarning {
   connectionId?: string;
   message: string;
   code: string;
+}
+
+export interface BuilderIssue {
+  id: string;
+  severity: WarningSeverity;
+  message: string;
+  code: string;
+  componentId?: string;
+  connectionId?: string;
+  productId?: string;
+  field?: string;
+  source?: 'system_warning' | 'design_issue' | 'product_validation' | 'component_configuration';
 }

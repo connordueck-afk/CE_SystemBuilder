@@ -1,7 +1,7 @@
-import type { SystemWarning } from '../../types/system';
+import type { BuilderIssue } from '../../types/system';
 
 interface Props {
-  warnings: SystemWarning[];
+  issues: BuilderIssue[];
   onSelectComponent?: (id: string) => void;
   onSelectConnection?: (id: string) => void;
 }
@@ -12,27 +12,27 @@ const SEVERITY_STYLES: Record<string, { className: string; icon: string }> = {
   info: { className: 'issue-card-info', icon: 'i' },
 };
 
-export function WarningList({ warnings, onSelectComponent, onSelectConnection }: Props) {
-  if (warnings.length === 0) {
+export function WarningList({ issues, onSelectComponent, onSelectConnection }: Props) {
+  if (issues.length === 0) {
     return <div className="ok-message">No issues detected</div>;
   }
 
   return (
     <div className="warning-list">
-      {warnings.map((w) => {
-        const s = SEVERITY_STYLES[w.severity];
+      {issues.map((issue) => {
+        const s = SEVERITY_STYLES[issue.severity];
         return (
           <div
-            key={w.id}
+            key={issue.id}
             className={`issue-card ${s.className}`}
-            style={{ cursor: w.componentId || w.connectionId ? 'pointer' : 'default' }}
+            style={{ cursor: issue.componentId || issue.connectionId ? 'pointer' : 'default' }}
             onClick={() => {
-              if (w.componentId && onSelectComponent) onSelectComponent(w.componentId);
-              if (w.connectionId && onSelectConnection) onSelectConnection(w.connectionId);
+              if (issue.componentId && onSelectComponent) onSelectComponent(issue.componentId);
+              if (issue.connectionId && onSelectConnection) onSelectConnection(issue.connectionId);
             }}
           >
             <span className="issue-icon">{s.icon}</span>
-            <span className="issue-message">{w.message}</span>
+            <span className="issue-message">{issue.message}</span>
           </div>
         );
       })}

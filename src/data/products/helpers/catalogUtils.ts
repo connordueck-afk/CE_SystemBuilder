@@ -134,6 +134,11 @@ export function getProductContinuousPowerW(product: Product): number | null {
     return product.inverterChargerRatings.continuousInverterW;
   }
   if (product.mpptRatings?.maxPvPowerW != null) return product.mpptRatings.maxPvPowerW;
+  if (product.mpptRatings?.maxPvPowerByVoltageW != null) {
+    // No voltage context here; report the highest-voltage rating as representative.
+    const vals = Object.values(product.mpptRatings.maxPvPowerByVoltageW).filter((v): v is number => v != null);
+    if (vals.length) return Math.max(...vals);
+  }
   if (product.solarPanelRatings?.powerW != null) return product.solarPanelRatings.powerW;
   if (product.loadRatings?.powerW != null) return product.loadRatings.powerW;
   if (product.dcDcChargerRatings?.outputPowerW != null) return product.dcDcChargerRatings.outputPowerW;

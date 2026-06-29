@@ -6,7 +6,7 @@ import type {
   TerminalDefinition,
 } from '../types/system';
 
-const SINGLE_CONN_ELECTRICAL: ConnectorKind[] = ['mc4'];
+const SINGLE_CONN_ELECTRICAL: ConnectorKind[] = ['mc4', 'helios_orng', 'helios_blk'];
 const SINGLE_CONN_COMM: CommunicationConnectorType[] = ['RJ45', 'M12', 'Deutsch', 'JST', 'VE.Direct'];
 
 /**

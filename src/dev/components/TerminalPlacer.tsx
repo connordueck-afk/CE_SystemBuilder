@@ -19,6 +19,8 @@ interface Props {
   onMoveTerminal: (id: string, offsetX: number, offsetY: number) => void;
   onResize?: (width: number, height: number) => void;
   cropOverlay?: CropOverlay;
+  /** Resolve a terminal's kind port-first (port-owned model). */
+  kindOf?: (t: TerminalDefinition) => ConnectionPointKind;
 }
 
 const KIND_COLORS: Record<ConnectionPointKind | 'default', string> = {
@@ -32,8 +34,8 @@ const KIND_COLORS: Record<ConnectionPointKind | 'default', string> = {
   default:       '#bdbdbd',
 };
 
-function terminalColor(t: TerminalDefinition): string {
-  return KIND_COLORS[t.kind] ?? KIND_COLORS.default;
+function terminalColor(kind: ConnectionPointKind): string {
+  return KIND_COLORS[kind] ?? KIND_COLORS.default;
 }
 
 export function TerminalPlacer({
@@ -42,6 +44,7 @@ export function TerminalPlacer({
   onPlaceTerminal, onSelectTerminal, onMoveTerminal,
   onResize,
   cropOverlay,
+  kindOf,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<{ id: string; startX: number; startY: number; origX: number; origY: number } | null>(null);
@@ -141,7 +144,7 @@ export function TerminalPlacer({
             <div
               key={t.id}
               className={`pb-terminal-dot${t.id === selectedId ? ' selected' : ''}`}
-              style={{ left: dotX, top: dotY, background: terminalColor(t) }}
+              style={{ left: dotX, top: dotY, background: terminalColor(kindOf ? kindOf(t) : 'generic') }}
               onMouseDown={e => handleDotMouseDown(e, t)}
               onClick={e => { e.stopPropagation(); if (!didDragRef.current) onSelectTerminal(t.id); }}
               title={`${t.id} (${t.offsetX}, ${t.offsetY})`}

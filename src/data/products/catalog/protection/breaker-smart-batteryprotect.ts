@@ -1,4 +1,4 @@
-﻿import type { Product } from '../../../../types/system';
+import type { Product } from '../../../../types/system';
 
 const product: Product = {
   id: "breaker-smart-batteryprotect",
@@ -12,32 +12,46 @@ const product: Product = {
   imageUrl: "/product-images/generic-breaker.svg",
   width: 80,
   height: 34,
-  terminals: [
+  terminalGroups: [
     {
       id: "in",
+      portId: "main",
       label: "A",
-      kind: "dc_power",
+      groupType: "power_conductor",
       polarity: "positive",
-      role: "pass_through",
-      direction: "bidirectional",
-      voltageClass: "dc_low_voltage",
-      side: "left",
-      offsetX: -40,
-      offsetY: 0,
-      connector: { kind: "screw_terminal" }
+      internallyCommon: false
     },
     {
       id: "out",
+      portId: "main",
       label: "B",
-      kind: "dc_power",
+      groupType: "power_conductor",
       polarity: "positive",
-      role: "pass_through",
-      direction: "bidirectional",
-      voltageClass: "dc_low_voltage",
+      internallyCommon: false
+    }
+  ],
+  terminals: [
+    {
+      id: "in",
+      terminalGroupId: "in",
+      label: "A",
+      side: "left",
+      offsetX: -40,
+      offsetY: 0,
+      connector: {
+        kind: "screw_terminal"
+      },
+    },
+    {
+      id: "out",
+      terminalGroupId: "out",
+      label: "B",
       side: "right",
       offsetX: 40,
       offsetY: 0,
-      connector: { kind: "screw_terminal" }
+      connector: {
+        kind: "screw_terminal"
+      },
     }
   ],
   protectionRatings: {
@@ -48,10 +62,38 @@ const product: Product = {
     protectionType: "breaker"
   },
   variants: [
-    { id: "breaker-smart-batteryprotect-65a",  currentRatingA: 65,  msrpUsd: 80,  oemPriceUsd: 56 },
-    { id: "breaker-smart-batteryprotect-100a", currentRatingA: 100, msrpUsd: 90,  oemPriceUsd: 63 },
-    { id: "breaker-smart-batteryprotect-220a", currentRatingA: 220, msrpUsd: 126, oemPriceUsd: 88 },
+    {
+      id: "breaker-smart-batteryprotect-65a",
+      currentRatingA: 65,
+      msrpUsd: 80,
+      oemPriceUsd: 56
+    },
+    {
+      id: "breaker-smart-batteryprotect-100a",
+      currentRatingA: 100,
+      msrpUsd: 90,
+      oemPriceUsd: 63
+    },
+    {
+      id: "breaker-smart-batteryprotect-220a",
+      currentRatingA: 220,
+      msrpUsd: 126,
+      oemPriceUsd: 88
+    }
   ],
+  ports: [
+    {
+      id: "main",
+      kind: "dc",
+      topology: "pass_through",
+      role: "pass_through",
+      direction: "bidirectional",
+      label: "Main",
+      voltageClass: "dc_low_voltage",
+      maxCurrentA: 0,
+      voltageMaxV: 34
+    }
+  ]
 };
 
 export default product;

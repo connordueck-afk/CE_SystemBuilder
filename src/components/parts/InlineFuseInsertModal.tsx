@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import type { NominalVoltage, Product } from '../../types/system';
 import type { ProtectionRecommendation } from '../../utils/protectionRecommendations';
 import { fmt } from '../../utils/priceCalculations';
+import { terminalKind } from '../../utils/portSpecs';
 import { getProductDisplayImageUrl, resolveProductImageUrl } from '../../utils/productImages';
 import {
   selectBestFuseProduct,
@@ -37,7 +38,7 @@ function productMatchesRecommendation(
   if (!voltageCompatible(product, systemVoltage)) return false;
 
   if (recommendation.busType === 'ac_line' || recommendation.busType === 'ac_line2') {
-    const acPowerTerminals = product.terminals.filter((terminal) => terminal.kind === 'ac_power');
+    const acPowerTerminals = product.terminals.filter((terminal) => terminalKind(product, terminal) === 'ac_power');
     return product.productType === 'breaker' &&
       product.protectionRatings?.acDcCompatibility === 'ac' &&
       acPowerTerminals.length === 2;

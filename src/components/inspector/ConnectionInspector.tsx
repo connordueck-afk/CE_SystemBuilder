@@ -3,6 +3,7 @@ import type { InternalBusType, SystemConnection, SystemComponent, Product, Cable
 import { CABLE_TABLE } from '../../data/cableAmpacity';
 import { feetAndInchesToFeet, feetToFeetAndInches } from '../../utils/cableSummary';
 import { getEffectiveTerminal } from '../../utils/effectiveTerminals';
+import { terminalKind } from '../../utils/portSpecs';
 import { canProvidePower, terminalDirectionLabel } from '../../utils/terminalDirection';
 import type { ProtectionRecommendation } from '../../utils/protectionRecommendations';
 import { sharedBusLinkStandard } from '../../utils/busLinks';
@@ -89,7 +90,7 @@ function endpointSourceCapabilityA(
       positiveNumber(product.maxCurrentA);
   }
 
-  if (product.productType === 'mppt' && terminal.kind === 'dc_power') {
+  if (product.productType === 'mppt' && terminalKind(product, terminal) === 'dc_power') {
     return positiveNumber(product.mpptRatings?.maxOutputCurrentA) ?? positiveNumber(product.maxCurrentA);
   }
 
@@ -97,7 +98,7 @@ function endpointSourceCapabilityA(
     return positiveNumber(product.dcDcChargerRatings?.outputCurrentA) ?? positiveNumber(product.maxCurrentA);
   }
 
-  if (product.productType === 'inverter_charger' && terminal.kind === 'dc_power') {
+  if (product.productType === 'inverter_charger' && terminalKind(product, terminal) === 'dc_power') {
     return positiveNumber(product.inverterChargerRatings?.maxDcCurrentA) ?? positiveNumber(product.maxCurrentA);
   }
 

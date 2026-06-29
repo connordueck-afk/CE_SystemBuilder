@@ -1,4 +1,4 @@
-﻿import type { Product } from '../../../../types/system';
+import type { Product } from '../../../../types/system';
 
 const product: Product = {
   id: "solar-array-2000w",
@@ -16,14 +16,31 @@ const product: Product = {
   dataQuality: "placeholder",
   width: 120,
   height: 80,
+  terminalGroups: [
+    {
+      id: "pv_pos",
+      portId: "pv",
+      label: "PV Positive",
+      groupType: "power_conductor",
+      polarity: "positive",
+      internallyCommon: false,
+      maxCurrentA: 12
+    },
+    {
+      id: "pv_neg",
+      portId: "pv",
+      label: "PV Negative",
+      groupType: "power_conductor",
+      polarity: "negative",
+      internallyCommon: false,
+      maxCurrentA: 12
+    }
+  ],
   terminals: [
     {
       id: "pv_pos",
+      terminalGroupId: "pv_pos",
       label: "PV+",
-      kind: "pv_power",
-      polarity: "positive",
-      role: "source",
-      voltageClass: "pv_high_voltage",
       side: "bottom",
       offsetX: 25,
       offsetY: 40,
@@ -35,11 +52,8 @@ const product: Product = {
     },
     {
       id: "pv_neg",
+      terminalGroupId: "pv_neg",
       label: "PV-",
-      kind: "pv_power",
-      polarity: "negative",
-      role: "source",
-      voltageClass: "pv_high_voltage",
       side: "bottom",
       offsetX: -25,
       offsetY: 40,
@@ -56,7 +70,21 @@ const product: Product = {
     iscA: 12,
     impA: 10,
     powerW: 2000
-  }
+  },
+  ports: [
+    {
+      id: "pv",
+      kind: "pv",
+      topology: "two_pole",
+      label: "PV",
+      voltageClass: "pv_high_voltage",
+      voltageMaxV: 200,
+      maxCurrentA: 12,
+      maxPowerW: 2000,
+      role: "source",
+      direction: "output"
+    }
+  ]
 };
 
 export default product;

@@ -3,6 +3,7 @@ import type {
   BatteryRatings, MpptRatings, InverterChargerRatings,
   DcDcChargerRatings, ProtectionRatings, BusbarRatings,
 } from '../../types/system';
+import { CollapsibleSection } from './CollapsibleSection';
 
 interface Props {
   productType: ProductType | undefined;
@@ -338,9 +339,7 @@ export function RatingsForm({ productType, product, onRatingsChange }: Props) {
   const r = (key: string) => (product as Record<string, unknown>)[key] as Record<string, unknown> ?? {};
 
   return (
-    <div className="pb-section">
-      <div className="pb-section-header">{label}</div>
-      <div className="pb-section-body">
+    <CollapsibleSection title={label}>
         {productType === 'battery' && (
           <BatteryForm
             ratings={r('batteryRatings') as Partial<BatteryRatings>}
@@ -377,7 +376,6 @@ export function RatingsForm({ productType, product, onRatingsChange }: Props) {
             onChange={(f, v) => onRatingsChange('busbarRatings', f, v)}
           />
         )}
-      </div>
-    </div>
+    </CollapsibleSection>
   );
 }

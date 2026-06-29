@@ -259,6 +259,16 @@ export const PRODUCT_TYPE_DEFINITIONS: ProductTypeDefinition[] = [
     requiresTerminals: false,
   },
 
+  // --- System Reference Points ---
+  {
+    id: 'connection_point',
+    label: 'Connection Point',
+    description: 'Virtual system reference / bonding point such as AC earth or DC chassis ground.',
+    defaultCategory: 'Connection Points',
+    bomSection: 'Accessories',
+    requiresTerminals: true,
+  },
+
   // --- Cables ---
   {
     id: 'cable',

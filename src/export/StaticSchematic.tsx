@@ -96,6 +96,7 @@ export function StaticSchematic({ system, products, busColors, filter }: Props) 
               component={comp}
               product={product}
               selected={false}
+              preferVectorSymbol
               onSelect={NOOP}
               onDragStart={NOOP}
               onContextMenu={NOOP}

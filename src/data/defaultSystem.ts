@@ -34,7 +34,7 @@ export const DEFAULT_SYSTEM: SystemDesign = {
     },
     {
       id: "p3-fuse-pack",
-      productId: "fuse-anl-400a",
+      productId: "fuse-anl-250a",
       label: "Pack Fuse",
       quantity: 1,
       x: -40,
@@ -69,7 +69,7 @@ export const DEFAULT_SYSTEM: SystemDesign = {
     {
       id: "p3-solar",
       productId: "solar-array-400w",
-      label: "Solar Array (4× 400W)",
+      label: "Solar Array (4x 400W)",
       quantity: 1,
       x: -140,
       y: -80,
@@ -135,9 +135,9 @@ export const DEFAULT_SYSTEM: SystemDesign = {
     {
       id: "p3-b2-to-b1-pos",
       fromComponentId: "p3-bat-2",
-      fromTerminalId: "dc_pos",
+      fromTerminalId: "dc_pos_1",
       toComponentId: "p3-bat-1",
-      toTerminalId: "dc_pos",
+      toTerminalId: "dc_pos_1",
       cableLengthFt: 1,
       busType: "dc_pos",
       calculatedCurrentA: 400,
@@ -150,7 +150,7 @@ export const DEFAULT_SYSTEM: SystemDesign = {
     {
       id: "p3-b1-to-fuse",
       fromComponentId: "p3-bat-1",
-      fromTerminalId: "dc_pos",
+      fromTerminalId: "dc_pos_2",
       toComponentId: "p3-fuse-pack",
       toTerminalId: "in",
       cableLengthFt: 2,
@@ -180,9 +180,9 @@ export const DEFAULT_SYSTEM: SystemDesign = {
     {
       id: "p3-b2-to-b1-neg",
       fromComponentId: "p3-bat-2",
-      fromTerminalId: "dc_neg",
+      fromTerminalId: "dc_neg_1",
       toComponentId: "p3-bat-1",
-      toTerminalId: "dc_neg",
+      toTerminalId: "dc_neg_1",
       cableLengthFt: 1,
       busType: "dc_neg",
       calculatedCurrentA: 400,
@@ -194,7 +194,7 @@ export const DEFAULT_SYSTEM: SystemDesign = {
     {
       id: "p3-b1-neg",
       fromComponentId: "p3-bat-1",
-      fromTerminalId: "dc_neg",
+      fromTerminalId: "dc_neg_2",
       toComponentId: "p3-bus-neg",
       toTerminalId: "terminal_1",
       cableLengthFt: 2,

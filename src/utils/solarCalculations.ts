@@ -5,6 +5,7 @@ import type {
   SystemComponent,
   SystemConnection,
 } from '../types/system';
+import { terminalKind } from './portSpecs';
 
 const DEFAULT_SOLAR_WIRING_MODE: SolarWiringMode = 'series';
 
@@ -369,7 +370,7 @@ function isPvPassThroughProduct(product: Product): boolean {
     product.productType === 'solar_combiner' ||
     (
       product.productType === 'dcDisconnect' &&
-      product.terminals.some((terminal) => terminal.kind === 'pv_power')
+      product.terminals.some((terminal) => terminalKind(product, terminal) === 'pv_power')
     )
   );
 }

@@ -1,6 +1,20 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import type { Product, ProductType, TerminalDefinition, ProductCommunicationPort } from '../types/system';
+import type {
+  Product, ProductType, TerminalDefinition, ProductCommunicationPort, ProductPort,
+  PortKind, PortTopology, TerminalGroupDefinition, TerminalGroupType,
+  ConnectionPointKind, ConnectionPolarity, ConnectionRole, TerminalDirection, VoltageClass,
+} from '../types/system';
 import { getProductDisplayImageUrl } from '../utils/productImages';
+import { terminalKind, portKindToTerminalKind } from '../utils/portSpecs';
+import { validateProduct } from '../data/products/helpers/validation';
+
+/** The terminal-group type implied by a port's kind (groups inherit their port's medium). */
+function groupTypeForPortKind(portKind: PortKind | undefined): TerminalGroupType {
+  if (portKind === 'comm') return 'communication_interface';
+  if (portKind === 'signal') return 'signal_interface';
+  if (portKind === 'ground') return 'ground_reference';
+  return 'power_conductor';
+}
 import { Sidebar } from './components/Sidebar';
 import { CoreFieldsForm } from './components/CoreFieldsForm';
 import { RatingsForm } from './components/RatingsForm';
@@ -8,6 +22,7 @@ import { TerminalPlacer } from './components/TerminalPlacer';
 import { TerminalEditorPanel } from './components/TerminalEditorPanel';
 import { SVGPickerModal } from './components/SVGPickerModal';
 import { VariantsForm } from './components/VariantsForm';
+import { CollapsibleSection } from './components/CollapsibleSection';
 
 // ---- Types ----
 
@@ -68,15 +83,309 @@ function newProduct(): Partial<Product> {
 // ---- Default new terminal ----
 
 function newTerminal(offsetX: number, offsetY: number): TerminalDefinition {
+  // Kind is owned by the terminal group's port now, so a new terminal carries no kind —
+  // it inherits one once assigned to a terminal group (see addTerminal). Role is
   return {
     id: `terminal_${Date.now()}`,
     label: '',
-    kind: 'dc_power',
-    role: 'bidirectional',
     side: 'top',
     offsetX,
     offsetY,
   };
+}
+
+// ---- Port (internal circuit) editor ----
+
+const PORT_KINDS: PortKind[] = ['dc', 'ac', 'pv', 'comm', 'ground', 'signal', 'generic'];
+const PORT_TOPOLOGIES: PortTopology[] = ['two_pole', 'bus', 'pass_through'];
+const PORT_ROLES: ConnectionRole[] = ['source', 'sink', 'bidirectional', 'pass_through', 'bus', 'sense', 'control'];
+const PORT_DIRECTIONS: TerminalDirection[] = ['input', 'output', 'bidirectional'];
+const VOLTAGE_CLASSES: VoltageClass[] = ['dc_low_voltage', 'pv_high_voltage', 'ac_120v', 'ac_240v', 'signal_low_voltage'];
+const POLARITIES: ConnectionPolarity[] = ['positive', 'negative', 'line', 'line2', 'neutral', 'ground'];
+
+function PortEditor({ port, onChange, onRemove }: {
+  port: ProductPort;
+  onChange: (changes: Partial<ProductPort>) => void;
+  onRemove: () => void;
+}) {
+  // Buffer the id so intermediate keystrokes don't temporarily collide with another port.
+  const [draftId, setDraftId] = useState(port.id);
+  useEffect(() => { setDraftId(port.id); }, [port.id]);
+  const commitId = () => {
+    const trimmed = draftId.trim();
+    if (!trimmed) setDraftId(port.id);
+    else if (trimmed !== port.id) onChange({ id: trimmed });
+  };
+
+  const num = (key: keyof ProductPort, label: string) => (
+    <div className="pb-field" style={{ flex: 1 }}>
+      <label>{label}</label>
+      <input
+        type="number"
+        value={(port[key] as number | undefined) ?? ''}
+        min={0}
+        onChange={e => onChange({ [key]: e.target.value === '' ? undefined : Number(e.target.value) } as Partial<ProductPort>)}
+        placeholder="—"
+      />
+    </div>
+  );
+
+  const kind = port.kind ?? 'dc';
+  const isComm = kind === 'comm';
+  const currentField = (
+    <div className="pb-field" style={{ flex: 1 }}>
+      <label>Max Current (A)</label>
+      <input
+        type="number"
+        value={port.maxCurrentA ?? ''}
+        min={0}
+        onChange={e => onChange({ maxCurrentA: e.target.value === '' ? undefined : Number(e.target.value) })}
+        placeholder="—"
+      />
+    </div>
+  );
+
+  return (
+    <CollapsibleSection
+      className="pb-inline-section"
+      title={port.label ? `${port.id} (${port.label})` : port.id}
+      actions={<button className="pb-btn pb-btn-danger pb-btn-sm" onClick={onRemove}>x</button>}
+      bodyStyle={{ gap: 6 }}
+    >
+      <div className="pb-field-row" style={{ alignItems: 'flex-end' }}>
+        <div className="pb-field" style={{ flex: 1 }}>
+          <label>Port ID</label>
+          <input
+            value={draftId}
+            onChange={e => setDraftId(e.target.value)}
+            onBlur={commitId}
+            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); commitId(); } }}
+            placeholder="main"
+          />
+        </div>
+        <div className="pb-field" style={{ flex: 1 }}>
+          <label>Label</label>
+          <input value={port.label ?? ''} onChange={e => onChange({ label: e.target.value || undefined })} placeholder="Battery" />
+        </div>
+      </div>
+
+      <div className="pb-field-row">
+        <div className="pb-field" style={{ flex: 1 }}>
+          <label>Kind</label>
+          <select value={kind} onChange={e => onChange({ kind: e.target.value as PortKind })}>
+            {PORT_KINDS.map(k => <option key={k} value={k}>{k}</option>)}
+          </select>
+        </div>
+        {!isComm && (
+          <div className="pb-field" style={{ flex: 1 }}>
+            <label>Topology</label>
+            <select value={port.topology ?? ''} onChange={e => onChange({ topology: (e.target.value || undefined) as PortTopology | undefined })}>
+              <option value="">—</option>
+              {PORT_TOPOLOGIES.map(t => <option key={t} value={t}>{t}</option>)}
+            </select>
+          </div>
+        )}
+      </div>
+
+      <div className="pb-field-row">
+        <div className="pb-field" style={{ flex: 1 }}>
+          <label>Role</label>
+          <select value={port.role ?? ''} onChange={e => onChange({ role: (e.target.value || undefined) as ConnectionRole | undefined })}>
+            <option value="">—</option>
+            {PORT_ROLES.map(r => <option key={r} value={r}>{r}</option>)}
+          </select>
+        </div>
+        <div className="pb-field" style={{ flex: 1 }}>
+          <label>Direction</label>
+          <select value={port.direction ?? ''} onChange={e => onChange({ direction: (e.target.value || undefined) as TerminalDirection | undefined })}>
+            <option value="">—</option>
+            {PORT_DIRECTIONS.map(d => <option key={d} value={d}>{d}</option>)}
+          </select>
+        </div>
+      </div>
+
+      {/* Service: the port owns the voltage class (compatibility band) for all its terminals. */}
+      {!isComm && (
+        <div className="pb-field-row">
+          <div className="pb-field" style={{ flex: 1 }}>
+            <label>Voltage Class</label>
+            <select value={port.voltageClass ?? ''} onChange={e => onChange({ voltageClass: (e.target.value || undefined) as VoltageClass | undefined })}>
+              <option value="">—</option>
+              {VOLTAGE_CLASSES.map(v => <option key={v} value={v}>{v}</option>)}
+            </select>
+          </div>
+        </div>
+      )}
+
+      {/* Kind-specific electrical specs */}
+      {kind === 'dc' && (
+        <div className="pb-field-row">{num('nominalVoltageV', 'Nominal V')}{num('voltageMinV', 'Min V')}{num('voltageMaxV', 'Max V')}{currentField}</div>
+      )}
+      {kind === 'ac' && (
+        <div className="pb-field-row">{num('nominalVoltageV', 'Nominal V')}
+          <div className="pb-field" style={{ flex: 1 }}>
+            <label>Phases</label>
+            <select value={port.phases ?? ''} onChange={e => onChange({ phases: (e.target.value ? Number(e.target.value) : undefined) as 1 | 2 | 3 | undefined })}>
+              <option value="">—</option><option value="1">1</option><option value="2">2</option><option value="3">3</option>
+            </select>
+          </div>
+          {currentField}
+        </div>
+      )}
+      {kind === 'pv' && (
+        <div className="pb-field-row">{num('voltageMaxV', 'Max V (Voc)')}{num('maxCurrentA', 'Max A (Isc)')}{num('maxPowerW', 'Max W')}</div>
+      )}
+      {(kind === 'ground' || kind === 'signal' || kind === 'generic') && (
+        <div className="pb-field-row">{num('nominalVoltageV', 'Nominal V')}{currentField}</div>
+      )}
+      {isComm && (
+        <div className="pb-empty">
+          A comm port is a logical interface — protocols live here, but the physical connector
+          (RJ45/M12/…) is set per jack on the Terminal, not on the port.
+        </div>
+      )}
+    </CollapsibleSection>
+  );
+}
+
+// ---- Terminal group (internal common node / interface) editor ----
+
+function TerminalGroupEditor({ group, ports, onChange, onRemove }: {
+  group: TerminalGroupDefinition;
+  ports: ProductPort[];
+  onChange: (changes: Partial<TerminalGroupDefinition>) => void;
+  onRemove: () => void;
+}) {
+  // Buffer the id so intermediate keystrokes don't temporarily collide with another group.
+  const [draftId, setDraftId] = useState(group.id);
+  useEffect(() => { setDraftId(group.id); }, [group.id]);
+  const commitId = () => {
+    const trimmed = draftId.trim();
+    if (!trimmed) setDraftId(group.id);
+    else if (trimmed !== group.id) onChange({ id: trimmed });
+  };
+
+  // Group type and kind are NOT authored — they're derived from the assigned port
+  // (a group inherits its port's medium). Shown read-only.
+  const assignedPort = ports.find(p => p.id === group.portId);
+  const derivedGroupType = groupTypeForPortKind(assignedPort?.kind);
+  const derivedKind = assignedPort?.kind ? portKindToTerminalKind(assignedPort.kind) : undefined;
+  const isPower = derivedGroupType === 'power_conductor';
+  const num = (key: keyof TerminalGroupDefinition, label: string) => (
+    <div className="pb-field" style={{ flex: 1 }}>
+      <label>{label}</label>
+      <input
+        type="number"
+        value={(group[key] as number | undefined) ?? ''}
+        min={0}
+        onChange={e => onChange({ [key]: e.target.value === '' ? undefined : Number(e.target.value) } as Partial<TerminalGroupDefinition>)}
+        placeholder="—"
+      />
+    </div>
+  );
+
+  return (
+    <CollapsibleSection
+      className="pb-inline-section"
+      title={group.label ? `${group.id} (${group.label})` : group.id}
+      actions={<button className="pb-btn pb-btn-danger pb-btn-sm" onClick={onRemove}>x</button>}
+      bodyStyle={{ gap: 6 }}
+    >
+      <div className="pb-field-row" style={{ alignItems: 'flex-end' }}>
+        <div className="pb-field" style={{ flex: 1 }}>
+          <label>Group ID</label>
+          <input
+            value={draftId}
+            onChange={e => setDraftId(e.target.value)}
+            onBlur={commitId}
+            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); commitId(); } }}
+            placeholder="main_pos"
+          />
+        </div>
+        <div className="pb-field" style={{ flex: 1 }}>
+          <label>Label</label>
+          <input value={group.label ?? ''} onChange={e => onChange({ label: e.target.value || undefined })} placeholder="DC Positive Common" />
+        </div>
+      </div>
+
+      <div className="pb-field-row">
+        <div className="pb-field" style={{ flex: 1 }}>
+          <label>Port</label>
+          <select value={group.portId ?? ''} onChange={e => onChange({ portId: e.target.value })}>
+            <option value="">—</option>
+            {ports.map(p => <option key={p.id} value={p.id}>{p.label ? `${p.id} (${p.label})` : p.id}</option>)}
+            {group.portId && !ports.some(p => p.id === group.portId) && (
+              <option value={group.portId}>{group.portId} (missing)</option>
+            )}
+          </select>
+        </div>
+        <div className="pb-field" style={{ flex: 1 }}>
+          <label>Type / Kind (from port)</label>
+          <input
+            type="text"
+            value={derivedKind ? `${derivedGroupType} · ${derivedKind}` : derivedGroupType}
+            readOnly
+            title="Derived from the assigned port — a group inherits its port's medium."
+            style={{ opacity: 0.75, cursor: 'not-allowed' }}
+          />
+        </div>
+      </div>
+
+      {isPower && (
+        <>
+          <div className="pb-field-row" style={{ alignItems: 'flex-end' }}>
+            <div className="pb-field" style={{ flex: 1 }}>
+              <label>Polarity</label>
+              <select value={group.polarity ?? ''} onChange={e => onChange({ polarity: (e.target.value || undefined) as ConnectionPolarity | undefined })}>
+                <option value="">—</option>
+                {POLARITIES.map(p => <option key={p} value={p}>{p}</option>)}
+              </select>
+            </div>
+            <div className="pb-checkbox-row" style={{ flex: 1 }}>
+              <input
+                id={`grp_common_${group.id}`}
+                type="checkbox"
+                checked={group.internallyCommon ?? false}
+                onChange={e => onChange({ internallyCommon: e.target.checked })}
+              />
+              <label htmlFor={`grp_common_${group.id}`}>Internally common</label>
+            </div>
+            {num('maxCurrentA', 'Internal Bus (A)')}
+            {num('maxVoltageV', 'Max V')}
+          </div>
+
+          {/* Per-pole circuit protection — lives on the group (the protected conductor). */}
+          <div className="pb-field-row" style={{ alignItems: 'flex-end' }}>
+            <div className="pb-checkbox-row" style={{ flex: 1 }}>
+              <input
+                id={`grp_ocp_${group.id}`}
+                type="checkbox"
+                checked={group.requiresOvercurrentProtection ?? false}
+                onChange={e => onChange({ requiresOvercurrentProtection: e.target.checked || undefined })}
+              />
+              <label htmlFor={`grp_ocp_${group.id}`}>Requires OCP</label>
+            </div>
+            <div className="pb-checkbox-row" style={{ flex: 1 }}>
+              <input
+                id={`grp_disc_${group.id}`}
+                type="checkbox"
+                checked={group.requiresDisconnect ?? false}
+                onChange={e => onChange({ requiresDisconnect: e.target.checked || undefined })}
+              />
+              <label htmlFor={`grp_disc_${group.id}`}>Requires Disconnect</label>
+            </div>
+            {num('recommendedFuseA', 'Rec. Fuse (A)')}
+            {num('maxFuseA', 'Max Fuse (A)')}
+          </div>
+        </>
+      )}
+
+      <div className="pb-field">
+        <label>Notes</label>
+        <input value={group.notes ?? ''} onChange={e => onChange({ notes: e.target.value || undefined })} placeholder="e.g. Four DC+ posts share one 400A internal bus" />
+      </div>
+    </CollapsibleSection>
+  );
 }
 
 // ---- Terminal dot color (matches TerminalPlacer) ----
@@ -188,7 +497,14 @@ export function ProductBuilderApp() {
 
   const addTerminal = useCallback((offsetX: number, offsetY: number) => {
     const t = newTerminal(offsetX, offsetY);
-    setProduct(prev => ({ ...prev, terminals: [...(prev.terminals ?? []), t] }));
+    setProduct(prev => {
+      // Attach to the first terminal group by default so the terminal inherits its
+      // port/service immediately under the group-owned model (the author can
+      // reassign it).
+      const existingGroups = (prev.terminalGroups ?? []) as TerminalGroupDefinition[];
+      const seeded = existingGroups.length ? { ...t, terminalGroupId: existingGroups[0].id } : t;
+      return { ...prev, terminals: [...(prev.terminals ?? []), seeded] };
+    });
     setSelectedTerminalId(t.id);
     setIsDirty(true);
   }, []);
@@ -249,6 +565,131 @@ export function ProductBuilderApp() {
     });
     setIsDirty(true);
   }, []);
+
+  // ---- Port (internal circuit) helpers ----
+
+  const ports = (product.ports ?? []) as ProductPort[];
+
+  const addPort = useCallback(() => {
+    setProduct(prev => {
+      const existing = (prev.ports ?? []) as ProductPort[];
+      // First port defaults to "main"; later ones get a unique port_N id.
+      let id = existing.length === 0 ? 'main' : `port_${existing.length + 1}`;
+      let n = existing.length + 1;
+      while (existing.some(p => p.id === id)) { n += 1; id = `port_${n}`; }
+      return { ...prev, ports: [...existing, { id, label: '', kind: 'dc', topology: 'two_pole', role: 'bidirectional', direction: 'bidirectional' }] };
+    });
+    setIsDirty(true);
+  }, []);
+
+  const updatePort = useCallback((id: string, changes: Partial<ProductPort>) => {
+    const renamedTo = changes.id && changes.id !== id ? changes.id : undefined;
+    setProduct(prev => {
+      const existing = (prev.ports ?? []) as ProductPort[];
+      if (renamedTo && existing.some(p => p.id === renamedTo)) {
+        console.warn(`[ProductBuilder] port rename to "${renamedTo}" skipped — ID already in use`);
+        return prev;
+      }
+      const nextPorts = existing.map(p => (p.id === id ? { ...p, ...changes } : p));
+      // Cascade a port rename / kind change onto its groups, whose type derives from it.
+      let terminalGroups = prev.terminalGroups;
+      if (renamedTo || changes.kind !== undefined) {
+        const newKind = changes.kind ?? existing.find(p => p.id === id)?.kind;
+        terminalGroups = (prev.terminalGroups ?? []).map(g => (
+          g.portId === id
+            ? { ...g, portId: renamedTo ?? g.portId, groupType: groupTypeForPortKind(newKind) }
+            : g
+        ));
+      }
+      return { ...prev, ports: nextPorts, terminalGroups };
+    });
+    setIsDirty(true);
+  }, []);
+
+  const removePort = useCallback((id: string) => {
+    setProduct(prev => {
+      const nextPorts = ((prev.ports ?? []) as ProductPort[]).filter(p => p.id !== id);
+      // Drop the portId reference from any terminal group that pointed at this port.
+      const terminalGroups = (prev.terminalGroups ?? []).map((g: TerminalGroupDefinition) =>
+        g.portId === id ? { ...g, portId: '' } : g
+      );
+      return {
+        ...prev,
+        ports: nextPorts.length ? nextPorts : undefined,
+        terminalGroups: terminalGroups.length ? terminalGroups : undefined,
+      };
+    });
+    setIsDirty(true);
+  }, []);
+
+  // ---- Terminal group (internal common node / interface) helpers ----
+
+  const terminalGroups = (product.terminalGroups ?? []) as TerminalGroupDefinition[];
+
+  const addTerminalGroup = useCallback(() => {
+    setProduct(prev => {
+      const existing = (prev.terminalGroups ?? []) as TerminalGroupDefinition[];
+      const existingPorts = (prev.ports ?? []) as ProductPort[];
+      let n = existing.length + 1;
+      let id = `group_${n}`;
+      while (existing.some(g => g.id === id)) { n += 1; id = `group_${n}`; }
+      const port0 = existingPorts[0];
+      const group: TerminalGroupDefinition = {
+        id,
+        portId: port0?.id ?? '',
+        groupType: groupTypeForPortKind(port0?.kind),
+        internallyCommon: false,
+      };
+      return { ...prev, terminalGroups: [...existing, group] };
+    });
+    setIsDirty(true);
+  }, []);
+
+  const updateTerminalGroup = useCallback((id: string, changes: Partial<TerminalGroupDefinition>) => {
+    const renamedTo = changes.id && changes.id !== id ? changes.id : undefined;
+    setProduct(prev => {
+      const existing = (prev.terminalGroups ?? []) as TerminalGroupDefinition[];
+      if (renamedTo && existing.some(g => g.id === renamedTo)) {
+        console.warn(`[ProductBuilder] group rename to "${renamedTo}" skipped — ID already in use`);
+        return prev;
+      }
+      const portsNow = (prev.ports ?? []) as ProductPort[];
+      const nextGroups = existing.map(g => {
+        if (g.id !== id) return g;
+        const merged = { ...g, ...changes };
+        // groupType/kind are derived from the assigned port — re-derive on port change.
+        if (changes.portId !== undefined) {
+          const port = portsNow.find(p => p.id === changes.portId);
+          merged.groupType = groupTypeForPortKind(port?.kind);
+        }
+        return merged;
+      });
+      // Keep terminals' terminalGroupId references in sync when the group is renamed.
+      const terminals = renamedTo
+        ? (prev.terminals ?? []).map((t: TerminalDefinition) => (t.terminalGroupId === id ? { ...t, terminalGroupId: renamedTo } : t))
+        : prev.terminals;
+      return { ...prev, terminalGroups: nextGroups, terminals };
+    });
+    setIsDirty(true);
+  }, []);
+
+  const removeTerminalGroup = useCallback((id: string) => {
+    setProduct(prev => {
+      const nextGroups = ((prev.terminalGroups ?? []) as TerminalGroupDefinition[]).filter(g => g.id !== id);
+      // Drop the terminalGroupId reference from any terminal that pointed at this group.
+      const terminals = (prev.terminals ?? []).map((t: TerminalDefinition) =>
+        t.terminalGroupId === id ? { ...t, terminalGroupId: undefined } : t
+      );
+      return { ...prev, terminalGroups: nextGroups.length ? nextGroups : undefined, terminals };
+    });
+    setIsDirty(true);
+  }, []);
+
+  // Resolve a terminal's electrical kind from its assigned group/port.
+  const kindOf = useCallback(
+    (t: TerminalDefinition): ConnectionPointKind => terminalKind(product as Product, t),
+    [product]
+  );
 
   // ---- Import an SVG into public/product-images and select it ----
 
@@ -364,6 +805,16 @@ export function ProductBuilderApp() {
     if (!id) { alert('Product ID is required'); return; }
     if (!product.productType) { alert('Product Type is required'); return; }
     if (!product.name?.trim()) { alert('Product Name is required'); return; }
+
+    // Validate against the port-centric catalog model before writing the file.
+    const validation = validateProduct(product as Product);
+    if (validation.errorCount > 0) {
+      const errorList = validation.issues
+        .filter(i => i.severity === 'error')
+        .map(i => `• [${i.code}] ${i.field ?? ''} ${i.message}`)
+        .join('\n');
+      if (!confirm(`This product has ${validation.errorCount} validation error(s):\n\n${errorList}\n\nSave anyway?`)) return;
+    }
 
     const subdir = currentSubdir;
 
@@ -514,17 +965,18 @@ export function ProductBuilderApp() {
 
               {/* Left column: image / terminal placer */}
               <div className="pb-visual-col">
-                <div className="pb-section">
-                  <div className="pb-section-header">
-                    <span>Image</span>
+                <CollapsibleSection
+                  title="Image"
+                  actions={
                     <button
                       className="pb-btn pb-btn-ghost pb-btn-sm"
                       onClick={() => setShowSvgPicker(true)}
                     >
                       Pick SVG
                     </button>
-                  </div>
-                  <div className="pb-section-body" style={{ alignItems: 'center' }}>
+                  }
+                  bodyStyle={{ alignItems: 'center' }}
+                >
                     <TerminalPlacer
                       width={width}
                       height={height}
@@ -536,6 +988,7 @@ export function ProductBuilderApp() {
                       onMoveTerminal={(id, x, y) => updateTerminal(id, { offsetX: x, offsetY: y })}
                       onResize={(w, h) => { updateProduct('width', w); updateProduct('height', h); }}
                       cropOverlay={svgViewBox ? { viewBox: svgViewBox, trim: svgTrim } : undefined}
+                      kindOf={kindOf}
                     />
                   {/* Width / Height / Fit row */}
                   <div style={{ display: 'flex', gap: 8, alignSelf: 'stretch', alignItems: 'flex-end' }}>
@@ -603,8 +1056,7 @@ export function ProductBuilderApp() {
                   <div style={{ fontSize: 11, color: 'var(--muted)', textAlign: 'center' }}>
                     Click canvas to add terminal · drag handles to resize
                   </div>
-                  </div>
-                </div>
+                </CollapsibleSection>
               </div>
 
               {/* Right column: terminal editor + list */}
@@ -613,7 +1065,10 @@ export function ProductBuilderApp() {
                 {selectedTerminal && (
                   <TerminalEditorPanel
                     terminal={selectedTerminal}
+                    resolvedKind={kindOf(selectedTerminal)}
                     port={selectedPort}
+                    availablePorts={ports}
+                    availableGroups={terminalGroups}
                     onChange={changes => updateTerminal(selectedTerminal.id, changes)}
                     onPortChange={changes => upsertCommPort(selectedTerminal.id, changes)}
                     onDelete={() => removeTerminal(selectedTerminal.id)}
@@ -622,17 +1077,18 @@ export function ProductBuilderApp() {
                 )}
 
                 {/* Terminal list */}
-                <div className="pb-section">
-                  <div className="pb-section-header">
-                    <span>Terminals ({terminals.length})</span>
+                <CollapsibleSection
+                  title={`Terminals (${terminals.length})`}
+                  actions={
                     <button
                       className="pb-btn pb-btn-ghost pb-btn-sm"
                       onClick={() => addTerminal(0, 0)}
                     >
                       + Add
                     </button>
-                  </div>
-                  <div className="pb-section-body" style={{ gap: 4 }}>
+                  }
+                  bodyStyle={{ gap: 4 }}
+                >
                     {terminals.length === 0 && (
                       <div className="pb-empty">No terminals — click the canvas to place one</div>
                     )}
@@ -644,12 +1100,12 @@ export function ProductBuilderApp() {
                       >
                         <div
                           className="pb-terminal-dot-inline"
-                          style={{ background: KIND_COLORS[t.kind] ?? '#bdbdbd' }}
+                          style={{ background: KIND_COLORS[kindOf(t)] ?? '#bdbdbd' }}
                         />
                         <div className="pb-terminal-info">
                           <div className="pb-terminal-id">{t.id}</div>
                           <div className="pb-terminal-meta">
-                            {t.kind} · {t.side} · ({t.offsetX}, {t.offsetY})
+                            {kindOf(t)} · {t.side} · ({t.offsetX}, {t.offsetY})
                           </div>
                         </div>
                         <button
@@ -660,8 +1116,46 @@ export function ProductBuilderApp() {
                         </button>
                       </div>
                     ))}
-                  </div>
-                </div>
+                </CollapsibleSection>
+
+                {/* Ports — internal circuits / busbars that group terminals */}
+                <CollapsibleSection
+                  title={`Ports (${ports.length})`}
+                  actions={<button className="pb-btn pb-btn-ghost pb-btn-sm" onClick={addPort}>+ Add</button>}
+                  bodyStyle={{ gap: 6 }}
+                >
+                    {ports.length === 0 && (
+                      <div className="pb-empty">No ports — add one to group terminals onto a shared internal circuit / busbar (set its bus rating)</div>
+                    )}
+                    {ports.map(p => (
+                      <PortEditor
+                        key={p.id}
+                        port={p}
+                        onChange={changes => updatePort(p.id, changes)}
+                        onRemove={() => removePort(p.id)}
+                      />
+                    ))}
+                </CollapsibleSection>
+
+                {/* Terminal Groups — internal common nodes / logical interfaces */}
+                <CollapsibleSection
+                  title={`Terminal Groups (${terminalGroups.length})`}
+                  actions={<button className="pb-btn pb-btn-ghost pb-btn-sm" onClick={addTerminalGroup}>+ Add</button>}
+                  bodyStyle={{ gap: 6 }}
+                >
+                    {terminalGroups.length === 0 && (
+                      <div className="pb-empty">No terminal groups — add one to model an internal common node (e.g. paralleled posts on a 400A bus) or a logical comm/signal interface. Assign terminals to it via the terminal's Group field.</div>
+                    )}
+                    {terminalGroups.map(g => (
+                      <TerminalGroupEditor
+                        key={g.id}
+                        group={g}
+                        ports={ports}
+                        onChange={changes => updateTerminalGroup(g.id, changes)}
+                        onRemove={() => removeTerminalGroup(g.id)}
+                      />
+                    ))}
+                </CollapsibleSection>
               </div>
 
             </div>

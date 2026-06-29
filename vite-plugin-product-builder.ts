@@ -56,6 +56,64 @@ function generateProductFile(product: unknown): string {
   ].join('\n');
 }
 
+const PRESET_METADATA: Record<string, { constName: string; name: string; description: string; voltage: 12 | 24 | 48; tags: string[] }> = {
+  'simple-12v': {
+    constName: 'SIMPLE_12V',
+    name: 'Simple 12V Solar',
+    description: 'User-maintained starter template.',
+    voltage: 12,
+    tags: ['12V', 'Default'],
+  },
+  'full-12v': {
+    constName: 'FULL_12V',
+    name: 'Full 12V Mobile',
+    description: 'User-maintained starter template.',
+    voltage: 12,
+    tags: ['12V', 'Default'],
+  },
+  'offgrid-48v': {
+    constName: 'OFFGRID_48V',
+    name: '48V Off-Grid Cabin',
+    description: 'User-maintained starter template.',
+    voltage: 48,
+    tags: ['48V', 'Default'],
+  },
+};
+
+function upsertPresetSystemSource(source: string, target: string, system: unknown): string {
+  const meta = PRESET_METADATA[target];
+  if (!meta) throw new Error(`Unknown target: ${target}`);
+
+  const serializedSystem = serialize(system);
+  const escaped = meta.constName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const constRegex = new RegExp(`(const ${escaped}: SystemDesign = )\\{[\\s\\S]*?\\n\\};`);
+  let updated = source.replace(constRegex, `$1${serializedSystem};`);
+
+  if (updated === source) {
+    const exportMarker = 'export const SYSTEM_PRESETS: SystemPreset[] = [';
+    const insertion = `const ${meta.constName}: SystemDesign = ${serializedSystem};\n\n`;
+    updated = updated.includes(exportMarker)
+      ? updated.replace(exportMarker, `${insertion}${exportMarker}`)
+      : `${updated.trimEnd()}\n\n${insertion}${exportMarker}\n];\n`;
+  }
+
+  if (!updated.includes(`id: '${target}'`) && !updated.includes(`id: "${target}"`)) {
+    const entry = [
+      `  {`,
+      `    id: '${target}',`,
+      `    name: '${meta.name}',`,
+      `    description: '${meta.description}',`,
+      `    voltage: ${meta.voltage},`,
+      `    tags: ${JSON.stringify(meta.tags)},`,
+      `    system: ${meta.constName},`,
+      `  },`,
+    ].join('\n');
+    updated = updated.replace(/export const SYSTEM_PRESETS: SystemPreset\[] = \[\n/, (match) => `${match}${entry}\n`);
+  }
+
+  return updated;
+}
+
 // ---- List catalog product files ----
 
 function listCatalogProducts(catalogRoot: string): ProductListEntry[] {
@@ -201,24 +259,15 @@ export function productBuilderPlugin(): Plugin {
               return json(res, { ok: true });
             }
 
-            // Preset targets — patch the specific const inside presetSystems.ts
-            const PRESET_CONST_MAP: Record<string, string> = {
-              'simple-12v':  'SIMPLE_12V',
-              'full-12v':    'FULL_12V',
-              'offgrid-48v': 'OFFGRID_48V',
-            };
-            const constName = PRESET_CONST_MAP[target];
-            if (!constName) return err(res, `Unknown target: ${target}`, 400);
-
+            // Preset targets - update an existing preset const or create the slot.
             const presetsPath = path.join(root, 'src', 'data', 'presetSystems.ts');
             let src = fs.readFileSync(presetsPath, 'utf-8');
-
-            // Replace: const NAME: SystemDesign = { ... }; (top-level braces only)
-            const escaped = constName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-            const regex = new RegExp(`(const ${escaped}: SystemDesign = )\\{[\\s\\S]*?\\n\\};`);
-            const updated = src.replace(regex, `$1${serialize(body.system)};`);
-
-            if (updated === src) return err(res, `Could not find 'const ${constName}: SystemDesign' in presetSystems.ts`, 500);
+            let updated: string;
+            try {
+              updated = upsertPresetSystemSource(src, target, body.system);
+            } catch (e) {
+              return err(res, e instanceof Error ? e.message : String(e), 400);
+            }
 
             fs.writeFileSync(presetsPath, updated, 'utf-8');
             const mod = server.moduleGraph.getModuleById('/src/data/presetSystems.ts');

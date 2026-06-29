@@ -9,7 +9,7 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
-    "test": "esbuild tests/electrical.test.ts --bundle --platform=node --format=esm --outfile=tests/.electrical.out.mjs && node tests/.electrical.out.mjs"
+    "test": "node tests/run.mjs"
   },
   "dependencies": {
     "react": "^18.3.1",

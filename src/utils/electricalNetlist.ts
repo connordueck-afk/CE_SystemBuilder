@@ -1,15 +1,16 @@
 import type {
   ElectricalType,
+  EffectiveTerminal,
   Product,
   SystemComponent,
   SystemConnection,
   SystemDesign,
-  TerminalDefinition,
 } from '../types/system';
 import { getEffectiveTerminal, getEffectiveTerminals, isDynamicSingleConductorProduct } from './effectiveTerminals';
 import { canProvidePower } from './terminalDirection';
 import { buildInternalDistributionEdges, hasDistributionTopology } from './distributionTopology';
-import { resolveTerminalCurrentA } from './terminalElectrics';
+import { terminalKind } from './portSpecs';
+import { linkGroupSizes, portLinkPairs } from './portLinks';
 
 export type BusType =
   | 'dc_pos'
@@ -31,7 +32,7 @@ export interface TerminalNodeRef {
   terminalId: string;
   component: SystemComponent;
   product: Product;
-  terminal: TerminalDefinition;
+  terminal: EffectiveTerminal;
   busType: BusType;
 }
 
@@ -100,7 +101,7 @@ function terminalKey(componentId: string, terminalId: string): string {
   return `${componentId}:${terminalId}`;
 }
 
-export function busTypeFromTerminal(terminal: TerminalDefinition): BusType {
+export function busTypeFromTerminal(terminal: EffectiveTerminal): BusType {
   if (terminal.electricalType === 'dc_pos') return 'dc_pos';
   if (terminal.electricalType === 'dc_neg') return 'dc_neg';
   if (terminal.electricalType === 'pv_pos') return 'pv_pos';
@@ -138,20 +139,39 @@ export function isReturnOrGroundBus(busType: BusType): boolean {
   return busType === 'dc_neg' || busType === 'pv_neg' || busType === 'ac_neutral' || busType === 'ac_ground' || busType === 'chassis_ground';
 }
 
-function estimateProductCurrentA(product: Product, component: SystemComponent, system: SystemDesign, terminal?: TerminalDefinition): number {
+function estimateProductCurrentA(product: Product, component: SystemComponent, system: SystemDesign, terminal?: EffectiveTerminal): number {
+  // The netlist owns connectivity and source/load identity. Branch current is
+  // resolved by circuitAnalysis, where a conductor edge is available. Passive
+  // collectors and series devices only expose ratings here; treating those
+  // ratings as operating current makes busbars and fuses look like loads/sources.
+  if (PROTECTION_TYPES.has(product.productType) || PASS_THROUGH_TYPES.has(product.productType) || isDynamicSingleConductorProduct(product)) {
+    return 0;
+  }
+
   // Batteries advertise source capability on their terminals, but that is not
   // operating current. Actual battery branch current is load-driven and is
   // handled by the circuit analyzer.
   if (product.productType === 'battery') return 0;
 
+  // Return/ground conductors are paired-conductor branches, not independent
+  // sources or loads. Their current is reported by analyzeSystemCircuits from
+  // the matching branch model and then consumed by warnings/summaries.
+  if (terminal && isReturnOrGroundBus(busTypeFromTerminal(terminal))) {
+    return 0;
+  }
+
+  // A charge controller's PV input advertises a maximum *acceptance* rating, not
+  // a draw. Current on a PV net is set by what the array delivers (its Imp/Isc),
+  // so a PV-input terminal must not seed load current from its own rating — the
+  // same principle as the battery rule above. An array large enough to overload
+  // an undersized controller is still caught by the controller's PV terminal and
+  // port limits, where the array's source current is the value being checked.
+  if (terminal && terminalKind(product, terminal) === 'pv_power' && !canProvidePower(terminal)) {
+    return 0;
+  }
+
   const instanceOverrideA = instanceCurrentOverrideA(product, component);
   if (instanceOverrideA != null) return instanceOverrideA;
-
-  // Terminal-first: if the terminal declares current/power, use that directly.
-  if (terminal) {
-    const declaredA = resolveTerminalCurrentA(terminal, system.nominalVoltage);
-    if (declaredA != null) return declaredA;
-  }
 
   const voltage = component.instanceVoltageV ?? system.nominalVoltage;
   if (product.productType === 'solar_array') {
@@ -248,6 +268,7 @@ function sortBusType(a: BusType, b: BusType): number {
 export function buildElectricalNetlist(system: SystemDesign, products: Map<string, Product>): ElectricalNetlist {
   const terminals = new Map<string, TerminalNodeRef>();
   const dsu = new DisjointSet();
+  const linkSizeByKey = new Map<string, number>();
   const conflicts: string[] = [];
   const protectionBoundaries = new Map<string, ProtectionBoundary>();
   const terminalProtectionBoundaries = new Map<string, ProtectionBoundary[]>();
@@ -321,6 +342,16 @@ export function buildElectricalNetlist(system: SystemDesign, products: Map<strin
         }
       }
     }
+
+    // Port-linked jacks (same portId+polarity) are internally bonded into one node.
+    for (const pair of portLinkPairs(product, component)) {
+      const fromKey = terminalKey(component.id, pair.fromTerminalId);
+      const toKey = terminalKey(component.id, pair.toTerminalId);
+      if (terminals.has(fromKey) && terminals.has(toKey)) dsu.union(fromKey, toKey);
+    }
+    for (const [terminalId, size] of linkGroupSizes(product, component)) {
+      linkSizeByKey.set(terminalKey(component.id, terminalId), size);
+    }
   }
 
   for (const connection of system.connections) {
@@ -378,8 +409,12 @@ export function buildElectricalNetlist(system: SystemDesign, products: Map<strin
     for (const ref of group) {
       const currentA = estimateProductCurrentA(ref.product, ref.component, system, ref.terminal);
       if (currentA <= 0) continue;
-      if (canProvidePower(ref.terminal)) sourceCurrentA += currentA;
-      else loadCurrentA += currentA;
+      // A linked jack carries an equal share of its device's current; summing the
+      // bonded jacks in this group then reconstructs the device total rather than
+      // multiplying it by the jack count.
+      const share = currentA / (linkSizeByKey.get(ref.key) ?? 1);
+      if (canProvidePower(ref.terminal)) sourceCurrentA += share;
+      else loadCurrentA += share;
     }
 
     const net: ElectricalNet = {

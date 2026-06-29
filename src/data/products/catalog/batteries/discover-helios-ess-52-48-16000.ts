@@ -18,73 +18,202 @@ const product: Product = {
   sku: "900-0077",
   source: "Discover HELIOS ESS datasheet 808-0046 Rev G",
   dataQuality: "partial",
-  notes: "Datasheet lists quick-connect plug and pull terminals, 200A breaker, 10.24 kW continuous discharge, 19 kW peak power for 10 seconds, IP65 enclosure, and closed-loop CAN communication. Confirm inverter compatibility and installation requirements.",
+  notes: "Datasheet lists quick-connect plug and pull terminals, 200A breaker, 10.24 kW continuous discharge, 19 kW peak power for 10 seconds, IP65 enclosure, and closed-loop CAN communication. Four DC+ / four DC- terminals are internally common (400A internal bus); each physical terminal is rated 250A.",
   width: 76,
   height: 144,
   terminals: [
     {
-      id: "dc_pos",
+      id: "dc_pos_1",
       label: "+",
-      kind: "dc_power",
-      polarity: "positive",
-      role: "bidirectional",
-      direction: "bidirectional",
-      voltageClass: "dc_low_voltage",
+      side: "right",
+      offsetX: 38,
+      offsetY: -62,
+      maxCurrentA: 250,
+      terminalGroupId: "main_pos",
+      connector: {
+        kind: "helios_orng"
+      },
+      notes: "DC positive output"
+    },
+    {
+      id: "dc_pos_2",
+      label: "+",
       side: "right",
       offsetX: 38,
       offsetY: -55,
-      maxCurrentA: 200,
-      requiresOvercurrentProtection: true,
+      maxCurrentA: 250,
+      terminalGroupId: "main_pos",
       connector: {
-        kind: "stud",
-        holeSize: "M10"
+        kind: "helios_orng"
       },
-      notes: "DC positive output. Confirm actual Helios field terminal location and protection requirements."
+      notes: "DC positive output"
     },
     {
-      id: "dc_neg",
+      id: "dc_pos_3",
+      label: "+",
+      side: "right",
+      offsetX: 38,
+      offsetY: -48,
+      maxCurrentA: 250,
+      terminalGroupId: "main_pos",
+      connector: {
+        kind: "helios_orng"
+      },
+      notes: "DC positive output"
+    },
+    {
+      id: "dc_pos_4",
+      label: "+",
+      side: "right",
+      offsetX: 38,
+      offsetY: -41,
+      maxCurrentA: 250,
+      terminalGroupId: "main_pos",
+      connector: {
+        kind: "helios_orng"
+      },
+      notes: "DC positive output"
+    },
+    {
+      id: "dc_neg_1",
       label: "-",
-      kind: "dc_power",
-      polarity: "negative",
-      role: "bidirectional",
-      direction: "bidirectional",
-      voltageClass: "dc_low_voltage",
+      side: "left",
+      offsetX: -38,
+      offsetY: -62,
+      maxCurrentA: 250,
+      terminalGroupId: "main_neg",
+      connector: {
+        kind: "helios_blk"
+      },
+      notes: "DC negative output"
+    },
+    {
+      id: "dc_neg_2",
+      label: "-",
       side: "left",
       offsetX: -38,
       offsetY: -55,
-      maxCurrentA: 200,
+      maxCurrentA: 250,
+      terminalGroupId: "main_neg",
       connector: {
-        kind: "stud",
-        holeSize: "M10"
+        kind: "helios_blk"
       },
-      notes: "DC negative output. Confirm actual Helios field terminal location."
+      notes: "DC negative output"
+    },
+    {
+      id: "dc_neg_3",
+      label: "-",
+      side: "left",
+      offsetX: -38,
+      offsetY: -48,
+      maxCurrentA: 250,
+      terminalGroupId: "main_neg",
+      connector: {
+        kind: "helios_blk"
+      },
+      notes: "DC negative output"
+    },
+    {
+      id: "dc_neg_4",
+      label: "-",
+      side: "left",
+      offsetX: -38,
+      offsetY: -41,
+      maxCurrentA: 250,
+      terminalGroupId: "main_neg",
+      connector: {
+        kind: "helios_blk"
+      },
+      notes: "DC negative output"
     },
     {
       id: "can_out",
       label: "CAN",
-      kind: "network",
-      role: "bidirectional",
       side: "top",
       offsetX: 3,
-      offsetY: -70
+      offsetY: -70,
+      terminalGroupId: "can_iface"
     },
     {
       id: "port_lynk_1",
       label: "LYNK",
-      kind: "network",
-      role: "bidirectional",
       side: "top",
       offsetX: 13,
-      offsetY: -70
+      offsetY: -70,
+      terminalGroupId: "lynk_iface"
     },
     {
       id: "port_lynk_2",
       label: "LYNK",
-      kind: "network",
-      role: "bidirectional",
       side: "top",
       offsetX: 23,
-      offsetY: -70
+      offsetY: -70,
+      terminalGroupId: "lynk_iface"
+    }
+  ],
+  ports: [
+    {
+      id: "main",
+      label: "Battery",
+      kind: "dc",
+      topology: "two_pole",
+      nominalVoltageV: 51.2,
+      voltageClass: "dc_low_voltage",
+      maxCurrentA: 400,
+      role: "bidirectional",
+      direction: "bidirectional"
+    },
+    {
+      id: "can_out",
+      kind: "comm",
+      label: "CAN Output",
+      topology: "two_pole",
+      role: "bidirectional",
+      direction: "bidirectional"
+    },
+    {
+      id: "port_lynk",
+      kind: "comm",
+      label: "LYNK",
+      topology: "two_pole",
+      role: "bidirectional",
+      direction: "bidirectional"
+    }
+  ],
+  terminalGroups: [
+    {
+      id: "main_pos",
+      portId: "main",
+      label: "DC Positive Common",
+      groupType: "power_conductor",
+      polarity: "positive",
+      internallyCommon: true,
+      maxCurrentA: 400,
+      notes: "Four DC+ posts share one internal busbar rated 400A; each post is rated 250A."
+    },
+    {
+      id: "main_neg",
+      portId: "main",
+      label: "DC Negative Common",
+      groupType: "power_conductor",
+      polarity: "negative",
+      internallyCommon: true,
+      maxCurrentA: 400,
+      notes: "Four DC- posts share one internal busbar rated 400A; each post is rated 250A."
+    },
+    {
+      id: "can_iface",
+      portId: "can_out",
+      label: "CAN Interface",
+      groupType: "communication_interface",
+      internallyCommon: true
+    },
+    {
+      id: "lynk_iface",
+      portId: "port_lynk",
+      label: "LYNK Interface",
+      groupType: "communication_interface",
+      internallyCommon: true
     }
   ],
   batteryRatings: {

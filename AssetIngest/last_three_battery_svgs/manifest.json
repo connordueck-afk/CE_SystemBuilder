@@ -1,0 +1,26 @@
+[
+  {
+    "assetId": "discover_dlp_gc2_xxv",
+    "displayName": "Discover DLP-GC2-XXV Battery",
+    "filename": "discover_dlp_gc2_xxv.svg",
+    "path": "svg/discover_dlp_gc2_xxv.svg",
+    "format": "svg",
+    "pureVector": true
+  },
+  {
+    "assetId": "discover_aes_b_gcxxxxx",
+    "displayName": "Discover AES-B-GCXXXXX Battery",
+    "filename": "discover_aes_b_gcxxxxx.svg",
+    "path": "svg/discover_aes_b_gcxxxxx.svg",
+    "format": "svg",
+    "pureVector": true
+  },
+  {
+    "assetId": "discover_helios",
+    "displayName": "Discover Helios Energy Storage System",
+    "filename": "discover_helios.svg",
+    "path": "svg/discover_helios.svg",
+    "format": "svg",
+    "pureVector": true
+  }
+]

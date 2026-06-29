@@ -4,6 +4,7 @@ import type { BusType } from '../../utils/electricalNetlist';
 import type { BusColorMap } from '../../utils/busColors';
 import { BUS_COLOR_OPTIONS, DEFAULT_BUS_COLORS } from '../../utils/busColors';
 import { fmt } from '../../utils/priceCalculations';
+import { CURRENT_APP_VERSION } from '../../utils/storage';
 
 interface Props {
   systemName: string;
@@ -118,6 +119,9 @@ export function HeaderBar({
           <span className="header-logo-sub">System Builder</span>
         </span>
       </a>
+      <span className="header-version" title={`System Builder version ${CURRENT_APP_VERSION}`}>
+        v{CURRENT_APP_VERSION}
+      </span>
 
       {/* Voltage selector */}
       <div className="header-voltage-group">
@@ -239,7 +243,6 @@ export function HeaderBar({
                 minWidth: 190, zIndex: 200, overflow: 'hidden',
               }}>
                 {([
-                  { target: 'default',     label: 'Default System' },
                   { target: 'simple-12v',  label: 'Simple 12V Solar' },
                   { target: 'full-12v',    label: 'Full 12V Mobile' },
                   { target: 'offgrid-48v', label: '48V Off-Grid Cabin' },

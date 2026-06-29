@@ -16,8 +16,7 @@ import { DEFAULT_SYSTEM } from './data/defaultSystem';
 import { DEFAULT_ASSUMPTIONS } from './data/electricalRules';
 import { buildBom } from './utils/bomCalculations';
 import { buildPriceSummary } from './utils/priceCalculations';
-import { buildElectricalSummary } from './utils/systemSummary';
-import { generateWarnings } from './utils/electricalCalculations';
+import { analyzeSystemDesign } from './utils/analysis';
 import { validateSystemConnection } from './utils/connectionRules';
 import { exportBomCsv } from './utils/csvExport';
 import {
@@ -31,16 +30,16 @@ import {
 import { buildShareUrl, decodeShareParam, getInitialShareParam } from './utils/shareUrl';
 import { genId } from './utils/ids';
 import { getSolarPanelCount } from './utils/solarCalculations';
-import { getEffectiveTerminal, isDynamicSingleConductorProduct } from './utils/effectiveTerminals';
+import { getEffectiveTerminal, getEffectiveTerminals, isDynamicSingleConductorProduct } from './utils/effectiveTerminals';
+import { terminalKind } from './utils/portSpecs';
 import type { BusType } from './utils/electricalNetlist';
-import { buildProtectionRecommendations } from './utils/protectionRecommendations';
 import type { ProtectionRecommendation } from './utils/protectionRecommendations';
-import { analyzeSystemCircuits } from './utils/circuitAnalysis';
 import { buildCableLengthSummary, buildCableBomRows, buildConnectorSummary } from './utils/cableSummary';
 import { sharedBusLinkStandard } from './utils/busLinks';
 import { DEFAULT_BUS_COLORS, type BusColorMap } from './utils/busColors';
 import { isVerticalOrientation } from './utils/componentOrientation';
 import { clampComponentScale, componentScale, scaledProductSize } from './utils/componentScale';
+import { buildBuilderIssues } from './utils/builderIssues';
 import { HeaderBar } from './components/layout/HeaderBar';
 import { LeftPartSidebar } from './components/layout/LeftPartSidebar';
 import { RightInspector } from './components/layout/RightInspector';
@@ -135,7 +134,7 @@ function defaultComponentLabel(product: Product, components: SystemComponent[]):
 }
 
 function inlineProtectionTerminalIds(product: Product): { inId: string; outId: string } | null {
-  const powerTerminals = product.terminals.filter((terminal) => ['dc_power', 'pv_power', 'ac_power'].includes(terminal.kind));
+  const powerTerminals = getEffectiveTerminals(product).filter((terminal) => ['dc_power', 'pv_power', 'ac_power'].includes(terminal.kind));
   if (powerTerminals.length < 2) return null;
 
   const isInput = (id: string) => id === 'in' || id.endsWith('_in') || id.startsWith('in_');
@@ -257,7 +256,7 @@ function withInferredConductors(system: SystemDesign): SystemDesign {
 }
 
 function enrichConnections(system: SystemDesign): SystemDesign {
-  const analysis = analyzeSystemCircuits(system, PRODUCT_MAP);
+  const analysis = analyzeSystemDesign(system, PRODUCT_MAP).legacy.circuitAnalysis;
 
   return {
     ...system,
@@ -336,9 +335,14 @@ export function App() {
   const cableBomRows = useMemo(() => buildCableBomRows(system, PRODUCT_MAP), [system]);
   const connectorSummary = useMemo(() => buildConnectorSummary(cableBomRows), [cableBomRows]);
   const priceSummary = useMemo(() => buildPriceSummary(bomRows), [bomRows]);
-  const electricalSummary = useMemo(() => buildElectricalSummary(system, PRODUCT_MAP), [system]);
-  const warnings = useMemo(() => generateWarnings(system, PRODUCT_MAP), [system]);
-  const protectionRecommendations = useMemo(() => buildProtectionRecommendations(system, PRODUCT_MAP), [system]);
+  const systemDesignAnalysis = useMemo(() => analyzeSystemDesign(system, PRODUCT_MAP), [system]);
+  const electricalSummary = systemDesignAnalysis.legacy.electricalSummary;
+  const warnings = systemDesignAnalysis.warnings;
+  const builderIssues = useMemo(
+    () => buildBuilderIssues(system, PRODUCT_MAP, systemDesignAnalysis),
+    [system, systemDesignAnalysis]
+  );
+  const protectionRecommendations = systemDesignAnalysis.legacy.protectionRecommendations;
 
   // Auto-save whenever system changes (not while startup modal is open)
   useEffect(() => {
@@ -354,13 +358,18 @@ export function App() {
   // Load shared design from URL param on first mount
   useEffect(() => {
     if (!INITIAL_SHARE_PARAM) return;
-    decodeShareParam(INITIAL_SHARE_PARAM).then((loaded) => {
+    decodeShareParam(INITIAL_SHARE_PARAM).then(({ system: loaded, compatibility }) => {
       handleLoadSystem(loaded);
       const url = new URL(window.location.href);
       url.searchParams.delete('d');
       window.history.replaceState({}, '', url.toString());
-      setShareToast('Shared design loaded — you\'re viewing a snapshot. Use Save to keep a copy.');
-      setTimeout(() => setShareToast(null), 6000);
+      if (compatibility.message) {
+        setShareToast(compatibility.message);
+        setTimeout(() => setShareToast(null), 10000);
+      } else {
+        setShareToast('Shared design loaded — you\'re viewing a snapshot. Use Save to keep a copy.');
+        setTimeout(() => setShareToast(null), 6000);
+      }
     }).catch(() => {
       setStartupModalOpen(true);
       setShareToast('Could not load the shared design — the link may be expired or invalid.');
@@ -1319,8 +1328,12 @@ export function App() {
     if (!file) return;
 
     try {
-      const loadedSystem = parseSystemSaveFile(await file.text());
+      const { system: loadedSystem, compatibility } = parseSystemSaveFile(await file.text());
       handleLoadSystem(loadedSystem);
+      if (compatibility.message) {
+        setShareToast(compatibility.message);
+        setTimeout(() => setShareToast(null), 10000);
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unable to load that save file.';
       alert(message);
@@ -1575,7 +1588,7 @@ export function App() {
         annotations={system.annotations ?? []}
         products={PRODUCT_MAP}
         systemVoltage={system.nominalVoltage}
-        warnings={warnings}
+        issues={builderIssues}
         protectionRecommendations={protectionRecommendations}
         collapsed={rightCollapsed}
         onToggleCollapsed={() => setRightCollapsed((collapsed) => !collapsed)}
@@ -1685,7 +1698,7 @@ export function App() {
                   >
                     <span style={{ fontWeight: 600 }}>{s.name}</span>
                     <span style={{ color: '#6d7b90', fontSize: 12 }}>
-                      {s.nominalVoltage}V · {s.components.length} components · {new Date(s.updatedAt).toLocaleDateString()}
+                      {s.nominalVoltage}V - {s.components.length} components - {new Date(s.updatedAt).toLocaleDateString()}
                     </span>
                   </button>
                 ))}

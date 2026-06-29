@@ -1,4 +1,4 @@
-﻿import type { Product } from '../../../../types/system';
+import type { Product } from '../../../../types/system';
 
 const product: Product = {
   id: "fuse-mega-generic-58v",
@@ -12,32 +12,48 @@ const product: Product = {
   imageUrl: "/product-images/fuse-mega.svg",
   width: 80,
   height: 34,
-  terminals: [
+  terminalGroups: [
     {
       id: "in",
+      portId: "main",
       label: "A",
-      kind: "dc_power",
+      groupType: "power_conductor",
       polarity: "positive",
-      role: "pass_through",
-      direction: "bidirectional",
-      voltageClass: "dc_low_voltage",
-      side: "left",
-      offsetX: -40,
-      offsetY: 0,
-      connector: { kind: 'stud', holeSize: 'M8' }
+      internallyCommon: false
     },
     {
       id: "out",
+      portId: "main",
       label: "B",
-      kind: "dc_power",
+      groupType: "power_conductor",
       polarity: "positive",
-      role: "pass_through",
-      direction: "bidirectional",
-      voltageClass: "dc_low_voltage",
+      internallyCommon: false
+    }
+  ],
+  terminals: [
+    {
+      id: "in",
+      terminalGroupId: "in",
+      label: "A",
+      side: "left",
+      offsetX: -40,
+      offsetY: 0,
+      connector: {
+        kind: "stud",
+        holeSize: "M8"
+      },
+    },
+    {
+      id: "out",
+      terminalGroupId: "out",
+      label: "B",
       side: "right",
       offsetX: 40,
       offsetY: 0,
-      connector: { kind: 'stud', holeSize: 'M8' }
+      connector: {
+        kind: "stud",
+        holeSize: "M8"
+      },
     }
   ],
   protectionRatings: {
@@ -49,19 +65,92 @@ const product: Product = {
     protectionType: "fuse"
   },
   variants: [
-    { id: "fuse-mega-generic-58v-60a",  currentRatingA: 60,  msrpUsd: 14, oemPriceUsd: 10 },
-    { id: "fuse-mega-generic-58v-80a",  currentRatingA: 80,  msrpUsd: 14, oemPriceUsd: 10 },
-    { id: "fuse-mega-generic-58v-100a", currentRatingA: 100, msrpUsd: 15, oemPriceUsd: 11 },
-    { id: "fuse-mega-generic-58v-125a", currentRatingA: 125, msrpUsd: 15, oemPriceUsd: 11 },
-    { id: "fuse-mega-generic-58v-150a", currentRatingA: 150, msrpUsd: 16, oemPriceUsd: 11 },
-    { id: "fuse-mega-generic-58v-175a", currentRatingA: 175, msrpUsd: 16, oemPriceUsd: 11 },
-    { id: "fuse-mega-generic-58v-200a", currentRatingA: 200, msrpUsd: 17, oemPriceUsd: 12 },
-    { id: "fuse-mega-generic-58v-225a", currentRatingA: 225, msrpUsd: 18, oemPriceUsd: 13 },
-    { id: "fuse-mega-generic-58v-250a", currentRatingA: 250, msrpUsd: 18, oemPriceUsd: 13 },
-    { id: "fuse-mega-generic-58v-300a", currentRatingA: 300, msrpUsd: 20, oemPriceUsd: 14 },
-    { id: "fuse-mega-generic-58v-400a", currentRatingA: 400, msrpUsd: 32, oemPriceUsd: 22 },
-    { id: "fuse-mega-generic-58v-500a", currentRatingA: 500, msrpUsd: 37, oemPriceUsd: 26 },
+    {
+      id: "fuse-mega-generic-58v-60a",
+      currentRatingA: 60,
+      msrpUsd: 14,
+      oemPriceUsd: 10
+    },
+    {
+      id: "fuse-mega-generic-58v-80a",
+      currentRatingA: 80,
+      msrpUsd: 14,
+      oemPriceUsd: 10
+    },
+    {
+      id: "fuse-mega-generic-58v-100a",
+      currentRatingA: 100,
+      msrpUsd: 15,
+      oemPriceUsd: 11
+    },
+    {
+      id: "fuse-mega-generic-58v-125a",
+      currentRatingA: 125,
+      msrpUsd: 15,
+      oemPriceUsd: 11
+    },
+    {
+      id: "fuse-mega-generic-58v-150a",
+      currentRatingA: 150,
+      msrpUsd: 16,
+      oemPriceUsd: 11
+    },
+    {
+      id: "fuse-mega-generic-58v-175a",
+      currentRatingA: 175,
+      msrpUsd: 16,
+      oemPriceUsd: 11
+    },
+    {
+      id: "fuse-mega-generic-58v-200a",
+      currentRatingA: 200,
+      msrpUsd: 17,
+      oemPriceUsd: 12
+    },
+    {
+      id: "fuse-mega-generic-58v-225a",
+      currentRatingA: 225,
+      msrpUsd: 18,
+      oemPriceUsd: 13
+    },
+    {
+      id: "fuse-mega-generic-58v-250a",
+      currentRatingA: 250,
+      msrpUsd: 18,
+      oemPriceUsd: 13
+    },
+    {
+      id: "fuse-mega-generic-58v-300a",
+      currentRatingA: 300,
+      msrpUsd: 20,
+      oemPriceUsd: 14
+    },
+    {
+      id: "fuse-mega-generic-58v-400a",
+      currentRatingA: 400,
+      msrpUsd: 32,
+      oemPriceUsd: 22
+    },
+    {
+      id: "fuse-mega-generic-58v-500a",
+      currentRatingA: 500,
+      msrpUsd: 37,
+      oemPriceUsd: 26
+    }
   ],
+  ports: [
+    {
+      id: "main",
+      kind: "dc",
+      topology: "pass_through",
+      role: "pass_through",
+      direction: "bidirectional",
+      label: "Main",
+      voltageClass: "dc_low_voltage",
+      maxCurrentA: 0,
+      voltageMaxV: 58
+    }
+  ]
 };
 
 export default product;

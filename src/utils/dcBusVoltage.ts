@@ -1,15 +1,16 @@
 import type { Product, SystemComponent, TerminalDefinition } from '../types/system';
+import { terminalKind, terminalRole } from './portSpecs';
 
 export function isDcBusProduct(product: Product): boolean {
   if (product.productType === 'busbar' || product.productType === 'dc_distribution') return true;
   return product.terminals.some((terminal) =>
-    terminal.kind === 'dc_power' &&
-    terminal.role === 'bus'
+    terminalKind(product, terminal) === 'dc_power' &&
+    terminalRole(product, terminal) === 'bus'
   );
 }
 
 export function isDcBusTerminal(product: Product, terminal: TerminalDefinition): boolean {
-  return isDcBusProduct(product) && terminal.kind === 'dc_power';
+  return isDcBusProduct(product) && terminalKind(product, terminal) === 'dc_power';
 }
 
 export function getDcBusNominalVoltage(component: SystemComponent, product: Product): number | undefined {

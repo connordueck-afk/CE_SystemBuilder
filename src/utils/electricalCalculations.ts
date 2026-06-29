@@ -1,11 +1,11 @@
-import type { SystemDesign, SystemComponent, SystemConnection, SystemWarning, Product, TerminalDefinition } from '../types/system';
+import type { EffectiveTerminal, SystemDesign, SystemComponent, SystemConnection, SystemWarning, Product } from '../types/system';
 import { buildCommunicationNetworks, communicationNetworkWarnings } from './communicationNetworks';
 import { nextStandardFuse } from '../data/fuseRatings';
-import { cableForCurrent, cableByAwg, voltageDropV } from '../data/cableAmpacity';
+import { cableByAwg } from '../data/cableAmpacity';
 import { CONTINUOUS_LOAD_FACTOR } from '../data/electricalRules';
 import { validateSystemConnection } from './connectionRules';
 import { findSolarArrayFeedingComponent } from './solarCalculations';
-import { canProvidePower, inferTerminalDirection, terminalCurrentLimitA } from './terminalDirection';
+import { canProvidePower } from './terminalDirection';
 import { buildBatteryInterconnectMap } from './batteryPackAnalysis';
 import { analyzeSystemCircuits } from './circuitAnalysis';
 import {
@@ -16,8 +16,9 @@ import {
   type BusType,
   type TerminalNodeRef,
 } from './electricalNetlist';
-import { resolveTerminalCurrentA } from './terminalElectrics';
-import { getEffectiveTerminal } from './effectiveTerminals';
+import { getEffectiveTerminal, getEffectiveTerminals } from './effectiveTerminals';
+import { getProductPort, linkGroupKey } from './portLinks';
+import { getTerminalPortId, portMaxCurrentA, terminalKind, terminalRole } from './portSpecs';
 import { getDcBusNominalVoltage, isDcBusTerminal } from './dcBusVoltage';
 import { formatFeetAndInches } from './cableSummary';
 import { analyzeBatteryTopology } from './batteryTopology';
@@ -75,13 +76,35 @@ function normalizeVoltage(voltage: number): number {
   return Math.round(voltage * 10) / 10;
 }
 
+/**
+ * Standard DC system voltage classes and the nominal-voltage band each covers.
+ * A "48V system" spans roughly 40-64V because 48V-class LiFePO4 batteries sit at
+ * ~51.2V nominal while inverters/lead-acid report 48V. Sources in the same band
+ * are the same system and must not be flagged as incompatible.
+ */
+const VOLTAGE_CLASS_BANDS: Array<{ classV: number; minV: number; maxV: number }> = [
+  { classV: 12, minV: 10, maxV: 16 },
+  { classV: 24, minV: 20, maxV: 32 },
+  { classV: 48, minV: 40, maxV: 64 },
+];
+
+/**
+ * Maps a raw nominal voltage to its DC system voltage class (12/24/48). Voltages
+ * outside the standard bands fall back to their rounded value so genuinely
+ * distinct domains still compare unequal.
+ */
+function voltageClassFor(voltage: number): number {
+  const band = VOLTAGE_CLASS_BANDS.find((b) => voltage >= b.minV && voltage <= b.maxV);
+  return band ? band.classV : normalizeVoltage(voltage);
+}
+
 function arrayValueIncludes(values: number[], target: number): boolean {
   return values.some((value) => Math.abs(value - target) < 0.01);
 }
 
 function sourceVoltageForTerminal(ref: TerminalNodeRef, system: SystemDesign): number | undefined {
   const { component, product, terminal } = ref;
-  if (terminal.voltageNominalV != null) return terminal.voltageNominalV;
+  if (terminal.nominalVoltageV != null) return terminal.nominalVoltageV;
   if (component.dcNominalVoltage != null) return component.dcNominalVoltage;
   if (component.instanceVoltageV != null) return component.instanceVoltageV;
   if (product.batteryRatings?.nominalVoltageV != null) return product.batteryRatings.nominalVoltageV;
@@ -120,7 +143,7 @@ function isSourceCompatibilityTerminal(ref: TerminalNodeRef): boolean {
   if (ref.product.productType === 'monitor' || ref.product.productType === 'batteryMonitor') return false;
   if (ref.product.productType === 'dc_load' || ref.product.productType === 'ac_load') return false;
   if (!canProvidePower(ref.terminal) && ref.product.productType !== 'battery') return false;
-  return SOURCE_COMPATIBILITY_TYPES.has(ref.product.productType) || ref.terminal.role === 'source';
+  return SOURCE_COMPATIBILITY_TYPES.has(ref.product.productType) || terminalRole(ref.product, ref.terminal) === 'source';
 }
 
 function currentRatingForBusProduct(product: Product): number | undefined {
@@ -139,210 +162,6 @@ function shuntCurrentRatingA(product: Product): number | undefined {
   const text = `${product.name} ${product.description ?? ''} ${product.notes ?? ''}`;
   const match = text.match(/(\d{2,5})\s*A(?:\b|\/)/i);
   return match ? Number(match[1]) : undefined;
-}
-
-export function estimateDcCurrent(powerW: number, voltageV: number): number {
-  if (voltageV <= 0) return 0;
-  return powerW / voltageV;
-}
-
-export function estimateInverterDcCurrent(
-  acPowerW: number,
-  batteryVoltageV: number,
-  efficiency: number
-): number {
-  if (batteryVoltageV <= 0 || efficiency <= 0) return 0;
-  return acPowerW / (batteryVoltageV * efficiency);
-}
-
-export function recommendedFuseA(continuousCurrentA: number): number {
-  return nextStandardFuse(continuousCurrentA * CONTINUOUS_LOAD_FACTOR);
-}
-
-export function recommendedCableAwg(currentA: number): string {
-  return cableForCurrent(currentA).awg;
-}
-
-export function calcVoltageDropPercent(
-  currentA: number,
-  lengthFt: number,
-  awg: string,
-  systemVoltageV: number
-): number {
-  if (systemVoltageV <= 0) return 0;
-  const drop = voltageDropV(currentA, lengthFt, awg);
-  return (drop / systemVoltageV) * 100;
-}
-
-/**
- * @deprecated Superseded by the graph engine in circuitAnalysis.ts, which is the
- * single source of truth wired through App.tsx `enrichConnections`. This function
- * is no longer called anywhere; kept only to avoid a large deletion in this change.
- * Do not wire new UI to it — read `connection.recommendedFuseA/recommendedCableAwg`
- * (already ampacity-capped) instead. Safe to delete in a dedicated cleanup.
- */
-export function enrichConnection(
-  conn: SystemConnection,
-  fromProduct: Product | undefined,
-  toProduct: Product | undefined,
-  systemVoltage: number,
-  efficiency: number,
-  fromTerminal?: TerminalDefinition,
-  toTerminal?: TerminalDefinition,
-  netBusType?: BusType
-): SystemConnection {
-  const fromCanProvide = fromTerminal ? canProvidePower(fromTerminal) : true;
-  const toCanProvide = toTerminal ? canProvidePower(toTerminal) : false;
-  const sourceProduct = toCanProvide && !fromCanProvide ? toProduct : fromProduct;
-  const loadProduct = sourceProduct === fromProduct ? toProduct : fromProduct;
-  const sourceTerminal = sourceProduct === fromProduct ? fromTerminal : toTerminal;
-
-  const solarCurrentA = sourceProduct?.productType === 'solar_array'
-    ? sourceProduct.maxPvCurrentA ?? sourceProduct.solarPanelRatings?.iscA ?? sourceProduct.solarPanelRatings?.impA
-    : loadProduct?.productType === 'solar_array'
-      ? loadProduct.maxPvCurrentA ?? loadProduct.solarPanelRatings?.iscA ?? loadProduct.solarPanelRatings?.impA
-      : undefined;
-  let currentA = solarCurrentA ?? conn.calculatedCurrentA;
-
-  if (currentA == null) {
-    // Terminal-first: prefer declared terminal current/power over product-type switches.
-    if (sourceTerminal) {
-      const declaredA = resolveTerminalCurrentA(sourceTerminal, systemVoltage);
-      if (declaredA != null) currentA = declaredA;
-    }
-
-    // Derive from source product (skip pass-throughs - their maxCurrentA is a rating, not circuit current)
-    if (currentA == null && sourceProduct?.productType === 'inverter_charger' && sourceProduct.continuousPowerW) {
-      currentA = estimateInverterDcCurrent(sourceProduct.continuousPowerW, systemVoltage, efficiency);
-    } else if (currentA == null && sourceProduct?.continuousPowerW) {
-      currentA = estimateDcCurrent(sourceProduct.continuousPowerW, systemVoltage);
-    } else if (currentA == null && sourceProduct?.maxCurrentA && !PASS_THROUGH_TYPES.has(sourceProduct.productType)) {
-      currentA = sourceProduct.maxCurrentA;
-    }
-
-    // Fallback: derive from consuming product when source is a pass-through or has no power specs.
-    // Check load-side terminal declarations before falling back to product-type switches.
-    if (!currentA) {
-      const loadTerminal = sourceProduct === fromProduct ? toTerminal : fromTerminal;
-      if (loadTerminal) {
-        const declaredA = resolveTerminalCurrentA(loadTerminal, systemVoltage);
-        if (declaredA != null) currentA = declaredA;
-      }
-    }
-    if (!currentA && loadProduct) {
-      if (loadProduct.productType === 'inverter_charger' && loadProduct.continuousPowerW) {
-        currentA = estimateInverterDcCurrent(loadProduct.continuousPowerW, systemVoltage, efficiency);
-      } else if (loadProduct.continuousPowerW) {
-        currentA = estimateDcCurrent(loadProduct.continuousPowerW, systemVoltage);
-      } else if (loadProduct.maxCurrentA && !PASS_THROUGH_TYPES.has(loadProduct.productType)) {
-        currentA = loadProduct.maxCurrentA;
-      }
-    }
-
-    currentA = currentA ?? 0;
-  }
-
-  const sourceLimitA = sourceProduct && sourceTerminal && inferTerminalDirection(sourceTerminal) === 'output'
-    ? terminalCurrentLimitA(sourceProduct, sourceTerminal)
-    : undefined;
-  const limitedCurrentA = sourceLimitA != null ? Math.min(currentA, sourceLimitA) : currentA;
-  const fromBusType = fromTerminal ? busTypeFromTerminal(fromTerminal) : 'unknown';
-  const toBusType = toTerminal ? busTypeFromTerminal(toTerminal) : 'unknown';
-  const busType = netBusType ?? (fromBusType !== 'unknown' ? fromBusType : toBusType);
-  const fuseRequired = busTypeRequiresFuse(busType);
-
-  const fuseA = fuseRequired ? conn.recommendedFuseA ?? recommendedFuseA(limitedCurrentA) : undefined;
-  const cableSizingCurrentA = fuseA ?? limitedCurrentA * CONTINUOUS_LOAD_FACTOR;
-  const recommendedAwg = recommendedCableAwg(cableSizingCurrentA);
-  const awg = conn.manualCableAwg && cableByAwg(conn.manualCableAwg)
-    ? conn.manualCableAwg
-    : recommendedAwg;
-  const dropPct = calcVoltageDropPercent(limitedCurrentA, conn.cableLengthFt, awg, systemVoltage);
-  const dropV = voltageDropV(limitedCurrentA, conn.cableLengthFt, awg);
-
-  const warnings: string[] = [];
-  if (dropPct > 3) {
-    warnings.push(`Voltage drop ${dropPct.toFixed(1)}% exceeds 3% limit - consider larger cable or shorter run`);
-  }
-  if (sourceLimitA != null && currentA > sourceLimitA) {
-    warnings.push(`Output limited to ${sourceLimitA}A by ${sourceProduct?.protectionRatings?.protectionType ?? 'device'} rating`);
-  }
-
-  return {
-    ...conn,
-    calculatedCurrentA: limitedCurrentA,
-    recommendedFuseA: fuseA,
-    recommendedCableAwg: awg,
-    voltageDropV: parseFloat(dropV.toFixed(3)),
-    voltageDropPercent: parseFloat(dropPct.toFixed(2)),
-    warnings,
-  };
-}
-
-/**
- * @deprecated Pre-terminal-model fuse/cable estimator. Not called anywhere.
- * Superseded by circuitAnalysis.ts. Safe to delete in a dedicated cleanup.
- */
-export function enrichConnectionLegacy(
-  conn: SystemConnection,
-  fromProduct: Product | undefined,
-  toProduct: Product | undefined,
-  systemVoltage: number,
-  efficiency: number
-): SystemConnection {
-  const solarCurrentA = fromProduct?.productType === 'solar_array'
-    ? fromProduct.maxPvCurrentA ?? fromProduct.solarPanelRatings?.iscA ?? fromProduct.solarPanelRatings?.impA
-    : toProduct?.productType === 'solar_array'
-      ? toProduct.maxPvCurrentA ?? toProduct.solarPanelRatings?.iscA ?? toProduct.solarPanelRatings?.impA
-      : undefined;
-  let currentA = solarCurrentA ?? conn.calculatedCurrentA;
-
-  if (currentA == null) {
-    // Derive from source product (skip pass-throughs — their maxCurrentA is a rating, not circuit current)
-    if (currentA == null && fromProduct?.productType === 'inverter_charger' && fromProduct.continuousPowerW) {
-      currentA = estimateInverterDcCurrent(fromProduct.continuousPowerW, systemVoltage, efficiency);
-    } else if (currentA == null && fromProduct?.continuousPowerW) {
-      currentA = estimateDcCurrent(fromProduct.continuousPowerW, systemVoltage);
-    } else if (currentA == null && fromProduct?.maxCurrentA && !PASS_THROUGH_TYPES.has(fromProduct.productType)) {
-      currentA = fromProduct.maxCurrentA;
-    }
-
-    // Fallback: derive from consuming product when source is a pass-through or has no power specs
-    if (!currentA && toProduct) {
-      if (toProduct.productType === 'inverter_charger' && toProduct.continuousPowerW) {
-        currentA = estimateInverterDcCurrent(toProduct.continuousPowerW, systemVoltage, efficiency);
-      } else if (toProduct.continuousPowerW) {
-        currentA = estimateDcCurrent(toProduct.continuousPowerW, systemVoltage);
-      } else if (toProduct.maxCurrentA && !PASS_THROUGH_TYPES.has(toProduct.productType)) {
-        currentA = toProduct.maxCurrentA;
-      }
-    }
-
-    currentA = currentA ?? 0;
-  }
-
-  const fuseA = conn.recommendedFuseA ?? recommendedFuseA(currentA);
-  const recommendedAwg = recommendedCableAwg(fuseA);
-  const awg = conn.manualCableAwg && cableByAwg(conn.manualCableAwg)
-    ? conn.manualCableAwg
-    : recommendedAwg;
-  const dropPct = calcVoltageDropPercent(currentA, conn.cableLengthFt, awg, systemVoltage);
-  const dropV = voltageDropV(currentA, conn.cableLengthFt, awg);
-
-  const warnings: string[] = [];
-  if (dropPct > 3) {
-    warnings.push(`Voltage drop ${dropPct.toFixed(1)}% exceeds 3% limit — consider larger cable or shorter run`);
-  }
-
-  return {
-    ...conn,
-    calculatedCurrentA: currentA,
-    recommendedFuseA: fuseA,
-    recommendedCableAwg: awg,
-    voltageDropV: parseFloat(dropV.toFixed(3)),
-    voltageDropPercent: parseFloat(dropPct.toFixed(2)),
-    warnings,
-  };
 }
 
 export function generateWarnings(
@@ -416,6 +235,18 @@ export function generateWarnings(
 
     return totalA;
   };
+  const attachedPeakCurrentA = (componentId: string, terminalIds: string[]): number => {
+    const terminalSet = new Set(terminalIds);
+    let maxA = 0;
+
+    for (const connection of system.connections) {
+      const terminalId = connectionTerminalForComponent(connection, componentId);
+      if (!terminalId || !terminalSet.has(terminalId)) continue;
+      maxA = Math.max(maxA, connectionDesignCurrentA(connection));
+    }
+
+    return maxA;
+  };
 
   for (const conflict of netlist.conflicts) {
     warn('error', conflict, 'BUS_TYPE_CONFLICT');
@@ -455,9 +286,9 @@ export function generateWarnings(
       const voltage = sourceVoltageForTerminal(ref, system);
       if (voltage == null) continue;
 
-      const normalizedVoltage = normalizeVoltage(voltage);
-      sourceRefsByVoltage.set(normalizedVoltage, [
-        ...(sourceRefsByVoltage.get(normalizedVoltage) ?? []),
+      const voltageClass = voltageClassFor(voltage);
+      sourceRefsByVoltage.set(voltageClass, [
+        ...(sourceRefsByVoltage.get(voltageClass) ?? []),
         ref,
       ]);
     }
@@ -486,14 +317,17 @@ export function generateWarnings(
       productBusRatingA != null &&
       (product.productType === 'busbar' || product.productType === 'dc_distribution' || product.busbarRatings)
     ) {
-      for (const net of netlist.nets) {
-        if (net.busType === 'unknown' || net.busType === 'signal') continue;
-        if (!net.terminalKeys.some((terminalKey) => terminalKey.startsWith(`${comp.id}:`))) continue;
-        if (net.operatingCurrentA <= productBusRatingA) continue;
-
+      const busTerminalIds = getEffectiveTerminals(product, comp)
+        .filter((terminal) => {
+          const kind = terminalKind(product, terminal);
+          return kind === 'dc_power' || kind === 'pv_power' || kind === 'ac_power';
+        })
+        .map((terminal) => terminal.id);
+      const busCurrentA = attachedPeakCurrentA(comp.id, busTerminalIds);
+      if (busCurrentA > productBusRatingA) {
         warn(
           'error',
-          `"${productLabel(comp, product)}" is rated for ${productBusRatingA}A but ${net.id} is carrying ${net.operatingCurrentA.toFixed(0)}A`,
+          `"${productLabel(comp, product)}" is rated for ${productBusRatingA}A but its largest attached branch carries ${busCurrentA.toFixed(0)}A`,
           'BUSBAR_OVERLOADED',
           comp.id
         );
@@ -546,6 +380,152 @@ export function generateWarnings(
           'DISTRIBUTION_SLOT_EMPTY',
           comp.id
         );
+      }
+    }
+  }
+
+  // ---- Port-linked device limits ----
+  // Three rules for devices that expose internal ports (resolved through the
+  // terminal group's portId):
+  //   (1a) each physical jack carries at most its terminal.maxCurrentA
+  //   (1c) a port's internal busbar carries at most port.busRatingA (incl. pass-through)
+  //   (2)  every connected positive lead in a port has a connected return (and vice versa)
+  for (const comp of system.components) {
+    const product = productByComponent.get(comp.id);
+    if (!product) continue;
+    const terminals = getEffectiveTerminals(product, comp);
+    const terminalById = new Map(terminals.map((terminal) => [terminal.id, terminal]));
+    const isPowerKind = (terminal: EffectiveTerminal) => {
+      const k = terminal.kind;
+      return k === 'dc_power' || k === 'pv_power' || k === 'ac_power';
+    };
+    // Link-group key: terminals sharing portId + kind + polarity are one bonded node.
+    const linkKeyOf = (terminal: EffectiveTerminal): string | null => linkGroupKey(product, terminal);
+
+    // External cables per link group — parallel jacks on one bonded node share current.
+    const cablesPerLinkGroup = new Map<string, number>();
+    for (const connection of system.connections) {
+      const terminalId = connectionTerminalForComponent(connection, comp.id);
+      const terminal = terminalId ? terminalById.get(terminalId) : undefined;
+      const linkKey = terminal ? linkKeyOf(terminal) : null;
+      if (linkKey) cablesPerLinkGroup.set(linkKey, (cablesPerLinkGroup.get(linkKey) ?? 0) + 1);
+    }
+
+    // (1a) Per-jack over-current.
+    for (const connection of system.connections) {
+      const terminalId = connectionTerminalForComponent(connection, comp.id);
+      const terminal = terminalId ? terminalById.get(terminalId) : undefined;
+      if (!terminal || !isPowerKind(terminal) || terminal.maxCurrentA == null) continue;
+      const linkKey = linkKeyOf(terminal);
+      const cablesOnGroup = linkKey ? Math.max(1, cablesPerLinkGroup.get(linkKey) ?? 1) : 1;
+      // Linked jacks share their bonded node's current equally across their cables.
+      const jackCurrentA = connectionDesignCurrentA(connection) / cablesOnGroup;
+      if (jackCurrentA > terminal.maxCurrentA + 0.5) {
+        warn(
+          'error',
+          `"${productLabel(comp, product)}" ${terminal.label} connection carries ${jackCurrentA.toFixed(0)}A, above this connection point's ${terminal.maxCurrentA}A rating`,
+          'TERMINAL_OVERCURRENT',
+          comp.id,
+          connection.id
+        );
+      }
+    }
+
+    // (1c) Internal port busbar over-current. The through-current of a port's
+    // internal busbar is the current the *device itself* drives through that port —
+    // not the operating current of the shared external net it sits on. A 100A MPPT
+    // tied to a 210A battery bus carries 100A through its own output busbar, not 210A;
+    // using the net total here produced false PORT_BUS_OVERLOADED errors on every
+    // smaller device sharing a busbar.
+    //
+    // Collector products (busbars, distributors) are rated by BUSBAR_OVERLOADED /
+    // DISTRIBUTION_BUS_OVERLOADED on the correct net math, and series pass-through
+    // ports by the fuse checks, so both are excluded here.
+    const isCollectorProduct = product.productType === 'busbar'
+      || product.productType === 'dc_distribution'
+      || Boolean(product.distributionTopology);
+    if (!isCollectorProduct) {
+      for (const port of product.ports ?? []) {
+        const portRatingA = portMaxCurrentA(port);
+        if (portRatingA == null || port.topology === 'pass_through') continue;
+
+        // Internal busbar current per bonded node: parallel jacks sharing a link group
+        // sum (a battery's paralleled posts carry their combined current on the shared
+        // internal bus), while separate poles stay separate. Inter-battery interconnects
+        // are internal pack wiring — the current crossing them is accounted at the pack
+        // feeder, not as extra load on a single battery's full-rated bus — so they are
+        // excluded; otherwise a daisy-chained battery double-counts the same current
+        // flowing in one bonded post and out another. The bus current is the largest of
+        // the bonded-node sums.
+        const currentByLinkGroup = new Map<string, number>();
+        const seenConns = new Set<string>();
+        for (const connection of system.connections) {
+          if (seenConns.has(connection.id)) continue;
+          const terminalId = connectionTerminalForComponent(connection, comp.id);
+          const terminal = terminalId ? terminalById.get(terminalId) : undefined;
+          if (!terminal || getTerminalPortId(product, terminal) !== port.id || !isPowerKind(terminal)) continue;
+          seenConns.add(connection.id);
+          const otherId = connection.fromComponentId === comp.id ? connection.toComponentId : connection.fromComponentId;
+          const otherProduct = productByComponent.get(otherId);
+          if (product.productType === 'battery' && otherProduct?.productType === 'battery') continue;
+          const groupKey = linkKeyOf(terminal) ?? terminal.id;
+          currentByLinkGroup.set(groupKey, (currentByLinkGroup.get(groupKey) ?? 0) + connectionDesignCurrentA(connection));
+        }
+
+        const busCurrentA = currentByLinkGroup.size > 0 ? Math.max(...currentByLinkGroup.values()) : 0;
+        if (busCurrentA > portRatingA + 0.5) {
+          warn(
+            'error',
+            `"${productLabel(comp, product)}" ${port.label ?? port.id} internal busbar carries ${busCurrentA.toFixed(0)}A, above its ${portRatingA}A rating`,
+            'PORT_BUS_OVERLOADED',
+            comp.id
+          );
+        }
+      }
+    }
+
+    // (2) DC+/DC- return pairing, required only for two-pole ports. `bus` and
+    // `pass_through` ports are single-polarity / series and their poles legitimately
+    // stand alone. Falls back to the legacy passive-product skip while ports are
+    // untyped during migration.
+    if (!isPassiveElectricalProduct(product)) {
+      interface PolePresence { hasPos: boolean; hasNeg: boolean; posLabel?: string; negLabel?: string; }
+      const presenceByPort = new Map<string, PolePresence>();
+      for (const terminal of terminals) {
+        if (terminal.kind !== 'dc_power' && terminal.kind !== 'pv_power') continue;
+        if (!connectedTerminals.has(`${comp.id}:${terminal.id}`)) continue;
+        const resolvedPortId = getTerminalPortId(product, terminal);
+        const topo = getProductPort(product, resolvedPortId)?.topology;
+        if (topo === 'bus' || topo === 'pass_through') continue;
+        const busType = busTypeFromTerminal(terminal);
+        const isPos = busType === 'dc_pos' || busType === 'pv_pos';
+        const isNeg = busType === 'dc_neg' || busType === 'pv_neg';
+        if (!isPos && !isNeg) continue;
+        const portKey = resolvedPortId ?? '__device__';
+        const presence = presenceByPort.get(portKey) ?? { hasPos: false, hasNeg: false };
+        if (isPos) { presence.hasPos = true; presence.posLabel = terminal.label; }
+        if (isNeg) { presence.hasNeg = true; presence.negLabel = terminal.label; }
+        presenceByPort.set(portKey, presence);
+      }
+      for (const [portKey, presence] of presenceByPort) {
+        const portSuffix = portKey === '__device__'
+          ? ''
+          : ` ${getProductPort(product, portKey)?.label ?? portKey} port`;
+        if (presence.hasPos && !presence.hasNeg) {
+          warn(
+            'error',
+            `"${productLabel(comp, product)}"${portSuffix} has a connected positive (${presence.posLabel}) but no return (negative) — every DC+ needs a DC- return`,
+            'DC_RETURN_MISSING',
+            comp.id
+          );
+        } else if (presence.hasNeg && !presence.hasPos) {
+          warn(
+            'error',
+            `"${productLabel(comp, product)}"${portSuffix} has a connected negative (${presence.negLabel}) but no positive lead — every DC- needs a DC+ supply`,
+            'DC_RETURN_MISSING',
+            comp.id
+          );
+        }
       }
     }
   }
@@ -739,22 +719,6 @@ export function generateWarnings(
     }
   }
 
-  for (const net of netlist.nets) {
-    if (net.busType === 'unknown') continue;
-
-    const protectionLimitA = net.availableCurrentA;
-    if (protectionLimitA != null && net.operatingCurrentA > protectionLimitA) {
-      warn(
-        'error',
-        `${net.id} load is ${net.operatingCurrentA.toFixed(0)}A but available protected current is ${protectionLimitA.toFixed(0)}A`,
-        'NET_OVER_PROTECTION_LIMIT'
-      );
-    }
-
-    // Missing protection is evaluated per conductor in circuitAnalysis. A whole net can contain
-    // multiple feeder and branch conductors with different protection requirements.
-  }
-
   for (const connection of system.connections) {
     const context = circuitAnalysis.connections.get(connection.id);
     if (!context) continue;
@@ -859,10 +823,13 @@ export function generateWarnings(
       );
     }
 
-    if (mppt.maxPvPowerW != null && solarStats.powerW > mppt.maxPvPowerW) {
+    // Max PV power is voltage-dependent on Victron MPPTs; prefer the rating at
+    // the system's actual battery voltage, falling back to the scalar.
+    const maxPvPowerW = mppt.maxPvPowerByVoltageW?.[system.nominalVoltage] ?? mppt.maxPvPowerW;
+    if (maxPvPowerW != null && solarStats.powerW > maxPvPowerW) {
       warn(
         'warning',
-        `"${comp.label ?? product.name}" is over-paneled: array ${solarStats.powerW.toFixed(0)}W exceeds ${mppt.maxPvPowerW}W nominal PV rating`,
+        `"${comp.label ?? product.name}" is over-paneled: array ${solarStats.powerW.toFixed(0)}W exceeds ${maxPvPowerW}W PV rating at ${system.nominalVoltage}V`,
         'MPPT_PV_POWER_EXCEEDED',
         comp.id
       );

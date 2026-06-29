@@ -1,9 +1,9 @@
 import type {
   ConnectorKind,
+  EffectiveTerminal,
   Product,
   SystemComponent,
   TerminalConnector,
-  TerminalDefinition,
 } from '../types/system';
 import { getEffectiveTerminal } from './effectiveTerminals';
 
@@ -13,6 +13,8 @@ export const CONNECTOR_LABELS: Record<ConnectorKind, string> = {
   screw_terminal: 'Screw terminal',
   ferrule: 'Ferrule',
   mc4: 'MC4',
+  helios_orng: 'Helios +',
+  helios_blk: 'Helios -',
   comm: 'Comm',
 };
 
@@ -40,7 +42,9 @@ export function connectorLabel(connector: TerminalConnector): string {
     if (connector.gender === 'female') return `${base} Female`;
     return base;
   }
-  return CONNECTOR_LABELS[connector.kind];
+  // Fallback to the raw kind so an unmapped connector never yields `undefined`
+  // (a `undefined` label breaks downstream label sorting in the connector summary).
+  return CONNECTOR_LABELS[connector.kind] ?? connector.kind;
 }
 
 /**
@@ -86,7 +90,7 @@ function defaultStudSizeForCurrent(currentA: number | undefined): string {
  */
 function inferDefaultConnector(
   product: Product,
-  terminal: TerminalDefinition
+  terminal: EffectiveTerminal
 ): TerminalConnector {
   // Solar panel PV leads use MC4 connectors (male on positive, female on negative).
   if (terminal.kind === 'pv_power' && product.productType === 'solar_array') {

@@ -3,6 +3,8 @@ import type { NominalVoltage, Product, ProductType, ShapeAnnotationType, SystemC
 import { ALL_PRODUCTS } from '../../data/products';
 import { fmt } from '../../utils/priceCalculations';
 import { getProductDisplayImageUrl, resolveProductImageUrl } from '../../utils/productImages';
+import { buildProductIssues } from '../../utils/builderIssues';
+import { WarningList } from '../inspector/WarningList';
 
 interface SourceLoadOptions {
   voltageV?: number;
@@ -501,6 +503,10 @@ export function PartLibrary({
   const selectedProductImageUrl = resolveProductImageUrl(
     selectedProduct ? getProductDisplayImageUrl(selectedProduct) : undefined
   );
+  const selectedProductIssues = useMemo(
+    () => (selectedProduct ? buildProductIssues(selectedProduct) : []),
+    [selectedProduct]
+  );
   const isFuseSelector = activeSelector?.id === 'protection-fuses';
   const isBreakerSelector = Boolean(activeSelector?.productTypes?.includes('breaker'));
 
@@ -850,6 +856,10 @@ export function PartLibrary({
                     )}
                     <div className="selected-product-price">
                       {fmt(selectedProduct.msrpUsd ?? null)}
+                    </div>
+                    <div style={{ marginTop: 12 }}>
+                      <div style={{ color: '#6d7b90', fontSize: 11, fontWeight: 700, marginBottom: 6 }}>Data Checks</div>
+                      <WarningList issues={selectedProductIssues} />
                     </div>
                   </div>
                 ) : (

@@ -1,4 +1,4 @@
-﻿import type { Product } from '../../../../types/system';
+import type { Product } from '../../../../types/system';
 
 const product: Product = {
   id: "acc-dc-load-generic",
@@ -13,14 +13,29 @@ const product: Product = {
   dataQuality: "placeholder",
   width: 80,
   height: 60,
+  terminalGroups: [
+    {
+      id: "dc_in_pos",
+      portId: "dc_in",
+      label: "DC Input Positive",
+      groupType: "power_conductor",
+      polarity: "positive",
+      internallyCommon: false
+    },
+    {
+      id: "dc_in_neg",
+      portId: "dc_in",
+      label: "DC Input Negative",
+      groupType: "power_conductor",
+      polarity: "negative",
+      internallyCommon: false
+    }
+  ],
   terminals: [
     {
       id: "dc_pos",
+      terminalGroupId: "dc_in_pos",
       label: "DC+",
-      kind: "dc_power",
-      polarity: "positive",
-      role: "sink",
-      voltageClass: "dc_low_voltage",
       side: "left",
       offsetX: -40,
       offsetY: -10,
@@ -28,11 +43,8 @@ const product: Product = {
     },
     {
       id: "dc_neg",
+      terminalGroupId: "dc_in_neg",
       label: "DC-",
-      kind: "dc_power",
-      polarity: "negative",
-      role: "sink",
-      voltageClass: "dc_low_voltage",
       side: "left",
       offsetX: -40,
       offsetY: 10,
@@ -41,7 +53,19 @@ const product: Product = {
   ],
   loadRatings: {
     powerW: 100
-  }
+  },
+  ports: [
+    {
+      id: "dc_in",
+      kind: "dc",
+      topology: "two_pole",
+      label: "DC Input",
+      voltageClass: "dc_low_voltage",
+      maxPowerW: 100,
+      role: "sink",
+      direction: "input"
+    }
+  ]
 };
 
 export default product;

@@ -1,4 +1,4 @@
-﻿import type { Product } from '../../../../types/system';
+import type { Product } from '../../../../types/system';
 
 const product: Product = {
   id: "acc-ac-load-generic",
@@ -13,27 +13,38 @@ const product: Product = {
   dataQuality: "placeholder",
   width: 80,
   height: 60,
+  terminalGroups: [
+    {
+      id: "ac_in_l",
+      portId: "ac_in",
+      label: "AC Input Line",
+      groupType: "power_conductor",
+      polarity: "line",
+      internallyCommon: false
+    },
+    {
+      id: "ac_in_n",
+      portId: "ac_in",
+      label: "AC Input Neutral",
+      groupType: "power_conductor",
+      polarity: "neutral",
+      internallyCommon: false
+    }
+  ],
   terminals: [
     {
       id: "ac_l",
+      terminalGroupId: "ac_in_l",
       label: "AC L",
-      kind: "ac_power",
-      polarity: "line",
-      role: "sink",
-      voltageClass: "ac_120v",
       side: "left",
       offsetX: -40,
       offsetY: -10,
-      phases: 1,
       notes: "AC Line conductor input."
     },
     {
       id: "ac_n",
+      terminalGroupId: "ac_in_n",
       label: "AC N",
-      kind: "ac_power",
-      polarity: "neutral",
-      role: "sink",
-      voltageClass: "ac_120v",
       side: "left",
       offsetX: -40,
       offsetY: 10,
@@ -42,7 +53,20 @@ const product: Product = {
   ],
   loadRatings: {
     powerW: 1000
-  }
+  },
+  ports: [
+    {
+      id: "ac_in",
+      kind: "ac",
+      topology: "two_pole",
+      label: "AC Input",
+      voltageClass: "ac_120v",
+      nominalVoltageV: 120,
+      maxPowerW: 1000,
+      role: "sink",
+      direction: "input"
+    }
+  ]
 };
 
 export default product;

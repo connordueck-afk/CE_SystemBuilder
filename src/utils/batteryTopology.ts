@@ -1,4 +1,4 @@
-import type { Product, SystemComponent, SystemConnection, SystemDesign, SystemWarning, TerminalDefinition } from '../types/system';
+import type { EffectiveTerminal, Product, SystemComponent, SystemConnection, SystemDesign, SystemWarning } from '../types/system';
 import { busTypeFromTerminal, type BusType } from './electricalNetlist';
 import { getEffectiveTerminal } from './effectiveTerminals';
 
@@ -45,7 +45,7 @@ export interface BatteryTopologyAnalysis {
 interface BatteryEndpoint {
   component: SystemComponent;
   product: Product;
-  terminal: TerminalDefinition;
+  terminal: EffectiveTerminal;
 }
 
 interface BatteryLink {

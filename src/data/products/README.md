@@ -1,255 +1,178 @@
-# Product Catalog — Developer Reference
+# Product Catalog Developer Reference
 
-This directory contains the complete product catalog for the Nomadeus System Builder.
+This directory contains the active product catalog, catalog helpers, schemas, and
+validation utilities for Nomadeus System Builder.
 
----
+The current catalog is intentionally reduced to a fully ported validation set.
+Products under `legacy/` are preserved for future reintegration but are not loaded.
 
 ## Directory Structure
 
-```
+```txt
 src/data/products/
-  index.ts              — Catalog entry point. Import ALL_PRODUCTS / getProduct from here.
-  categories.ts         — Category definitions (for UI grouping only).
-  productTypes.ts       — Product type registry (drives electrical behavior).
-  productSchemas.ts     — Factory helpers for creating strongly-typed product objects.
-
-  batteries.ts          — LiFePO4 and other battery products.
-  mppts.ts              — MPPT charge controller products.
-  inverterChargers.ts   — Inverter/charger combo products.
-  solar.ts              — Solar arrays and combiner boxes.
-  distribution.ts       — DC distribution panels, busbars, and Lynx modules.
-  protection.ts         — Fuses and circuit breakers.
-  accessories.ts        — DC-DC chargers, monitors, and generic loads.
-
+  index.ts                  Catalog entry point; exports ALL_PRODUCTS and PRODUCT_MAP.
+  categories.ts             UI category definitions.
+  productTypes.ts           Product type registry; drives behavior.
+  productSchemas.ts         Factory/helper types for product objects.
+  PORT_TERMINAL_MODEL.md    Compact rules for ports, terminal groups, terminals.
+  cableAssemblies.ts        Cable assembly data.
   helpers/
-    catalogUtils.ts     — Compatibility adapters and catalog query helpers.
-    validation.ts       — Catalog validation utilities (dev/test use).
+    catalogUtils.ts         Product query and compatibility helpers.
+    validation.ts           Catalog validation utilities.
+  catalog/
+    <category>/
+      <product-id>.ts       Active products, one product per file.
+  legacy/
+    ...                     Preserved products that are not loaded.
 ```
 
-The top-level file `src/data/products.ts` re-exports everything from this directory
-and is the import target for all existing application code.
+`src/data/products.ts` re-exports this directory for compatibility with existing
+application imports.
 
----
-
-## Adding a New Product
-
-1. Open the appropriate product file (e.g., `batteries.ts`, `mppts.ts`).
-
-2. Create a product object that satisfies the `Product` interface from `src/types/system.ts`.
-   You can use the factory helpers from `productSchemas.ts` or write the object directly.
-
-3. Required fields for every product:
-
-   ```ts
-   {
-     id: string,           // Unique. Use kebab-case: "bat-vic-smart-12-200".
-     manufacturer: string, // e.g., "Victron", "Blue Sea", "Generic"
-     name: string,         // Display name: e.g., "SmartLithium 12.8V/200Ah"
-     productType: ProductType,
-     msrpUsd: number,      // Set to 0 if free or unknown.
-     terminals: TerminalDefinition[],
-     width: number,        // Canvas symbol width in pixels.
-     height: number,       // Canvas symbol height in pixels.
-   }
-   ```
-
-4. Add it to the exported array at the bottom of the file.
-
-5. The product will automatically appear in:
-   - The part library
-   - BOM calculations
-   - Canvas placement
-   - Voltage compatibility filtering
-
-No other files need to change.
-
----
-
-## Product IDs
-
-Product IDs must be unique across the entire catalog. Use this naming convention:
-
-```
-{type-prefix}-{manufacturer-short}-{key-spec}
-
-Examples:
-  bat-vic-smart-12-200      (Victron 12V 200Ah battery)
-  mppt-vic-250-100          (Victron 250V/100A MPPT)
-  inv-vic-mp2-48-5000       (Victron MultiPlus-II 48V 5000W)
-  fuse-anl-250a             (ANL 250A fuse)
-  dist-vic-lynx-distributor (Victron Lynx Distributor)
-```
-
----
-
-## Product Types
-
-Product types define **electrical behavior**, not UI appearance.
-
-| Type ID            | Description                                | Pass-through |
-|--------------------|--------------------------------------------|:------------:|
-| `battery`          | Energy storage                             |              |
-| `mppt`             | MPPT solar charge controller               |              |
-| `inverter_charger` | Inverter + AC charger                      |              |
-| `dc_dc_charger`    | Isolated or non-isolated DC-DC charger     |              |
-| `solar_array`      | PV panel or array                          |              |
-| `solar_combiner`   | PV string combiner                         | yes          |
-| `dc_distribution`  | Lynx-style DC distribution module          | yes          |
-| `busbar`           | Single-polarity DC busbar                  | yes          |
-| `fuse`             | Single-use overcurrent protection          | yes          |
-| `breaker`          | Resettable overcurrent protection          | yes          |
-| `monitor`          | Battery/system monitor or control hub      |              |
-| `dc_load`          | DC consuming device                        |              |
-| `ac_load`          | AC consuming device                        |              |
-| `accessory`        | Miscellaneous                              |              |
-
-**Do not add behavior based on category names.** Use product type.
-
-To register a new product type, add it to:
-1. The `ProductType` union in `src/types/system.ts`
-2. The `PRODUCT_TYPE_DEFINITIONS` array in `productTypes.ts`
-
----
-
-## Categories
-
-Categories are for **UI grouping only** (part library sidebar).
-
-| Category       | Used For                                      |
-|----------------|-----------------------------------------------|
-| Batteries      | All battery types                             |
-| Solar          | Panels, arrays, combiners                     |
-| Charging       | MPPTs, DC-DC chargers, shore chargers         |
-| Inverters      | Inverter/charger combos                       |
-| Distribution   | Busbars, Lynx modules, DC panels             |
-| Protection     | Fuses, breakers, disconnects                 |
-| AC Equipment   | Shore inlets, transfer switches, AC panels   |
-| Loads          | DC loads, AC loads                           |
-| Monitoring     | Monitors, control hubs                       |
-| Cables         | Cable assemblies                              |
-| Accessories    | Everything else                               |
-
----
-
-## Terminals
-
-Every product with electrical connections must define terminals.
-
-### Minimum terminal fields
+`index.ts` discovers active products with:
 
 ```ts
-{
-  id: string,          // Unique within this product.
-  label: string,       // Display label: "+", "BAT+", "PV+", "AC In L".
-  kind: ConnectionPointKind,   // 'dc_power' | 'pv_power' | 'ac_power' | 'signal' | ...
-  polarity: ConnectionPolarity, // 'positive' | 'negative' | 'line' | 'neutral' | 'ground'
-  role: ConnectionRole,         // 'source' | 'sink' | 'bidirectional' | 'bus' | 'pass_through' | ...
-  voltageClass: VoltageClass,   // 'dc_low_voltage' | 'pv_high_voltage' | 'ac_120v' | ...
-  side: TerminalSide,  // 'left' | 'right' | 'top' | 'bottom'
-  offsetX: number,     // X offset from component center (pixels).
-  offsetY: number,     // Y offset from component center (pixels).
-}
+import.meta.glob('./catalog/**/*.ts', { eager: true })
 ```
 
-### Optional enrichment fields (new in catalog refactor)
+Do not include `legacy/` in the loader glob. Reactivate legacy products deliberately
+by moving one product file back under `catalog/` and porting it to the current model.
+
+## Product Model
+
+See `PORT_TERMINAL_MODEL.md` for the compact canonical catalog-porting rules and
+product-pattern examples.
+
+Electrical behavior is port-first:
+
+```txt
+Product
+  ports
+  terminalGroups
+  terminals
+```
+
+Ports define the electrical boundary and specifications. Terminals are physical
+connectors on ports. Terminal groups model internal commoning and shared limits.
+
+Port axes:
+
+- `kind`: electrical medium such as `dc`, `ac`, `pv`, `comm`, `ground`, `signal`,
+  or `generic`.
+- `topology`: circuit shape such as `two_pole`, `bus`, or `pass_through`.
+
+Common port specs include nominal/min/max voltage, max current, max power, AC
+phases, and communication protocol fields.
+
+Terminal fields carry connector/placement facts such as `id`, `label`,
+`terminalGroupId`, `side`, `offsetX`, `offsetY`, `connector`, and per-jack limits.
+`portId` remains as a legacy fallback; active products should assign ports
+through the terminal group.
+
+Terminal groups carry internal common-node facts such as `polarity`,
+`internallyCommon`, and `maxCurrentA`.
+
+Resolve electrical facts through helpers such as `src/utils/portSpecs.ts`,
+`src/utils/portLinks.ts`, and `src/utils/effectiveTerminals.ts` instead of adding
+new raw field reads.
+
+## Adding Or Editing Products
+
+1. Add or edit one product file under `catalog/<category>/<product-id>.ts`.
+2. Export a single `Product` as the default export.
+3. Run catalog validation through `.\npm.cmd test`.
+
+Minimal product shape:
 
 ```ts
-{
-  domain: ElectricalDomain,    // 'dc' | 'ac' | 'pv' | 'signal' | ...
-  requiresOvercurrentProtection: boolean,
-  recommendedFuseA: number,
-  maxFuseA: number,
-  requiresDisconnect: boolean,
-  voltageNominalV: number,
-  voltageMinV: number,
-  voltageMaxV: number,
-  powerMaxW: number,
-  phases: 1 | 2 | 3,
-  conductorCount: number,
-  notes: string,
-}
+import type { Product } from '../../../../types/system';
+
+const product: Product = {
+  id: 'example-product-id',
+  manufacturer: 'Example',
+  name: 'Example Product',
+  productType: 'dc_load',
+  category: 'Loads',
+  dataQuality: 'placeholder',
+  width: 120,
+  height: 80,
+  ports: [],
+  terminalGroups: [],
+  terminals: [],
+};
+
+export default product;
 ```
 
----
+Required practical fields:
 
-## Electrical Ratings
+- `id`
+- `manufacturer`
+- `name`
+- `productType`
+- `category`
+- `width`
+- `height`
+- `ports`
+- `terminalGroups`
+- `terminals`
 
-Add the appropriate ratings object for the product type.
-Ratings supplement (not replace) the flat electrical fields.
+Add `msrpUsd`, `oemPriceUsd`, `partNumber`, `productUrl`, `datasheetUrl`, typed
+ratings, and compatibility fields when available.
 
-| Product type       | Ratings field              |
-|--------------------|----------------------------|
-| battery            | `batteryRatings`           |
-| mppt               | `mpptRatings`              |
-| inverter_charger   | `inverterChargerRatings`   |
-| dc_dc_charger      | `dcDcChargerRatings`       |
-| busbar/dc_dist.    | `busbarRatings`            |
-| fuse/breaker       | `protectionRatings`        |
-| solar_array        | `solarPanelRatings`        |
-| solar_combiner     | `solarCombinerRatings`     |
-| dc_load / ac_load  | `loadRatings`              |
+Product IDs are stable. Do not rename them casually because saved systems and BOM
+logic depend on IDs.
 
----
+## Product Types And Categories
 
-## Pricing
+`productType` defines behavior. `category` defines UI grouping.
 
-```ts
-{
-  msrpUsd: number,      // Retail price in USD. Set to 0 if free or unknown.
-  oemPriceUsd: number,  // Dealer/OEM price (optional).
-}
-```
+Do not use category names for electrical behavior.
 
-The `pricing` structured field (with currency) is also supported for future multi-currency support.
+If adding a new product type, update:
 
----
+- `ProductType` in `src/types/system.ts`
+- `PRODUCT_TYPE_DEFINITIONS` in `src/data/products/productTypes.ts`
+- Any analysis/BOM/UI behavior that depends on product type
 
 ## Data Quality
 
-Use `dataQuality` to indicate how complete the product data is:
+Use `dataQuality` honestly:
 
-| Value         | Meaning                                                  |
-|---------------|----------------------------------------------------------|
-| `complete`    | All fields verified against official manufacturer data.  |
-| `partial`     | Key fields present; some specs are estimated.            |
-| `placeholder` | Generic stand-in; most fields are approximate.           |
-
----
+| Value | Meaning |
+| --- | --- |
+| `complete` | Key fields are verified against reliable manufacturer data. |
+| `partial` | Important fields exist, but some specs are estimated or incomplete. |
+| `placeholder` | Generic stand-in or incomplete product data. |
 
 ## Validation
 
-To validate the catalog during development:
+Use the project test runner for catalog validation and analysis scenario coverage:
+
+```powershell
+.\npm.cmd test
+```
+
+Useful direct APIs:
 
 ```ts
 import { ALL_PRODUCTS } from './index';
 import { validateCatalog, assertCatalogValid } from './helpers/validation';
 
-// Get a full report:
 const result = validateCatalog(ALL_PRODUCTS);
-console.log(result.issues);
-
-// Throw on error (use in tests/CI):
 assertCatalogValid(ALL_PRODUCTS);
 ```
 
----
+## Dev Product Builder
 
-## Compatibility Helpers
+The dev product builder lives in `src/dev/` and is served only during Vite dev mode
+through `vite-plugin-product-builder.ts`. It can edit product files, assign ports
+and terminals, and browse/upload SVG assets.
 
-Use the helpers in `helpers/catalogUtils.ts` instead of reading product fields directly:
+## Fuse Products
 
-```ts
-import {
-  getProductDisplayName,
-  getProductPrice,
-  getProductCategory,
-  getProductType,
-  getProductTerminals,
-  getProductsByCategory,
-  getProductsByType,
-  isVoltageCompatible,
-} from './helpers/catalogUtils';
-```
+Fuse products commonly use `variants` so one product line expands into individual
+current-rated products at catalog load time. Keep variant IDs stable and include
+rating, voltage, interrupt, style, and part-number data whenever available.
 
-These helpers resolve from flat fields or structured ratings, ensuring compatibility
-across old and new product definitions.
+Current active protection examples live under `catalog/protection/`.

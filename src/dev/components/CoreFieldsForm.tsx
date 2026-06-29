@@ -1,5 +1,6 @@
 import type { Product, ProductType, ProductCategory, DataQuality } from '../../types/system';
 import { PRODUCT_TYPE_DEFINITIONS } from '../../data/products/productTypes';
+import { CollapsibleSection } from './CollapsibleSection';
 
 const CATEGORIES: ProductCategory[] = [
   'Batteries', 'Solar', 'Charging', 'Inverters', 'Distribution',
@@ -36,9 +37,7 @@ export function CoreFieldsForm({ product, onChange }: Props) {
     : (product.nominalVoltage ?? '');
 
   return (
-    <div className="pb-section">
-      <div className="pb-section-header">Core Fields</div>
-      <div className="pb-section-body">
+    <CollapsibleSection title="Core Fields">
 
         <div className="pb-field-row">
           <Field label="ID *">
@@ -195,7 +194,6 @@ export function CoreFieldsForm({ product, onChange }: Props) {
           </div>
         </div>
 
-      </div>
-    </div>
+    </CollapsibleSection>
   );
 }

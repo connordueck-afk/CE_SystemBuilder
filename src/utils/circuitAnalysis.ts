@@ -3,7 +3,7 @@ import type {
   SystemComponent,
   SystemConnection,
   SystemDesign,
-  TerminalDefinition,
+  EffectiveTerminal,
   TerminalDirection,
 } from '../types/system';
 import { CABLE_TABLE, cableByAwg, cableForCurrent, voltageDropV } from '../data/cableAmpacity';
@@ -17,6 +17,8 @@ import { buildInternalDistributionEdges, hasDistributionTopology } from './distr
 import { resolveTerminalCurrentA } from './terminalElectrics';
 import { formatFeetAndInches } from './cableSummary';
 import { analyzeBatteryTopology } from './batteryTopology';
+import { linkGroupSizes, portLinkPairs } from './portLinks';
+import { terminalKind } from './portSpecs';
 
 const PROTECTION_TYPES = new Set(['fuse', 'breaker']);
 const CONDUCTIVE_PASS_THROUGH_TYPES = new Set([
@@ -39,7 +41,7 @@ interface TerminalNode {
   key: string;
   component: SystemComponent;
   product: Product;
-  terminal: TerminalDefinition;
+  terminal: EffectiveTerminal;
   busType: BusType;
   behavior: TerminalBehavior;
 }
@@ -151,6 +153,32 @@ function isCollectorProduct(product: Product | undefined): boolean {
   return Boolean(product && ['busbar', 'dc_distribution'].includes(product.productType));
 }
 
+/**
+ * Count distinct batteries feeding a collector (busbar/distributor) on its DC+ bus.
+ * The short "battery bank interconnect" fuse exemption only applies to a real parallel
+ * bank (≥2 batteries collected onto a shared bus with one main fuse downstream) — a
+ * single battery wired to a distribution busbar still needs a source-side fuse at the
+ * battery, so its DC+ lead must not be exempted.
+ */
+function batteriesFeedingCollector(
+  collectorComponentId: string,
+  nodes: Map<string, TerminalNode>,
+  adjacency: Map<string, GraphEdge[]>
+): number {
+  const batteryComponentIds = new Set<string>();
+  for (const [key, node] of nodes) {
+    if (node.component.id !== collectorComponentId || node.busType !== 'dc_pos') continue;
+    for (const edge of adjacency.get(key) ?? []) {
+      const otherKey = edge.fromKey === key ? edge.toKey : edge.fromKey;
+      const other = nodes.get(otherKey);
+      if (other && isBatteryProduct(other.product) && other.busType === 'dc_pos') {
+        batteryComponentIds.add(other.component.id);
+      }
+    }
+  }
+  return batteryComponentIds.size;
+}
+
 function isConductivePassThroughProduct(product: Product): boolean {
   if (hasDistributionTopology(product)) return false;
   return CONDUCTIVE_PASS_THROUGH_TYPES.has(product.productType) || isDynamicSingleConductorProduct(product);
@@ -169,6 +197,31 @@ function isLeafPowerDevice(product: Product | undefined): boolean {
   if (hasDistributionTopology(product)) return false;
   if (isConductivePassThroughProduct(product)) return false;
   return true;
+}
+
+function isAggregateReturnEndpoint(product: Product | undefined): boolean {
+  if (!product) return false;
+  if (isBatteryProduct(product)) return false;
+  return !isLeafPowerDevice(product);
+}
+
+function canProductSourceFaultCurrent(product: Product, terminal: EffectiveTerminal): boolean {
+  if (product.productType === 'battery') return true;
+  if (product.productType === 'shorePowerInlet') return true;
+
+  // User-configured generic sources model an upstream supply whose fault behavior
+  // is unknown to the app. Treat them as fault-capable unless metadata says
+  // otherwise; conversion electronics are normal current sources but are not
+  // battery/grid fault sources.
+  if (
+    product.productType === 'accessory' &&
+    product.dataQuality === 'placeholder' &&
+    inferTerminalDirection(terminal) === 'output'
+  ) {
+    return true;
+  }
+
+  return false;
 }
 
 function normalizeConductorToken(value: string): string {
@@ -241,8 +294,8 @@ function estimatePowerCurrent(powerW: number | undefined, voltageV: number | und
   return powerW / voltageV;
 }
 
-function defaultTerminalVoltage(product: Product, component: SystemComponent, terminal: TerminalDefinition, system: SystemDesign): number {
-  if (terminal.voltageNominalV) return terminal.voltageNominalV;
+function defaultTerminalVoltage(product: Product, component: SystemComponent, terminal: EffectiveTerminal, system: SystemDesign): number {
+  if (terminal.nominalVoltageV) return terminal.nominalVoltageV;
   if (terminal.kind === 'ac_power') {
     return product.inverterChargerRatings?.acInputVoltageV ??
       product.inverterChargerRatings?.acOutputVoltageV ??
@@ -262,7 +315,7 @@ function defaultTerminalVoltage(product: Product, component: SystemComponent, te
 function loadCurrentFromProduct(
   product: Product,
   component: SystemComponent,
-  terminal: TerminalDefinition,
+  terminal: EffectiveTerminal,
   system: SystemDesign
 ): number | undefined {
   const voltage = defaultTerminalVoltage(product, component, terminal, system);
@@ -279,8 +332,9 @@ function loadCurrentFromProduct(
 function terminalCurrents(
   product: Product,
   component: SystemComponent,
-  terminal: TerminalDefinition,
-  system: SystemDesign
+  terminal: EffectiveTerminal,
+  system: SystemDesign,
+  linkSize = 1
 ): Pick<TerminalBehavior, 'normalLoadCurrentA' | 'normalSourceCurrentA' | 'hasNormalSource' | 'hasLoadFollowingSource' | 'canReceiveCurrent' | 'sourceCapabilityA'> {
   const busType = busTypeFromTerminal(terminal);
   const direction = inferTerminalDirection(terminal);
@@ -344,7 +398,11 @@ function terminalCurrents(
   // Terminal-first: if this terminal declares maxCurrentA or maxPowerW, resolve current
   // directly from terminal data without needing a product-type switch. This is what
   // makes new "open" products work — they just define terminals with the right values.
-  const declaredA = resolveTerminalCurrentA(terminal, voltage);
+  //
+  // Skipped for linked jacks (portId groups): there a terminal's maxCurrentA is a
+  // per-jack physical limit, not the circuit current. The device-level rating below
+  // is the real current and is divided across the bonded jacks by the caller.
+  const declaredA = linkSize > 1 ? null : resolveTerminalCurrentA(terminal, voltage);
   if (declaredA != null) {
     if (direction === 'output' || terminal.role === 'source') {
       return {
@@ -525,17 +583,27 @@ function terminalCurrents(
 function terminalBehavior(
   product: Product,
   component: SystemComponent,
-  terminal: TerminalDefinition,
-  system: SystemDesign
+  terminal: EffectiveTerminal,
+  system: SystemDesign,
+  linkSize = 1
 ): TerminalBehavior {
-  const currents = terminalCurrents(product, component, terminal, system);
+  const currents = terminalCurrents(product, component, terminal, system, linkSize);
   const busType = busTypeFromTerminal(terminal);
-  const isSourceLike = currents.hasNormalSource || product.productType === 'battery';
+
+  // Linked jacks share one internal node carrying the device's total current.
+  // Each jack carries an equal share so summing the bonded jacks (which a bus
+  // side does) reconstructs the device total instead of multiplying it.
+  const scale = linkSize > 1 ? linkSize : 1;
 
   return {
     direction: inferTerminalDirection(terminal),
-    ...currents,
-    canSourceFaultCurrent: isPowerBus(busType) && isSourceLike,
+    normalLoadCurrentA: currents.normalLoadCurrentA / scale,
+    normalSourceCurrentA: currents.normalSourceCurrentA / scale,
+    hasNormalSource: currents.hasNormalSource,
+    hasLoadFollowingSource: currents.hasLoadFollowingSource,
+    canReceiveCurrent: currents.canReceiveCurrent,
+    sourceCapabilityA: currents.sourceCapabilityA != null ? currents.sourceCapabilityA / scale : undefined,
+    canSourceFaultCurrent: isPowerBus(busType) && canProductSourceFaultCurrent(product, terminal),
     requiresOvercurrentProtection: Boolean(terminal.requiresOvercurrentProtection),
     recommendedFuseA: positiveNumber(terminal.recommendedFuseA),
     maxFuseA: positiveNumber(terminal.maxFuseA),
@@ -550,15 +618,17 @@ function buildTerminalNodes(system: SystemDesign, products: Map<string, Product>
     const product = getEffectiveProductForComponent(component, baseProduct);
     if (!product) continue;
 
+    const linkSizes = linkGroupSizes(product, component);
     for (const terminal of getEffectiveTerminals(product, component)) {
       const key = terminalKey(component.id, terminal.id);
+      const linkSize = linkSizes.get(terminal.id) ?? 1;
       nodes.set(key, {
         key,
         component,
         product,
         terminal,
         busType: busTypeFromTerminal(terminal),
-        behavior: terminalBehavior(product, component, terminal, system),
+        behavior: terminalBehavior(product, component, terminal, system, linkSize),
       });
     }
   }
@@ -604,7 +674,7 @@ function resolvePassThroughBusTypes(nodes: Map<string, TerminalNode>, system: Sy
   for (const group of byComponent.values()) {
     if (!isDynamicSingleConductorProduct(group[0].product)) continue;
     const powerKeys = group
-      .filter((node) => ['dc_power', 'pv_power', 'ac_power'].includes(node.terminal.kind))
+      .filter((node) => ['dc_power', 'pv_power', 'ac_power'].includes(terminalKind(node.product, node.terminal)))
       .map((node) => node.key);
     for (let i = 0; i < powerKeys.length; i += 1) {
       for (let j = i + 1; j < powerKeys.length; j += 1) link(powerKeys[i], powerKeys[j]);
@@ -661,6 +731,25 @@ function buildGraphEdges(system: SystemDesign, nodes: Map<string, TerminalNode>)
     const product = componentNodes[0]?.product;
     if (!product) continue;
 
+    // Internal bonds between port-linked jacks: same resolved portId+polarity terminals are
+    // one electrical node exposed as several jacks (e.g. a battery's parallel posts
+    // on a shared internal busbar). Zero-impedance, unprotected. Applied to every
+    // device, including leaf devices that are not pass-throughs.
+    for (const pair of portLinkPairs(product, component)) {
+      const fromKey = terminalKey(component.id, pair.fromTerminalId);
+      const toKey = terminalKey(component.id, pair.toTerminalId);
+      const fromNode = nodes.get(fromKey);
+      if (!fromNode || !nodes.has(toKey)) continue;
+      edges.push({
+        id: `portlink:${component.id}:${pair.fromTerminalId}:${pair.toTerminalId}`,
+        kind: 'internal',
+        fromKey,
+        toKey,
+        busType: fromNode.busType,
+        componentId: component.id,
+      });
+    }
+
     if (hasDistributionTopology(product)) {
       for (const internalEdge of buildInternalDistributionEdges(component, product)) {
         const fromKey = terminalKey(component.id, internalEdge.fromTerminalId);
@@ -686,7 +775,7 @@ function buildGraphEdges(system: SystemDesign, nodes: Map<string, TerminalNode>)
 
     if (!isConductivePassThroughProduct(product)) continue;
 
-    const powerNodes = componentNodes.filter((node) => ['dc_power', 'pv_power', 'ac_power'].includes(node.terminal.kind));
+    const powerNodes = componentNodes.filter((node) => ['dc_power', 'pv_power', 'ac_power'].includes(terminalKind(node.product, node.terminal)));
     const groups = new Map<string, { busType: BusType; nodes: TerminalNode[] }>();
     for (const node of powerNodes) {
       if (!isPowerBus(node.busType)) continue;
@@ -977,7 +1066,7 @@ function buildParallelBankReturnCurrentOverrides(
 
       const otherId = otherComponentId(connection, collectorId);
       const otherProduct = otherId ? productsByComponent.get(otherId) : undefined;
-      if (isBatteryProduct(otherProduct)) continue;
+      if (!isAggregateReturnEndpoint(otherProduct)) continue;
 
       overrides.set(connection.id, Math.max(overrides.get(connection.id) ?? 0, positiveCollector.fuseA));
     }
@@ -1016,27 +1105,32 @@ function buildParallelBankReturnCurrentOverrides(
     if (fromNode.busType !== 'dc_pos' || toNode.busType !== 'dc_pos') continue;
     if (!isBatteryProduct(fromNode.product) || !isBatteryProduct(toNode.product)) continue;
 
-    // Find the pack fuse from either side of this inter-battery positive connection
+    // This inter-battery positive interconnect identifies a daisy-chained parallel
+    // pack and locates the pack fuse on the bank's outgoing lead.
     const fuseA = maxDefined(
       packFuseByBatteryId.get(fromNode.component.id),
       packFuseByBatteryId.get(toNode.component.id)
     );
     if (fuseA == null) continue;
 
-    // The positive interconnect itself carries the parallel battery's full
-    // contribution to the pack output, so size it for the pack fuse rating too.
-    // Without this it has no current source on either side (both ends are
-    // load-following batteries) and falls back to the table-minimum cable.
-    overrides.set(connection.id, Math.max(overrides.get(connection.id) ?? 0, fuseA));
-
-    // Apply the pack fuse rating to dc_neg connections from either battery. This
-    // covers both the negative return to the bank's collector/bus and the
-    // battery-to-battery negative interconnect, which carries the same current.
+    // The pack-fuse rating belongs only to the conductors that carry the *whole
+    // bank's* current: the bank's outgoing positive lead (sized through normal fuse
+    // logic) and its negative return. A battery-to-battery interconnect carries only
+    // one battery's share of the load, so it must NOT be pinned to the pack fuse —
+    // doing so forced the full pack current through a single battery post (exceeding
+    // the post rating and violating KCL, since the interconnect then read higher than
+    // the bank's own output lead). Its current is left to the graph, which derives it
+    // from the actual downstream load.
     for (const batteryId of [fromNode.component.id, toNode.component.id]) {
       for (const negConn of system.connections) {
         if (negConn.fromComponentId !== batteryId && negConn.toComponentId !== batteryId) continue;
         const [negFrom, negTo] = nodesForConnection(negConn, nodes);
         if (!negFrom || !negTo || negFrom.busType !== 'dc_neg' || negTo.busType !== 'dc_neg') continue;
+        const otherNode = negFrom.component.id === batteryId ? negTo : negFrom;
+        // Only the bank's return to an aggregate trunk/collector carries full pack
+        // current. Leaf device returns (MPPTs, DC loads, inverter ports, etc.) must
+        // stay on their own paired branch current.
+        if (!isAggregateReturnEndpoint(otherNode.product)) continue;
         overrides.set(negConn.id, Math.max(overrides.get(negConn.id) ?? 0, fuseA));
       }
     }
@@ -1186,10 +1280,14 @@ function protectionForSourceSide(
     )
   ) {
     const collectorNode = isCollectorProduct(sideNode.product) ? sideNode : oppositeNode;
-    return {
-      componentId: collectorNode.component.id,
-      label: 'Short parallel battery bank interconnect',
-    };
+    // Only a genuine parallel bank (≥2 batteries on the collector) is exempt; a single
+    // battery → busbar lead still needs a source-side fuse at the battery.
+    if (batteriesFeedingCollector(collectorNode.component.id, nodes, adjacency) >= 2) {
+      return {
+        componentId: collectorNode.component.id,
+        label: 'Short parallel battery bank interconnect',
+      };
+    }
   }
 
   // Daisy-chain parallel packs wire Battery2+ directly to Battery1+, with the
@@ -1228,7 +1326,7 @@ function sourceSideRequiresProtection(
   cableAmpacityA: number | undefined
 ): boolean {
   if (!side || !isPowerBus(busType)) return false;
-  const sourcePresent = side.canSourceFaultCurrent || side.hasNormalSource;
+  const sourcePresent = side.canSourceFaultCurrent || side.requiresOvercurrentProtection;
   if (!sourcePresent) return false;
   if (!busTypeRequiresFuse(busType) && !side.requiresOvercurrentProtection) return false;
   if (side.requiresOvercurrentProtection) return true;
@@ -1404,14 +1502,10 @@ function analyzeConnection(
     sourcePresent;
 
   const preferredFuseA = maxDefined(
-    fromSide?.recommendedFuseA,
-    toSide?.recommendedFuseA,
     fromNode?.behavior.recommendedFuseA,
     toNode?.behavior.recommendedFuseA
   );
   const terminalMaxFuseA = minDefined(
-    fromSide?.maxFuseA,
-    toSide?.maxFuseA,
     fromNode?.behavior.maxFuseA,
     toNode?.behavior.maxFuseA
   );
@@ -1570,12 +1664,23 @@ function buildPairedConductorSizingFloors(
 ): Map<string, number> {
   interface Lead { connectionId: string; busType: BusType; sizingA: number; }
   const leadsByDevice = new Map<string, Lead[]>();
+  const leadsByComponentPair = new Map<string, Lead[]>();
+  const pairKey = (leftId: string, rightId: string): string => (
+    leftId < rightId ? `${leftId}|${rightId}` : `${rightId}|${leftId}`
+  );
 
   for (const connection of system.connections) {
     if (connection.wireKind === 'communication' || connection.busLink) continue;
     const analysis = analyses.get(connection.id);
     if (!analysis) continue;
     const sizingA = analysis.cableSizingCurrentA ?? 0;
+
+    if (analysis.busType === 'dc_pos' || analysis.busType === 'dc_neg') {
+      const key = pairKey(connection.fromComponentId, connection.toComponentId);
+      const list = leadsByComponentPair.get(key) ?? [];
+      list.push({ connectionId: connection.id, busType: analysis.busType, sizingA });
+      leadsByComponentPair.set(key, list);
+    }
 
     const endpoints: Array<[string, string]> = [
       [connection.fromComponentId, connection.fromTerminalId],
@@ -1584,7 +1689,8 @@ function buildPairedConductorSizingFloors(
     for (const [componentId, terminalId] of endpoints) {
       const node = nodes.get(terminalKey(componentId, terminalId));
       if (!node || (node.busType !== 'dc_pos' && node.busType !== 'dc_neg')) continue;
-      if (!isLeafPowerDevice(productsByComponent.get(componentId))) continue;
+      const product = productsByComponent.get(componentId);
+      if (!isLeafPowerDevice(product) || isBatteryProduct(product)) continue;
       const list = leadsByDevice.get(componentId) ?? [];
       list.push({ connectionId: connection.id, busType: node.busType, sizingA });
       leadsByDevice.set(componentId, list);
@@ -1597,7 +1703,19 @@ function buildPairedConductorSizingFloors(
     floors.set(connectionId, Math.max(floors.get(connectionId) ?? 0, valueA));
   };
 
-  for (const [componentId, leads] of leadsByDevice) {
+  for (const leads of leadsByComponentPair.values()) {
+    const posLeads = leads.filter((lead) => lead.busType === 'dc_pos');
+    const negLeads = leads.filter((lead) => lead.busType === 'dc_neg');
+    if (posLeads.length === 0 || negLeads.length === 0) continue;
+
+    const posMaxA = Math.max(...posLeads.map((lead) => lead.sizingA));
+    const negMaxA = Math.max(...negLeads.map((lead) => lead.sizingA));
+
+    for (const lead of negLeads) raise(lead.connectionId, posMaxA);
+    for (const lead of posLeads) raise(lead.connectionId, negMaxA);
+  }
+
+  for (const leads of leadsByDevice.values()) {
     const posLeads = leads.filter((lead) => lead.busType === 'dc_pos');
     const negLeads = leads.filter((lead) => lead.busType === 'dc_neg');
     if (posLeads.length === 0 || negLeads.length === 0) continue;
@@ -1609,12 +1727,8 @@ function buildPairedConductorSizingFloors(
     // least the supply leg (e.g. when a fuse upsizes the positive side).
     for (const lead of negLeads) raise(lead.connectionId, posMaxA);
 
-    // The supply leg should likewise match the return — except for batteries, whose
-    // parallel-bank shared negative return legitimately carries more current than an
-    // individual battery's positive lead (sized by the parallel-return override).
-    if (!isBatteryProduct(productsByComponent.get(componentId))) {
-      for (const lead of posLeads) raise(lead.connectionId, negMaxA);
-    }
+    // The supply leg should likewise match the return for a two-pole leaf device.
+    for (const lead of posLeads) raise(lead.connectionId, negMaxA);
   }
 
   return floors;
