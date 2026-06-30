@@ -194,7 +194,9 @@ export function StaticSchematic({ system, products, busColors, filter }: Props) 
         onSelectConnection={NOOP}
         onShowProtectionPrompt={NOOP}
         onClearProtectionPrompt={NOOP}
-        onMoveConnectionRoute={NOOP}
+        onPreviewConnectionRoute={NOOP}
+        onCommitConnectionRoute={NOOP}
+        onCancelConnectionRoutePreview={NOOP}
         pendingLine={null}
         layer="visual"
       />

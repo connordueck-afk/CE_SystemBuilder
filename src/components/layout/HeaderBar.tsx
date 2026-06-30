@@ -5,6 +5,7 @@ import type { BusColorMap } from '../../utils/busColors';
 import { BUS_COLOR_OPTIONS, DEFAULT_BUS_COLORS } from '../../utils/busColors';
 import { fmt } from '../../utils/priceCalculations';
 import { CURRENT_APP_VERSION } from '../../utils/storage';
+import { getProductBuilderUrl } from '../../utils/productBuilderLinks';
 
 interface Props {
   systemName: string;
@@ -13,11 +14,13 @@ interface Props {
   warnings: SystemWarning[];
   busColors: BusColorMap;
   themeMode: 'light' | 'dark';
+  debugMode: boolean;
   onNameChange: (name: string) => void;
   onVoltageChange: (v: NominalVoltage | 'all') => void;
   onBusColorChange: (busType: BusType, color: string) => void;
   onResetBusColors: () => void;
   onToggleTheme: () => void;
+  onToggleDebugMode: () => void;
   onSave: () => void;
   onLoad: () => void;
   onReset: () => void;
@@ -40,11 +43,13 @@ export function HeaderBar({
   warnings,
   busColors,
   themeMode,
+  debugMode,
   onNameChange,
   onVoltageChange,
   onBusColorChange,
   onResetBusColors,
   onToggleTheme,
+  onToggleDebugMode,
   onSave,
   onLoad,
   onReset,
@@ -207,6 +212,29 @@ export function HeaderBar({
 
             <div className="header-dropdown-divider" />
 
+            <label className="header-dropdown-item header-dropdown-checkbox-row">
+              <input
+                type="checkbox"
+                checked={debugMode}
+                onChange={onToggleDebugMode}
+              />
+              <span>Debugging</span>
+            </label>
+
+            {debugMode && import.meta.env.DEV && (
+              <a
+                className="header-dropdown-item"
+                href={getProductBuilderUrl()}
+                target="_blank"
+                rel="noreferrer"
+                onClick={() => setSettingsOpen(false)}
+              >
+                Product Builder
+              </a>
+            )}
+
+            <div className="header-dropdown-divider" />
+
             {/* File actions */}
             <button className="header-dropdown-item" onClick={() => { onSave(); setSettingsOpen(false); }}>Save</button>
             <button className="header-dropdown-item" onClick={() => { onLoad(); setSettingsOpen(false); }}>Load</button>
@@ -214,7 +242,7 @@ export function HeaderBar({
             <button className="header-dropdown-item" onClick={() => { onExportPdf(); setSettingsOpen(false); }}>Export PDF</button>
             <button className="header-dropdown-item header-dropdown-item-danger" onClick={() => { onReset(); setSettingsOpen(false); }}>Reset</button>
 
-            {onSetDefault && (
+            {debugMode && onSetDefault && (
               <>
                 <div className="header-dropdown-divider" />
                 <div className="header-dropdown-section-label">Dev: Set Default</div>

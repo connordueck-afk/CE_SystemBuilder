@@ -321,6 +321,7 @@ textarea {
   font-size: 13px;
   font-weight: 600;
   text-align: left;
+  text-decoration: none;
   white-space: nowrap;
 }
 .header-dropdown-item:hover {
@@ -430,6 +431,16 @@ textarea {
 /* Theme toggle row (label left, toggle right) */
 .header-dropdown-theme-row {
   justify-content: space-between;
+}
+
+.header-dropdown-checkbox-row {
+  cursor: pointer;
+}
+
+.header-dropdown-checkbox-row input {
+  width: 15px;
+  height: 15px;
+  accent-color: var(--blue);
 }
 
 /* Theme toggle icon inside Settings dropdown */
@@ -738,6 +749,11 @@ textarea {
 .supplier-link:hover {
   border-color: var(--blue-2);
   background: var(--blue-soft);
+}
+
+.inspector-builder-link {
+  margin-top: 10px;
+  margin-bottom: 0;
 }
 
 .text-annotation-box {
@@ -1801,6 +1817,7 @@ textarea {
 
 .inspector-content {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
   padding: 12px 18px 12px 12px;
 }
@@ -1855,6 +1872,105 @@ textarea {
   width: 15px;
   height: 15px;
   accent-color: var(--blue);
+}
+
+.port-summary-list {
+  display: grid;
+  gap: 8px;
+}
+
+.port-summary-card {
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--paper);
+}
+
+.port-summary-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.port-summary-title {
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.port-summary-meta {
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.port-summary-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--red-soft);
+  color: var(--red);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.port-summary-subsection {
+  margin-top: 8px;
+  padding-top: 7px;
+  border-top: 1px solid var(--line);
+}
+
+.port-summary-subtitle {
+  margin-bottom: 4px;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.port-connected-list,
+.port-terminal-group-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.port-connected-chip,
+.port-terminal-group-chip {
+  max-width: 100%;
+  padding: 3px 6px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--ink-soft);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.port-summary-empty {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.port-summary-warning {
+  margin-top: 6px;
+  color: var(--red);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.4;
 }
 
 /* ===== BOM Panel ===== */

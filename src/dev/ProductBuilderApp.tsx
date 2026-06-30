@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import type {
   Product, ProductType, TerminalDefinition, ProductCommunicationPort, ProductPort,
   PortKind, PortTopology, TerminalGroupDefinition, TerminalGroupType,
@@ -459,6 +459,7 @@ export function ProductBuilderApp() {
   const [svgViewBox, setSvgViewBox] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
   const [svgTrim, setSvgTrim] = useState({ top: 0, right: 0, bottom: 0, left: 0 });
   const [svgVersion, setSvgVersion] = useState(0);
+  const initialProductParamHandledRef = useRef(false);
 
   // Derived early so callbacks below can reference them without TDZ issues
   const width = Number(product.width) || 120;
@@ -779,10 +780,29 @@ export function ProductBuilderApp() {
       setSvgVersion(0);
       setIsDirty(false);
       setSaveStatus('idle');
+      const url = new URL(window.location.href);
+      url.searchParams.set('product', id);
+      window.history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`);
     } catch (e) {
       alert(`Failed to load product: ${e}`);
     }
   }, [isDirty, currentId]);
+
+  useEffect(() => {
+    if (initialProductParamHandledRef.current || productList.length === 0) return;
+    initialProductParamHandledRef.current = true;
+
+    const requestedId = new URLSearchParams(window.location.search).get('product')?.trim();
+    if (!requestedId) return;
+
+    const match = productList.find(entry => entry.id === requestedId);
+    if (!match) {
+      alert(`Product Builder could not find "${requestedId}".`);
+      return;
+    }
+
+    void handleSelectProduct(match.id, match.subdir);
+  }, [handleSelectProduct, productList]);
 
   // ---- New product ----
 
@@ -797,6 +817,9 @@ export function ProductBuilderApp() {
     setSvgVersion(0);
     setIsDirty(false);
     setSaveStatus('idle');
+    const url = new URL(window.location.href);
+    url.searchParams.delete('product');
+    window.history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`);
   }, [isDirty, currentId]);
 
   // ---- Save ----

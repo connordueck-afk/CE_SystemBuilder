@@ -29,10 +29,10 @@ import {
 } from './utils/storage';
 import { buildShareUrl, decodeShareParam, getInitialShareParam } from './utils/shareUrl';
 import { genId } from './utils/ids';
-import { getEffectiveTerminal, getEffectiveTerminals, isDynamicSingleConductorProduct } from './utils/effectiveTerminals';
-import { terminalKind } from './utils/portSpecs';
+import { getEffectiveTerminal, isDynamicSingleConductorProduct } from './utils/effectiveTerminals';
 import type { BusType } from './utils/electricalNetlist';
 import type { ProtectionRecommendation } from './utils/protectionRecommendations';
+import { inlineProtectionTerminalIds } from './utils/inlineProtection';
 import { buildCableLengthSummary, buildCableBomRows, buildConnectorSummary } from './utils/cableSummary';
 import { sharedBusLinkStandard } from './utils/busLinks';
 import { DEFAULT_BUS_COLORS, type BusColorMap } from './utils/busColors';
@@ -131,20 +131,6 @@ function defaultComponentLabel(product: Product, components: SystemComponent[]):
     return numberedLabel(product.protectionRatings?.acDcCompatibility === 'ac' ? 'AC Breaker' : 'Breaker', components);
   }
   return product.name;
-}
-
-function inlineProtectionTerminalIds(product: Product): { inId: string; outId: string } | null {
-  const powerTerminals = getEffectiveTerminals(product).filter((terminal) => ['dc_power', 'pv_power', 'ac_power'].includes(terminal.kind));
-  if (powerTerminals.length < 2) return null;
-
-  const isInput = (id: string) => id === 'in' || id.endsWith('_in') || id.startsWith('in_');
-  const isOutput = (id: string) => id === 'out' || id.endsWith('_out') || id.startsWith('out_');
-  const input = powerTerminals.find((terminal) => terminal.direction === 'input') ??
-    powerTerminals.find((terminal) => isInput(terminal.id));
-  const output = powerTerminals.find((terminal) => terminal.direction === 'output') ??
-    powerTerminals.find((terminal) => isOutput(terminal.id));
-
-  return input && output ? { inId: input.id, outId: output.id } : null;
 }
 
 function normalizeCardinalRotation(value: number): 0 | 90 | 180 | 270 {
@@ -317,6 +303,7 @@ export function App() {
   const [focusRequestId, setFocusRequestId] = useState(0);
   const [focusedConnectionId, setFocusedConnectionId] = useState<string | null>(null);
   const [focusConnectionRequestId, setFocusConnectionRequestId] = useState(0);
+  const [canvasCancelRequestId, setCanvasCancelRequestId] = useState(0);
   const [canvasViewportCenter, setCanvasViewportCenter] = useState({ x: 600, y: 380 });
   const [busColors, setBusColors] = useState<BusColorMap>(DEFAULT_BUS_COLORS);
   const [bomModalOpen, setBomModalOpen] = useState(false);
@@ -328,6 +315,7 @@ export function App() {
   const [showLoadModal, setShowLoadModal] = useState(false);
   const [savedSystems, setSavedSystems] = useState(() => loadSavedSystems());
   const [themeMode, setThemeMode] = useState<ThemeMode>(loadThemeMode);
+  const [debugMode, setDebugMode] = useState(false);
   const [voltageFilter, setVoltageFilter] = useState<NominalVoltage | 'all'>(system.nominalVoltage);
   const [startupModalOpen, setStartupModalOpen] = useState(() => INITIAL_SHARE_PARAM === null);
   const [hasCachedSystem] = useState(() => loadCurrentSystem() !== null);
@@ -919,7 +907,7 @@ export function App() {
   }, [updateSystem]);
 
   const handleInsertProtection = useCallback((recommendation: ProtectionRecommendation, marker: PathMarker) => {
-    if (recommendation.busType !== 'dc_pos' && recommendation.busType !== 'ac_line') {
+    if (recommendation.busType !== 'dc_pos' && recommendation.busType !== 'ac_line' && recommendation.busType !== 'ac_line2') {
       alert('Inline protection insertion is currently available for DC positive and AC line conductors.');
       return;
     }
@@ -930,7 +918,7 @@ export function App() {
     const pending = pendingProtectionInsert;
     const product = getProduct(productId);
     if (!pending || !product || !['fuse', 'breaker'].includes(product.productType)) return;
-    const terminalIds = inlineProtectionTerminalIds(product);
+    const terminalIds = inlineProtectionTerminalIds(product, pending.recommendation.busType);
     if (!terminalIds) return;
 
     const original = system.connections.find((connection) => connection.id === pending.recommendation.connectionId);
@@ -1123,6 +1111,14 @@ export function App() {
     handleCopyComponent(selectedComponentId);
   }, [handleCopyComponent, selectedComponentId]);
 
+  const handleCancelSelection = useCallback(() => {
+    setSelectedComponentId(null);
+    setSelectedComponentIds([]);
+    setSelectedConnectionId(null);
+    setSelectedAnnotationId(null);
+    setCanvasCancelRequestId((current) => current + 1);
+  }, []);
+
   const handleCutComponent = useCallback((id: string) => {
     const component = system.components.find((c) => c.id === id);
     if (!component) return;
@@ -1226,6 +1222,12 @@ export function App() {
       const tagName = target?.tagName.toLowerCase();
       if (tagName === 'input' || tagName === 'textarea' || tagName === 'select' || target?.isContentEditable) return;
 
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        handleCancelSelection();
+        return;
+      }
+
       const modifierPressed = e.ctrlKey || e.metaKey;
       if (!modifierPressed) return;
 
@@ -1267,7 +1269,7 @@ export function App() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleCopyMultipleComponents, handleCopySelectedComponent, handlePasteComponent, redo, selectedComponentId, selectedComponentIds, undo]);
+  }, [handleCancelSelection, handleCopyMultipleComponents, handleCopySelectedComponent, handlePasteComponent, redo, selectedComponentId, selectedComponentIds, undo]);
 
   const handleLoadSystem = useCallback((loadedSystem: SystemDesign) => {
     const normalized = normalizeSystem(loadedSystem);
@@ -1470,11 +1472,13 @@ export function App() {
         warnings={warnings}
         busColors={busColors}
         themeMode={themeMode}
+        debugMode={debugMode}
         onNameChange={handleNameChange}
         onVoltageChange={handleVoltageChange}
         onBusColorChange={handleBusColorChange}
         onResetBusColors={handleResetBusColors}
         onToggleTheme={() => setThemeMode((mode) => mode === 'dark' ? 'light' : 'dark')}
+        onToggleDebugMode={() => setDebugMode((enabled) => !enabled)}
         onSave={handleSave}
         onLoad={handleLoad}
         onReset={handleReset}
@@ -1532,6 +1536,7 @@ export function App() {
           focusRequestId={focusRequestId}
           focusedConnectionId={focusedConnectionId}
           focusConnectionRequestId={focusConnectionRequestId}
+          cancelInteractionRequestId={canvasCancelRequestId}
           onViewportCenterChange={setCanvasViewportCenter}
           onSelectComponent={handleSelectComponent}
           onSelectConnection={handleSelectConnection}
@@ -1574,7 +1579,9 @@ export function App() {
         products={PRODUCT_MAP}
         systemVoltage={system.nominalVoltage}
         issues={builderIssues}
+        analysis={systemDesignAnalysis}
         protectionRecommendations={protectionRecommendations}
+        debugMode={debugMode}
         collapsed={rightCollapsed}
         onToggleCollapsed={() => setRightCollapsed((collapsed) => !collapsed)}
         onUpdateLabel={handleUpdateLabel}

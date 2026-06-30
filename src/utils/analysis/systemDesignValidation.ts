@@ -26,6 +26,7 @@ import { buildElectricalSummary } from '../systemSummary';
 import { buildProtectionRecommendations } from '../protectionRecommendations';
 import { generateWarnings } from '../electricalCalculations';
 import { getEffectiveTerminals } from '../effectiveTerminals';
+import { effectiveMaxConnections } from '../connectorLimits';
 import { resolveTerminalGroups } from './terminalGroups';
 import type {
   ComponentDesignAnalysis,
@@ -37,6 +38,31 @@ import type {
 
 function terminalKey(componentId: string, terminalId: string): string {
   return `${componentId}:${terminalId}`;
+}
+
+function terminalPort(product: Product, portId: string | undefined) {
+  return portId ? product.ports?.find((port) => port.id === portId) : undefined;
+}
+
+function supportsStackedLugs(maxConnections: number | undefined, connectionCount: number): boolean {
+  return maxConnections == null || maxConnections >= connectionCount;
+}
+
+function terminalDesignCurrentForValidation(
+  terminalCurrentSamplesA: number[],
+  connectionCount: number,
+  isStackableStud: boolean
+): number {
+  if (terminalCurrentSamplesA.length === 0) return 0;
+
+  const rawCurrentA = Math.max(...terminalCurrentSamplesA);
+  if (!isStackableStud || connectionCount < 2) return rawCurrentA;
+
+  // A stud with stacked lugs is an external junction: cable-to-cable current can
+  // transfer through the lug stack instead of through the device's internal post.
+  // Keep each attached conductor visible, but validate the device terminal against
+  // the shared current per stacked connection.
+  return Math.max(...terminalCurrentSamplesA.map((currentA) => currentA / connectionCount));
 }
 
 function applyBranchCurrentsToNetlist(
@@ -79,6 +105,7 @@ export function analyzeSystemDesign(
 
   // --- Per-terminal design current and connection count from the sized branches ---
   const terminalDesignCurrentA = new Map<string, number>();
+  const terminalCurrentSamplesA = new Map<string, number[]>();
   const terminalConnectionCount = new Map<string, number>();
   for (const conn of system.connections) {
     const ca = circuit.connections.get(conn.id);
@@ -88,6 +115,7 @@ export function analyzeSystemDesign(
       terminalKey(conn.toComponentId, conn.toTerminalId),
     ]) {
       terminalDesignCurrentA.set(endpoint, Math.max(terminalDesignCurrentA.get(endpoint) ?? 0, currentA));
+      terminalCurrentSamplesA.set(endpoint, [...(terminalCurrentSamplesA.get(endpoint) ?? []), currentA]);
       terminalConnectionCount.set(endpoint, (terminalConnectionCount.get(endpoint) ?? 0) + 1);
     }
   }
@@ -123,13 +151,22 @@ export function analyzeSystemDesign(
 
     const { groups, terminalGroupKeyByTerminalId } = resolveTerminalGroups(product, component);
     const effectiveTerminals = getEffectiveTerminals(product, component);
+    const effectiveTerminalDesignCurrentA = new Map<string, number>();
 
     for (const terminal of effectiveTerminals) {
       const key = terminalKey(component.id, terminal.id);
-      const designCurrentA = terminalDesignCurrentA.get(key) ?? 0;
       const connectionCount = terminalConnectionCount.get(key) ?? 0;
       const maxCurrentA = terminal.maxCurrentA;
-      const maxConnections = terminal.maxConnections;
+      const maxConnections = effectiveMaxConnections(terminal, terminalPort(product, terminal.portId));
+      const isStackableStud =
+        terminal.connector?.kind === 'stud' &&
+        supportsStackedLugs(maxConnections, connectionCount);
+      const designCurrentA = terminalDesignCurrentForValidation(
+        terminalCurrentSamplesA.get(key) ?? [],
+        connectionCount,
+        isStackableStud
+      );
+      effectiveTerminalDesignCurrentA.set(terminal.id, designCurrentA);
       const overCurrent = maxCurrentA != null && maxCurrentA > 0 && designCurrentA > maxCurrentA;
       const tooManyConnections =
         maxConnections != null && maxConnections > 0 && connectionCount > maxConnections;
@@ -179,7 +216,7 @@ export function analyzeSystemDesign(
 
     for (const group of groups.values()) {
       const designCurrentA = group.terminalIds.reduce(
-        (max, tid) => Math.max(max, terminalDesignCurrentA.get(terminalKey(component.id, tid)) ?? 0),
+        (max, tid) => Math.max(max, effectiveTerminalDesignCurrentA.get(tid) ?? terminalDesignCurrentA.get(terminalKey(component.id, tid)) ?? 0),
         0
       );
       const overRated =

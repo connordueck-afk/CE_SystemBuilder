@@ -1858,6 +1858,47 @@ function buildPairedConductorSizingFloors(
   return floors;
 }
 
+function buildBatteryInterconnectSizingFloors(
+  system: SystemDesign,
+  batteryTopology: ReturnType<typeof analyzeBatteryTopology>,
+  analyses: Map<string, ConnectionCircuitAnalysis>
+): Map<string, number> {
+  const connectionById = new Map(system.connections.map((connection) => [connection.id, connection]));
+  const floors = new Map<string, number>();
+  const raise = (connectionId: string, valueA: number) => {
+    if (valueA <= 0) return;
+    floors.set(connectionId, Math.max(floors.get(connectionId) ?? 0, valueA));
+  };
+
+  for (const pack of batteryTopology.packs) {
+    if (pack.parallelCount <= 1) continue;
+
+    const outputSizingFloorA = Math.max(
+      0,
+      ...pack.outputConnectionIds.map((connectionId) => analyses.get(connectionId)?.cableSizingCurrentA ?? 0)
+    );
+    if (outputSizingFloorA <= 0) continue;
+
+    const packBatteryIds = new Set(pack.batteryComponentIds);
+    for (const connectionId of pack.internalConnectionIds) {
+      const connection = connectionById.get(connectionId);
+      const analysis = analyses.get(connectionId);
+      if (!connection || !analysis) continue;
+      if (connection.wireKind === 'communication' || connection.busLink) continue;
+      if (analysis.busType !== 'dc_pos' && analysis.busType !== 'dc_neg') continue;
+      if (!packBatteryIds.has(connection.fromComponentId) || !packBatteryIds.has(connection.toComponentId)) continue;
+
+      // Short parallel battery jumpers carry one battery's share, but in physical
+      // builds they should not be the weak link between same-bank batteries. Use
+      // the pack output conductor as an ampacity floor without changing the
+      // interconnect's branch/design current.
+      raise(connectionId, outputSizingFloorA);
+    }
+  }
+
+  return floors;
+}
+
 interface PairedLead {
   connectionId: string;
   busType: BusType;
@@ -1937,15 +1978,45 @@ function buildReturnCurrentDesignCurrents(
   nodes: Map<string, TerminalNode>,
   analyses: Map<string, ConnectionCircuitAnalysis>
 ): Map<string, number> {
+  interface ReturnSeed {
+    loadA: number;
+    sourceA: number;
+  }
+
   const dcNegEdges = edges.filter((edge) => edge.busType === 'dc_neg');
   const dcNegAdjacency = buildAdjacency(dcNegEdges);
-  const seedByKey = new Map<string, number>();
+  const seedByKey = new Map<string, ReturnSeed>();
   const batteryKeys = new Set<string>();
+  const isSourceReturnSeed = (node: TerminalNode): boolean => {
+    if (node.terminal.role === 'source') return true;
+    if (node.terminal.role === 'sink') return false;
+
+    switch (node.product.productType) {
+      case 'mppt':
+      case 'shore_charger':
+      case 'solar_array':
+      case 'custom_solar_array':
+      case 'shorePowerInlet':
+        return true;
+      case 'dc_dc_charger':
+        return node.terminal.id.startsWith('out');
+      default:
+        return false;
+    }
+  };
 
   for (const node of nodes.values()) {
     if (node.busType !== 'dc_neg') continue;
     if (isBatteryProduct(node.product)) batteryKeys.add(node.key);
   }
+
+  const addSeed = (key: string, node: TerminalNode, currentA: number) => {
+    const existing = seedByKey.get(key) ?? { loadA: 0, sourceA: 0 };
+    const isSourceBranch = isSourceReturnSeed(node);
+    seedByKey.set(key, isSourceBranch
+      ? { ...existing, sourceA: Math.max(existing.sourceA, currentA) }
+      : { ...existing, loadA: Math.max(existing.loadA, currentA) });
+  };
 
   for (const edge of dcNegEdges) {
     if (edge.kind !== 'connection' || !edge.connectionId) continue;
@@ -1954,15 +2025,25 @@ function buildReturnCurrentDesignCurrents(
     for (const key of [edge.fromKey, edge.toKey]) {
       const node = nodes.get(key);
       if (node && isPairableLeafEndpoint(node)) {
-        seedByKey.set(key, Math.max(seedByKey.get(key) ?? 0, currentA));
+        addSeed(key, node, currentA);
       }
     }
   }
 
   const sumSeeds = (keys: Set<string>): number => {
-    let total = 0;
-    for (const key of keys) total += seedByKey.get(key) ?? 0;
-    return total;
+    let loadA = 0;
+    let sourceA = 0;
+    for (const key of keys) {
+      const seed = seedByKey.get(key);
+      if (!seed) continue;
+      loadA += seed.loadA;
+      sourceA += seed.sourceA;
+    }
+
+    // DC return conductors carry load and charge currents in opposite directions.
+    // Size to the larger direction instead of adding, so an inverter load and an
+    // MPPT charger on the same negative bus do not create a fictitious sum current.
+    return Math.max(loadA, sourceA);
   };
   const hasBattery = (keys: Set<string>): boolean => {
     for (const key of keys) {
@@ -2105,6 +2186,9 @@ export function analyzeSystemCircuits(system: SystemDesign, products: Map<string
   // one conductor upsizes its mate (both carry the same branch current). Only the
   // smaller conductor of a pair is re-sized, so this never shrinks a cable.
   const sizingFloors = buildPairedConductorSizingFloors(system, nodes, productsByComponent, connections);
+  for (const [connectionId, floorA] of buildBatteryInterconnectSizingFloors(system, batteryTopology, connections)) {
+    sizingFloors.set(connectionId, Math.max(sizingFloors.get(connectionId) ?? 0, floorA));
+  }
   for (const [connectionId, floorA] of sizingFloors) {
     const existing = connections.get(connectionId);
     const connection = connectionById.get(connectionId);

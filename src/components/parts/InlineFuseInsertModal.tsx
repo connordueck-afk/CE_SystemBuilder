@@ -2,8 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import type { NominalVoltage, Product } from '../../types/system';
 import type { ProtectionRecommendation } from '../../utils/protectionRecommendations';
 import { fmt } from '../../utils/priceCalculations';
-import { terminalKind } from '../../utils/portSpecs';
 import { getProductDisplayImageUrl, resolveProductImageUrl } from '../../utils/productImages';
+import { inlineProtectionTerminalIds } from '../../utils/inlineProtection';
 import {
   selectBestFuseProduct,
   getFuseStyle,
@@ -38,13 +38,13 @@ function productMatchesRecommendation(
   if (!voltageCompatible(product, systemVoltage)) return false;
 
   if (recommendation.busType === 'ac_line' || recommendation.busType === 'ac_line2') {
-    const acPowerTerminals = product.terminals.filter((terminal) => terminalKind(product, terminal) === 'ac_power');
     return product.productType === 'breaker' &&
       product.protectionRatings?.acDcCompatibility === 'ac' &&
-      acPowerTerminals.length === 2;
+      inlineProtectionTerminalIds(product, recommendation.busType) != null;
   }
 
-  return product.productType === 'fuse';
+  return product.productType === 'fuse' &&
+    inlineProtectionTerminalIds(product, recommendation.busType) != null;
 }
 
 export function InlineFuseInsertModal({

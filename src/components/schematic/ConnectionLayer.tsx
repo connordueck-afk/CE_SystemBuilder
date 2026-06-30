@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { SystemConnection, SystemComponent, Product } from '../../types/system';
 import { getEffectiveTerminal } from '../../utils/effectiveTerminals';
 import type { ProtectionRecommendation } from '../../utils/protectionRecommendations';
@@ -189,12 +189,19 @@ interface Props {
   onSelectConnection: (id: string) => void;
   onShowProtectionPrompt: (connectionId: string, recommendation: ProtectionRecommendation, marker: PathMarker) => void;
   onClearProtectionPrompt: () => void;
-  onMoveConnectionRoute: (id: string, routePoints: Point[]) => void;
+  onPreviewConnectionRoute: (id: string, routePoints: Point[]) => void;
+  onCommitConnectionRoute: (id: string) => void;
+  onCancelConnectionRoutePreview: () => void;
   pendingLine: { x1: number; y1: number; x2: number; y2: number } | null;
   layer?: 'all' | 'interactive' | 'visual';
 }
 
-export function ConnectionLayer({
+function samePoints(a: Point[], b: Point[]): boolean {
+  if (a.length !== b.length) return false;
+  return a.every((point, index) => point.x === b[index].x && point.y === b[index].y);
+}
+
+export const ConnectionLayer = memo(function ConnectionLayer({
   connections,
   components,
   products,
@@ -204,22 +211,138 @@ export function ConnectionLayer({
   onSelectConnection,
   onShowProtectionPrompt,
   onClearProtectionPrompt,
-  onMoveConnectionRoute,
+  onPreviewConnectionRoute,
+  onCommitConnectionRoute,
+  onCancelConnectionRoutePreview,
   pendingLine,
   layer = 'all',
 }: Props) {
   const [segmentDrag, setSegmentDrag] = useState<SegmentDrag | null>(null);
+  const segmentDragRef = useRef<SegmentDrag | null>(null);
+  const segmentDragElementRef = useRef<SVGPathElement | null>(null);
+  const routePreviewRafRef = useRef<number | null>(null);
+  const pendingRoutePreviewRef = useRef<{ connectionId: string; routePoints: Point[] } | null>(null);
+  const lastRoutePreviewRef = useRef<{ connectionId: string; routePoints: Point[] } | null>(null);
   const renderInteractive = layer !== 'visual';
   const renderVisual = layer !== 'interactive';
-  const compMap = new Map(components.map((c) => [c.id, c]));
-  const recommendationByConnection = new Map(
-    protectionRecommendations.map((recommendation) => [recommendation.connectionId, recommendation])
+  const compMap = useMemo(() => new Map(components.map((c) => [c.id, c])), [components]);
+  const recommendationByConnection = useMemo(
+    () => new Map(protectionRecommendations.map((recommendation) => [recommendation.connectionId, recommendation])),
+    [protectionRecommendations]
   );
+
+  const flushRoutePreview = useCallback(() => {
+    if (routePreviewRafRef.current !== null) {
+      cancelAnimationFrame(routePreviewRafRef.current);
+      routePreviewRafRef.current = null;
+    }
+    const pending = pendingRoutePreviewRef.current;
+    pendingRoutePreviewRef.current = null;
+    if (!pending) return;
+    lastRoutePreviewRef.current = pending;
+    onPreviewConnectionRoute(pending.connectionId, pending.routePoints);
+  }, [onPreviewConnectionRoute]);
+
+  const scheduleRoutePreview = useCallback((connectionId: string, routePoints: Point[]) => {
+    const current = pendingRoutePreviewRef.current ?? lastRoutePreviewRef.current;
+    if (current?.connectionId === connectionId && samePoints(current.routePoints, routePoints)) return;
+
+    pendingRoutePreviewRef.current = { connectionId, routePoints };
+    if (routePreviewRafRef.current !== null) return;
+
+    routePreviewRafRef.current = requestAnimationFrame(() => {
+      routePreviewRafRef.current = null;
+      const pending = pendingRoutePreviewRef.current;
+      pendingRoutePreviewRef.current = null;
+      if (!pending) return;
+      lastRoutePreviewRef.current = pending;
+      onPreviewConnectionRoute(pending.connectionId, pending.routePoints);
+    });
+  }, [onPreviewConnectionRoute]);
+
+  const clearSegmentDrag = useCallback((options: { commit: boolean }) => {
+    const drag = segmentDragRef.current;
+    const element = segmentDragElementRef.current;
+    if (!drag) return;
+
+    if (element?.hasPointerCapture?.(drag.pointerId)) {
+      try {
+        element.releasePointerCapture(drag.pointerId);
+      } catch {
+        // The browser may already have released capture; clearing our drag state is enough.
+      }
+    }
+
+    if (options.commit) {
+      flushRoutePreview();
+      onCommitConnectionRoute(drag.connectionId);
+    } else {
+      if (routePreviewRafRef.current !== null) {
+        cancelAnimationFrame(routePreviewRafRef.current);
+        routePreviewRafRef.current = null;
+      }
+      pendingRoutePreviewRef.current = null;
+      lastRoutePreviewRef.current = null;
+      onCancelConnectionRoutePreview();
+    }
+
+    segmentDragRef.current = null;
+    segmentDragElementRef.current = null;
+    lastRoutePreviewRef.current = null;
+    setSegmentDrag(null);
+  }, [flushRoutePreview, onCancelConnectionRoutePreview, onCommitConnectionRoute]);
+
+  useEffect(() => {
+    return () => {
+      if (routePreviewRafRef.current !== null) {
+        cancelAnimationFrame(routePreviewRafRef.current);
+      }
+      if (pendingRoutePreviewRef.current || lastRoutePreviewRef.current) {
+        onCancelConnectionRoutePreview();
+      }
+    };
+  }, [onCancelConnectionRoutePreview]);
+
+  useEffect(() => {
+    segmentDragRef.current = segmentDrag;
+  }, [segmentDrag]);
+
+  useEffect(() => {
+    if (!segmentDrag) return;
+
+    const handlePointerUp = (event: PointerEvent) => {
+      if (event.pointerId !== segmentDrag.pointerId) return;
+      clearSegmentDrag({ commit: true });
+    };
+
+    const cancelDrag = () => {
+      clearSegmentDrag({ commit: false });
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') cancelDrag();
+    };
+
+    window.addEventListener('pointerup', handlePointerUp, true);
+    window.addEventListener('pointercancel', cancelDrag, true);
+    window.addEventListener('blur', cancelDrag);
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('pointerup', handlePointerUp, true);
+      window.removeEventListener('pointercancel', cancelDrag, true);
+      window.removeEventListener('blur', cancelDrag);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [clearSegmentDrag, segmentDrag]);
 
   const handleSegmentPointerMove = (e: React.PointerEvent<SVGPathElement>) => {
     if (!segmentDrag || e.pointerId !== segmentDrag.pointerId) return;
     e.preventDefault();
     e.stopPropagation();
+    if (e.buttons === 0) {
+      clearSegmentDrag({ commit: true });
+      return;
+    }
 
     const pos = svgCoords(e);
     const dx = pos.x - segmentDrag.startMouse.x;
@@ -240,13 +363,14 @@ export function ConnectionLayer({
     }
 
     const routed = simplifyPoints(orthogonalizePoints(nextPoints));
-    onMoveConnectionRoute(segmentDrag.connectionId, routed.slice(1, -1));
+    scheduleRoutePreview(segmentDrag.connectionId, routed.slice(1, -1));
   };
 
   const handleSegmentPointerUp = (e: React.PointerEvent<SVGPathElement>) => {
     if (!segmentDrag || e.pointerId !== segmentDrag.pointerId) return;
-    e.currentTarget.releasePointerCapture(e.pointerId);
-    setSegmentDrag(null);
+    e.preventDefault();
+    e.stopPropagation();
+    clearSegmentDrag({ commit: true });
   };
 
   return (
@@ -313,21 +437,32 @@ export function ConnectionLayer({
                     e.preventDefault();
                     e.stopPropagation();
                     e.currentTarget.setPointerCapture(e.pointerId);
+                    segmentDragElementRef.current = e.currentTarget;
                     onClearProtectionPrompt();
                     onSelectConnection(conn.id);
                     const dragRoute = prepareSegmentDrag(points, index, orientation);
-                    setSegmentDrag({
+                    const nextDrag: SegmentDrag = {
                       connectionId: conn.id,
                       segmentIndex: dragRoute.segmentIndex,
                       orientation,
                       startMouse: svgCoords(e),
                       startPoints: dragRoute.startPoints,
                       pointerId: e.pointerId,
-                    });
+                    };
+                    segmentDragRef.current = nextDrag;
+                    setSegmentDrag(nextDrag);
                   }}
                   onPointerMove={handleSegmentPointerMove}
                   onPointerUp={handleSegmentPointerUp}
-                  onPointerCancel={handleSegmentPointerUp}
+                  onPointerCancel={(e) => {
+                    if (!segmentDrag || e.pointerId !== segmentDrag.pointerId) return;
+                    e.preventDefault();
+                    e.stopPropagation();
+                    clearSegmentDrag({ commit: false });
+                  }}
+                  onLostPointerCapture={() => {
+                    if (segmentDragRef.current) clearSegmentDrag({ commit: false });
+                  }}
                   onClick={(e) => e.stopPropagation()}
                 />
               );
@@ -421,5 +556,5 @@ export function ConnectionLayer({
       )}
     </g>
   );
-}
+});
 

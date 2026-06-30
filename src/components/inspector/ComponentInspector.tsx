@@ -1,15 +1,31 @@
-import type { CustomSolarArrayRatings, FuseSlotState, SystemComponent, Product, NominalVoltage, CommunicationProtocol, DcSourceType, AcSourceType } from '../../types/system';
+import type {
+  BuilderIssue,
+  CommunicationNetwork,
+  CustomSolarArrayRatings,
+  FuseSlotState,
+  SystemComponent,
+  SystemConnection,
+  Product,
+  ProductPort,
+  NominalVoltage,
+  CommunicationProtocol,
+  DcSourceType,
+  AcSourceType,
+} from '../../types/system';
 import { CABLE_TABLE } from '../../data/cableAmpacity';
 import { fmt } from '../../utils/priceCalculations';
 import type { SolarArrayAggregation } from '../../utils/solarCalculations';
 import {
   calculateSolarStringStats,
+  findSolarArrayFeedingPort,
   getSolarPanelUnitRatings,
 } from '../../utils/solarCalculations';
 import { isDcBusProduct } from '../../utils/dcBusVoltage';
-import { terminalKind, terminalRole } from '../../utils/portSpecs';
+import { getTerminalPortId, terminalKind, terminalRole } from '../../utils/portSpecs';
 import { getFuseHolderForProduct } from '../../utils/fuseHolders';
 import { fuseRatingsForStyle, findFuseProductByStyleRating } from '../../utils/fuseSelection';
+import { getEffectiveTerminals } from '../../utils/effectiveTerminals';
+import type { SystemDesignAnalysis } from '../../utils/analysis';
 import {
   COMPONENT_SCALE_MAX,
   COMPONENT_SCALE_MIN,
@@ -17,6 +33,7 @@ import {
   clampComponentScale,
   componentScale,
 } from '../../utils/componentScale';
+import { getProductBuilderUrl } from '../../utils/productBuilderLinks';
 
 type SourceLoadKind = 'dc_source' | 'ac_source' | 'dc_load' | 'ac_load';
 
@@ -36,11 +53,16 @@ function getSourceLoadKind(product: Product): SourceLoadKind | null {
 interface Props {
   component: SystemComponent;
   product: Product;
+  components: SystemComponent[];
+  connections: SystemConnection[];
   products: Map<string, Product>;
   systemVoltage: NominalVoltage;
   solarArray?: SolarArrayAggregation;
+  analysis?: SystemDesignAnalysis;
+  componentIssues?: BuilderIssue[];
   availableFuseProducts?: Array<{ ratingA: number; productId: string }>;
   autoSizedProductId?: string | null;
+  debugMode: boolean;
   onChangeProduct?: (productId: string) => void;
   onUpdateLabel: (id: string, label: string) => void;
   onUpdatePrice: (id: string, price: number | undefined) => void;
@@ -68,14 +90,254 @@ function SpecRow({ label, value }: { label: string; value: string | number | nul
   );
 }
 
+function fmtUnit(value: number | undefined, unit: string, digits = 0): string | null {
+  if (value == null || !Number.isFinite(value)) return null;
+  return `${value.toLocaleString('en-US', {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  })} ${unit}`;
+}
+
+function compactLabel(value: string): string {
+  return value.replace(/_/g, ' ');
+}
+
+function portKindLabel(kind: ProductPort['kind']): string {
+  switch (kind) {
+    case 'dc':
+      return 'DC';
+    case 'ac':
+      return 'AC';
+    case 'pv':
+      return 'PV';
+    case 'comm':
+      return 'Comm';
+    case 'ground':
+      return 'Ground';
+    case 'signal':
+      return 'Signal';
+    default:
+      return 'Generic';
+  }
+}
+
+function componentName(component: SystemComponent, product: Product | undefined): string {
+  return component.label ?? product?.name ?? component.id;
+}
+
+function otherComponentId(componentId: string, connection: SystemConnection): string {
+  return connection.fromComponentId === componentId ? connection.toComponentId : connection.fromComponentId;
+}
+
+function connectionTerminalId(componentId: string, connection: SystemConnection): string | undefined {
+  if (connection.fromComponentId === componentId) return connection.fromTerminalId;
+  if (connection.toComponentId === componentId) return connection.toTerminalId;
+  return undefined;
+}
+
+function connectionDesignCurrentA(connection: SystemConnection, analysis?: SystemDesignAnalysis): number {
+  return analysis?.connections[connection.id]?.designCurrentA ??
+    connection.designCurrentOverrideA ??
+    connection.calculatedCurrentA ??
+    0;
+}
+
+function PortSummarySection({
+  component,
+  product,
+  port,
+  components,
+  connections,
+  products,
+  systemVoltage,
+  analysis,
+}: {
+  component: SystemComponent;
+  product: Product;
+  port: ProductPort;
+  components: SystemComponent[];
+  connections: SystemConnection[];
+  products: Map<string, Product>;
+  systemVoltage: NominalVoltage;
+  analysis?: SystemDesignAnalysis;
+}) {
+  const effectiveTerminals = getEffectiveTerminals(product, component)
+    .filter((terminal) => terminal.portId === port.id || getTerminalPortId(product, terminal) === port.id);
+  const terminalIds = new Set(effectiveTerminals.map((terminal) => terminal.id));
+  const portConnections = connections.filter((connection) => {
+    const terminalId = connectionTerminalId(component.id, connection);
+    return terminalId != null && terminalIds.has(terminalId);
+  });
+  const connectedComponents = portConnections
+    .map((connection) => components.find((candidate) => candidate.id === otherComponentId(component.id, connection)))
+    .filter((candidate): candidate is SystemComponent => candidate != null)
+    .filter((candidate, index, list) => list.findIndex((other) => other.id === candidate.id) === index);
+  const connectedLabels = connectedComponents.map((candidate) => {
+    const connectedProduct = products.get(candidate.productId);
+    return componentName(candidate, connectedProduct);
+  });
+
+  const groupDefs = product.terminalGroups?.filter((group) => group.portId === port.id) ?? [];
+  const terminalAnalyses = effectiveTerminals
+    .map((terminal) => analysis?.terminals[`${component.id}:${terminal.id}`])
+    .filter(Boolean);
+  const groupAnalyses = groupDefs
+    .map((group) => analysis?.terminalGroups[`${component.id}:${group.id}`])
+    .filter(Boolean);
+  const analyzedCurrentA = Math.max(
+    0,
+    ...terminalAnalyses.map((terminal) => terminal?.designCurrentA ?? 0),
+    ...groupAnalyses.map((group) => group?.designCurrentA ?? 0),
+    ...portConnections.map((connection) => connectionDesignCurrentA(connection, analysis))
+  );
+  const maxTerminalCurrentA = Math.max(0, ...effectiveTerminals.map((terminal) => terminal.maxCurrentA ?? 0));
+  const currentLimitA = port.maxCurrentA ?? (maxTerminalCurrentA > 0 ? maxTerminalCurrentA : undefined);
+  const maxPowerW = port.maxPowerByVoltageW?.[systemVoltage] ?? port.maxPowerW;
+  const terminalIssueKeys = new Set(effectiveTerminals.map((terminal) => `${component.id}:${terminal.id}`));
+  const groupIssueKeys = new Set(groupDefs.map((group) => `${component.id}:${group.id}`));
+  const portIssues = analysis?.issues.filter((issue) =>
+    issue.componentId === component.id &&
+    (
+      (issue.terminalKey != null && terminalIssueKeys.has(issue.terminalKey)) ||
+      (issue.terminalGroupKey != null && groupIssueKeys.has(issue.terminalGroupKey))
+    )
+  ) ?? [];
+  const communicationNetwork = port.kind === 'comm'
+    ? analysis?.communicationNetworks.find((network: CommunicationNetwork) =>
+        network.portRefs.some((ref) => ref.componentId === component.id && ref.portId === port.id)
+      )
+    : undefined;
+  const configuredProtocol = component.configuredProtocols?.[port.id] ?? port.configuredProtocol;
+  const pvArray = port.kind === 'pv'
+    ? findSolarArrayFeedingPort(component.id, [...terminalIds], components, connections, products)
+    : undefined;
+  const pvStats = pvArray?.stats;
+  const connectionCountLabel = `${portConnections.length} connection${portConnections.length === 1 ? '' : 's'}`;
+  const terminalLabels = effectiveTerminals.map((terminal) => terminal.label).join(', ');
+
+  return (
+    <div className="port-summary-card">
+      <div className="port-summary-heading">
+        <div>
+          <div className="port-summary-title">{port.label ?? port.id}</div>
+          <div className="port-summary-meta">
+            {portKindLabel(port.kind)} - {compactLabel(port.role)} - {compactLabel(port.topology)}
+          </div>
+        </div>
+        {portIssues.length > 0 && (
+          <span className="port-summary-badge">{portIssues.length}</span>
+        )}
+      </div>
+
+      <SpecRow label="Connections" value={connectionCountLabel} />
+      {terminalLabels && <SpecRow label="Terminals" value={terminalLabels} />}
+      {connectedLabels.length > 0 && (
+        <div className="port-connected-list">
+          {connectedLabels.map((label) => (
+            <span key={label} className="port-connected-chip">{label}</span>
+          ))}
+        </div>
+      )}
+
+      {port.kind === 'pv' && (
+        <div className="port-summary-subsection">
+          <div className="port-summary-subtitle">Attached Array</div>
+          {pvStats ? (
+            <>
+              <SpecRow label="Array Size" value={fmtUnit(pvStats.powerW, 'W')} />
+              <SpecRow label="Strings" value={`${pvArray?.strings.length ?? 0}`} />
+              <SpecRow label="Panels" value={`${pvStats.panelCount}`} />
+              <SpecRow label="Voc" value={fmtUnit(pvStats.vocV, 'V', 1)} />
+              {pvStats.coldVocV != null && <SpecRow label="Cold Voc" value={fmtUnit(pvStats.coldVocV, 'V', 1)} />}
+              {pvStats.vmpV != null && <SpecRow label="Vmp" value={fmtUnit(pvStats.vmpV, 'V', 1)} />}
+              {pvStats.iscA != null && <SpecRow label="Isc" value={fmtUnit(pvStats.iscA, 'A', 1)} />}
+              {pvStats.impA != null && <SpecRow label="Imp" value={fmtUnit(pvStats.impA, 'A', 1)} />}
+              {(pvArray?.strings.length ?? 0) > 0 && (
+                <div className="port-connected-list">
+                  {pvArray!.strings.map((string) => (
+                    <span key={string.componentId} className="port-connected-chip">{string.label}</span>
+                  ))}
+                </div>
+              )}
+              {(pvArray?.mismatches.length ?? 0) > 0 && (
+                <div className="port-summary-warning">Parallel strings have mismatched open-circuit voltage.</div>
+              )}
+            </>
+          ) : (
+            <div className="port-summary-empty">No PV array detected on this port.</div>
+          )}
+        </div>
+      )}
+
+      {(port.kind === 'dc' || port.kind === 'ac' || port.kind === 'pv') && (
+        <div className="port-summary-subsection">
+          <div className="port-summary-subtitle">Port Ratings</div>
+          {port.nominalVoltageV != null && <SpecRow label="Nominal Voltage" value={fmtUnit(port.nominalVoltageV, 'V')} />}
+          {port.voltageMinV != null && <SpecRow label="Min Voltage" value={fmtUnit(port.voltageMinV, 'V')} />}
+          {port.voltageMaxV != null && <SpecRow label="Max Voltage" value={fmtUnit(port.voltageMaxV, 'V')} />}
+          {currentLimitA != null && <SpecRow label="Current Limit" value={fmtUnit(currentLimitA, 'A')} />}
+          {maxPowerW != null && <SpecRow label="Power Limit" value={fmtUnit(maxPowerW, 'W')} />}
+          {port.phases != null && <SpecRow label="Phases" value={`${port.phases}`} />}
+          {analyzedCurrentA > 0 && <SpecRow label="Design Current" value={fmtUnit(analyzedCurrentA, 'A', 1)} />}
+          {groupDefs.length > 0 && (
+            <div className="port-terminal-group-list">
+              {groupDefs.map((group) => (
+                <span key={group.id} className="port-terminal-group-chip">
+                  {group.label ?? group.id}
+                  {group.polarity ? ` ${group.polarity}` : ''}
+                  {group.maxCurrentA != null ? ` - ${group.maxCurrentA} A` : ''}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {port.kind === 'comm' && (
+        <div className="port-summary-subsection">
+          <div className="port-summary-subtitle">Communication</div>
+          <SpecRow label="Connector" value={port.connectorType ?? null} />
+          <SpecRow label="Configured" value={configuredProtocol ?? null} />
+          <SpecRow label="Supported" value={(port.supportedProtocols ?? []).join(', ') || null} />
+          <SpecRow
+            label="Network"
+            value={communicationNetwork
+              ? `${communicationNetwork.portRefs.length} ports / ${communicationNetwork.wireIds.length} wires`
+              : 'No network'}
+          />
+          {communicationNetwork && (
+            <>
+              <SpecRow label="Protocols" value={communicationNetwork.protocols.join(', ') || null} />
+              <SpecRow label="Network Issues" value={`${communicationNetwork.errors.length + communicationNetwork.warnings.length}`} />
+            </>
+          )}
+        </div>
+      )}
+
+      {(port.kind === 'ground' || port.kind === 'signal' || port.kind === 'generic') && (
+        <div className="port-summary-subsection">
+          <div className="port-summary-subtitle">Port Details</div>
+          {port.voltageClass && <SpecRow label="Voltage Class" value={compactLabel(port.voltageClass)} />}
+          {currentLimitA != null && <SpecRow label="Current Limit" value={fmtUnit(currentLimitA, 'A')} />}
+          {analyzedCurrentA > 0 && <SpecRow label="Design Current" value={fmtUnit(analyzedCurrentA, 'A', 1)} />}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function ComponentInspector({
   component,
   product,
+  components,
+  connections,
   products,
   systemVoltage,
   solarArray,
+  analysis,
   availableFuseProducts,
   autoSizedProductId,
+  debugMode,
   onChangeProduct,
   onUpdateLabel,
   onUpdatePrice,
@@ -172,6 +434,16 @@ export function ComponentInspector({
         <div className="inspector-label">Product</div>
         <div style={{ color: 'var(--ink)', fontSize: 14, fontWeight: 700 }}>{product.name}</div>
         <div style={{ color: 'var(--muted)', fontSize: 12, fontWeight: 700 }}>{product.manufacturer}</div>
+        {debugMode && import.meta.env.DEV && (
+          <a
+            className="supplier-link inspector-builder-link"
+            href={getProductBuilderUrl(product.id)}
+            target="_blank"
+            rel="noreferrer"
+          >
+            Open in Product Builder
+          </a>
+        )}
       </div>
 
       <div className="inspector-section">
@@ -419,6 +691,27 @@ export function ComponentInspector({
           <SpecRow label="Panel Rating" value={`${solarUnit.powerW.toFixed(0)} W, Voc ${solarUnit.vocV.toFixed(1)} V`} />
         )}
       </div>
+
+      {debugMode && (product.ports?.length ?? 0) > 0 && (
+        <div className="inspector-section">
+          <div className="inspector-label">Ports</div>
+          <div className="port-summary-list">
+            {product.ports!.map((port) => (
+              <PortSummarySection
+                key={port.id}
+                component={component}
+                product={product}
+                port={port}
+                components={components}
+                connections={connections}
+                products={products}
+                systemVoltage={systemVoltage}
+                analysis={analysis}
+              />
+            ))}
+          </div>
+        </div>
+      )}
 
       {arrayStats && (product.productType === 'solar_combiner' || product.productType === 'mppt') && (
         <div className="inspector-section">

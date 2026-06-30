@@ -26,6 +26,7 @@ import { nextStandardFuse } from '../src/data/fuseRatings';
 import { DEFAULT_SYSTEM } from '../src/data/defaultSystem';
 import { SYSTEM_PRESETS } from '../src/data/presetSystems';
 import { sanitizeSystemDesign } from '../src/utils/systemSanitization';
+import { inlineProtectionTerminalIds } from '../src/utils/inlineProtection';
 import type { Product, SystemDesign } from '../src/types/system';
 
 // ---- tiny test runner -------------------------------------------------------
@@ -91,6 +92,23 @@ test('voltageDropV is round-trip (2 * I * R * L)', () => {
 test('nextStandardFuse rounds up to a standard rating', () => {
   assert.equal(nextStandardFuse(62.5), 70);
   assert.equal(nextStandardFuse(50), 50);
+});
+
+test('inline AC breaker insertion resolves L1 and L2 pole terminals', () => {
+  const onePole = PRODUCT_MAP.get('breaker-ac-din-1p-30a');
+  const twoPole = PRODUCT_MAP.get('breaker-ac-din-2p-30a');
+  assert.ok(onePole, '1P AC breaker variant must remain in the active catalogue');
+  assert.ok(twoPole, '2P AC breaker variant must remain in the active catalogue');
+
+  assert.deepEqual(inlineProtectionTerminalIds(onePole!, 'ac_line'), {
+    inId: 'l1_in',
+    outId: 'l1_out',
+  });
+  assert.equal(inlineProtectionTerminalIds(onePole!, 'ac_line2'), null);
+  assert.deepEqual(inlineProtectionTerminalIds(twoPole!, 'ac_line2'), {
+    inId: 'l2_in',
+    outId: 'l2_out',
+  });
 });
 
 // ============================================================
@@ -863,6 +881,31 @@ test('Default and preset systems contain no hidden physical-panel multipliers', 
       assert.equal(component.customSolarArrayRatings, undefined, `${system.id} ${component.id} custom ratings`);
     }
   }
+});
+
+test('Simple 12V Solar preset treats stacked battery studs as lug junctions and sizes parallel interconnects to pack conductors', () => {
+  const preset = SYSTEM_PRESETS.find((item) => item.id === 'simple-12v')?.system;
+  assert.ok(preset, 'Simple 12V Solar preset must exist');
+
+  const analysis = analyzeSystemDesign(preset, PRODUCT_MAP);
+  assert.equal(analysis.issues.length, 0, `unexpected issues: ${analysis.issues.map((issue) => issue.message).join('; ')}`);
+  assert.equal(analysis.warnings.length, 0, `unexpected warnings: ${analysis.warnings.map((warning) => warning.message).join('; ')}`);
+
+  const positiveStack = analysis.terminals['comp-1782842438398-42:dc_pos'];
+  const negativeStack = analysis.terminals['comp-1782842440255-43:dc_neg'];
+  assert.ok(positiveStack, 'positive stacked battery stud must be analysed');
+  assert.ok(negativeStack, 'negative stacked battery stud must be analysed');
+  assert.equal(positiveStack.connectionCount, 2);
+  assert.equal(negativeStack.connectionCount, 2);
+  assert.ok(!positiveStack.overCurrent, 'stacked positive stud should not treat full pack feeder current as internal battery current');
+  assert.ok(!negativeStack.overCurrent, 'stacked negative stud should not add charge and load currents in one direction');
+
+  const positiveInterconnect = analysis.connections['conn-1782842443039-44'];
+  const negativeInterconnect = analysis.connections['conn-1782842444342-45'];
+  assert.equal(positiveInterconnect.designCurrentA, 170);
+  assert.equal(negativeInterconnect.designCurrentA, 170);
+  assert.equal(positiveInterconnect.recommendedCableAwg, '4/0');
+  assert.equal(negativeInterconnect.recommendedCableAwg, '4/0');
 });
 
 test('Custom Solar Array preserves ratings while forcing quantity to one', () => {

@@ -19,6 +19,7 @@ import { TextAnnotationInspector } from '../inspector/TextAnnotationInspector';
 import { ShapeAnnotationInspector } from '../inspector/ShapeAnnotationInspector';
 import { WarningList } from '../inspector/WarningList';
 import { findSolarArrayFeedingComponent, getEffectiveProductForComponent } from '../../utils/solarCalculations';
+import type { SystemDesignAnalysis } from '../../utils/analysis';
 import type { ProtectionRecommendation } from '../../utils/protectionRecommendations';
 import { selectBestFuseProduct, ampacityForAwg } from '../../utils/fuseSelection';
 
@@ -32,7 +33,9 @@ interface Props {
   products: Map<string, Product>;
   systemVoltage: NominalVoltage;
   issues: BuilderIssue[];
+  analysis: SystemDesignAnalysis;
   protectionRecommendations: ProtectionRecommendation[];
+  debugMode: boolean;
   collapsed: boolean;
   onToggleCollapsed: () => void;
   onUpdateLabel: (id: string, label: string) => void;
@@ -79,7 +82,9 @@ export function RightInspector({
   products,
   systemVoltage,
   issues,
+  analysis,
   protectionRecommendations,
+  debugMode,
   collapsed,
   onToggleCollapsed,
   onUpdateLabel,
@@ -288,11 +293,16 @@ export function RightInspector({
           <ComponentInspector
             component={selectedComponent}
             product={selectedProduct}
+            components={components}
+            connections={connections}
             products={products}
             systemVoltage={systemVoltage}
             solarArray={selectedSolarArray}
+            analysis={analysis}
+            componentIssues={componentIssues}
             availableFuseProducts={availableFuseProducts}
             autoSizedProductId={autoSizedProductId}
+            debugMode={debugMode}
             onChangeProduct={selectedComponentId ? (pid) => onChangeComponentProduct(selectedComponentId, pid) : undefined}
             onUpdateLabel={onUpdateLabel}
             onUpdatePrice={onUpdatePrice}

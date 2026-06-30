@@ -199,6 +199,11 @@ export function generateWarnings(
       .filter((entry): entry is readonly [string, Product] => Boolean(entry[1]))
   );
   const netById = new Map(netlist.nets.map((net) => [net.id, net]));
+  const batteryInternalShareCurrentA = (componentId: string, externalCurrentA: number): number => {
+    const pack = batteryTopology.packByBatteryId.get(componentId);
+    if (!pack || pack.parallelCount <= 1) return externalCurrentA;
+    return externalCurrentA / pack.parallelCount;
+  };
 
   for (const issue of batteryTopology.issues) {
     warn(issue.severity, issue.message, issue.code, issue.componentId, issue.connectionId);
@@ -473,7 +478,10 @@ export function generateWarnings(
           currentByLinkGroup.set(groupKey, (currentByLinkGroup.get(groupKey) ?? 0) + connectionDesignCurrentA(connection));
         }
 
-        const busCurrentA = currentByLinkGroup.size > 0 ? Math.max(...currentByLinkGroup.values()) : 0;
+        const externalBusCurrentA = currentByLinkGroup.size > 0 ? Math.max(...currentByLinkGroup.values()) : 0;
+        const busCurrentA = product.productType === 'battery'
+          ? batteryInternalShareCurrentA(comp.id, externalBusCurrentA)
+          : externalBusCurrentA;
         if (busCurrentA > portRatingA + 0.5) {
           warn(
             'error',

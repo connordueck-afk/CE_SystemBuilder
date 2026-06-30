@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import type { Product, SystemComponent } from '../../types/system';
 import { BatterySymbol } from './symbols/BatterySymbol';
 import { MpptSymbol } from './symbols/MpptSymbol';
@@ -100,7 +101,7 @@ function protectionRatingLabel(product: Product): string {
   return ratingA != null ? `${ratingA}A` : '';
 }
 
-export function ComponentNode({
+export const ComponentNode = memo(function ComponentNode({
   component,
   product,
   selected,
@@ -239,5 +240,5 @@ export function ComponentNode({
       )}
     </g>
   );
-}
+});
 

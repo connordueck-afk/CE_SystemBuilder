@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { memo, useState } from 'react';
 import type { SystemTextAnnotation } from '../../types/system';
 
 interface Point {
@@ -32,7 +32,7 @@ function svgCoords(e: React.PointerEvent<SVGElement>): Point {
   return point.matrixTransform(ctm.inverse());
 }
 
-export function TextAnnotationNode({
+export const TextAnnotationNode = memo(function TextAnnotationNode({
   annotation,
   selected,
   onSelect,
@@ -163,4 +163,4 @@ export function TextAnnotationNode({
       )}
     </g>
   );
-}
+});

@@ -412,3 +412,62 @@ export function findSolarArrayFeedingComponent(
 
   return aggregateSolarStrings([...strings.values()]);
 }
+
+export function findSolarArrayFeedingPort(
+  componentId: string,
+  terminalIds: string[],
+  components: SystemComponent[],
+  connections: SystemConnection[],
+  products: Map<string, Product>
+): SolarArrayAggregation {
+  const strings = new Map<string, SolarStringStats>();
+  const visitedPassThrough = new Set<string>();
+  const seedTerminals = new Set(terminalIds);
+
+  const addStringCluster = (componentId: string) => {
+    const cluster = collectSeriesCluster(componentId, components, connections, products);
+    const stats = calculateSeriesClusterStats(cluster, products);
+    if (stats) strings.set(stats.componentId, stats);
+  };
+
+  const walkUpstream = (fromComponentId: string, restrictToTerminals = false) => {
+    for (const conn of connections) {
+      const touchesComponent = conn.fromComponentId === fromComponentId || conn.toComponentId === fromComponentId;
+      if (!touchesComponent) continue;
+
+      if (restrictToTerminals) {
+        const selectedTerminalId = conn.fromComponentId === fromComponentId
+          ? conn.fromTerminalId
+          : conn.toTerminalId;
+        if (!seedTerminals.has(selectedTerminalId)) continue;
+      }
+
+      const otherId = conn.fromComponentId === fromComponentId ? conn.toComponentId : conn.fromComponentId;
+      if (otherId === componentId) continue;
+
+      const otherComponent = componentForConnectionId(components, otherId);
+      const otherProduct = otherComponent ? products.get(otherComponent.productId) : undefined;
+      if (!otherComponent || !otherProduct) continue;
+
+      if (otherProduct.productType === 'solar_array') {
+        addStringCluster(otherComponent.id);
+        continue;
+      }
+
+      if (otherProduct.productType === 'custom_solar_array') {
+        const stats = calculateSolarStringStats(otherComponent, otherProduct);
+        if (stats) strings.set(stats.componentId, stats);
+        continue;
+      }
+
+      if (isPvPassThroughProduct(otherProduct) && !visitedPassThrough.has(otherId)) {
+        visitedPassThrough.add(otherId);
+        walkUpstream(otherId);
+      }
+    }
+  };
+
+  walkUpstream(componentId, true);
+
+  return aggregateSolarStrings([...strings.values()]);
+}
