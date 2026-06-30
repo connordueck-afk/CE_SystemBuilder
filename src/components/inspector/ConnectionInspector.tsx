@@ -10,7 +10,7 @@ import { sharedBusLinkStandard } from '../../utils/busLinks';
 import { BUS_DEFAULT_COLOR, BUS_DEFAULT_TYPE } from '../../utils/cableDefaults';
 import { getPremanufacturedCable } from '../../data/products/cableAssemblies';
 import { PremanufacturedCableSelector } from '../parts/PremanufacturedCableSelector';
-import { deriveCommProtocol } from '../../utils/communicationNetworks';
+import { deriveConnectionProtocol } from '../../utils/communicationNetworks';
 
 const CABLE_COLORS = ['Red', 'Black', 'Yellow', 'Orange', 'Blue', 'Green', 'White', 'Brown', 'Gray', 'Purple'];
 const CABLE_TYPES = ['THHN/THWN', 'RHH/RHW-2', 'Marine Grade', 'Welding Cable', 'Battery Cable', 'Chassis Wire (MTW)'];
@@ -144,11 +144,13 @@ export function ConnectionInspector({
   ) != null;
   const isBusLink = connection.busLink === true;
   const isCommWire = connection.wireKind === 'communication';
-  const fromCommPort = fromProduct?.communicationPorts?.find((p) => p.id === connection.fromTerminalId);
-  const toCommPort = toProduct?.communicationPorts?.find((p) => p.id === connection.toTerminalId);
-  const fromConfiguredProtocol = fromComponent?.configuredProtocols?.[connection.fromTerminalId] ?? fromCommPort?.configuredProtocol;
-  const toConfiguredProtocol = toComponent?.configuredProtocols?.[connection.toTerminalId] ?? toCommPort?.configuredProtocol;
-  const derivedProtocol = deriveCommProtocol(fromCommPort, fromConfiguredProtocol, toCommPort, toConfiguredProtocol);
+  const derivedProtocol = fromComponent && toComponent && fromProduct && toProduct
+    ? deriveConnectionProtocol(
+      connection,
+      new Map([[fromProduct.id, fromProduct], [toProduct.id, toProduct]]),
+      [fromComponent, toComponent]
+    )
+    : undefined;
   const cableMode = connection.cableMode ?? 'dynamic';
   const selectedAssembly = connection.premanufacturedCableId
     ? getPremanufacturedCable(connection.premanufacturedCableId)

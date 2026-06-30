@@ -1,10 +1,9 @@
-import type { FuseSlotState, SystemComponent, Product, NominalVoltage, CommunicationProtocol, DcSourceType, AcSourceType } from '../../types/system';
+import type { CustomSolarArrayRatings, FuseSlotState, SystemComponent, Product, NominalVoltage, CommunicationProtocol, DcSourceType, AcSourceType } from '../../types/system';
 import { CABLE_TABLE } from '../../data/cableAmpacity';
 import { fmt } from '../../utils/priceCalculations';
 import type { SolarArrayAggregation } from '../../utils/solarCalculations';
 import {
   calculateSolarStringStats,
-  getSolarPanelCount,
   getSolarPanelUnitRatings,
 } from '../../utils/solarCalculations';
 import { isDcBusProduct } from '../../utils/dcBusVoltage';
@@ -54,7 +53,7 @@ interface Props {
   onUpdateComponentImageScale: (id: string, scale: number) => void;
   onUpdateBusPolarity: (id: string, busPolarity: SystemComponent['busPolarity']) => void;
   onUpdateFuseSlot: (id: string, slotId: string, patch: FuseSlotState) => void;
-  onUpdateSolarConfiguration: (id: string, seriesCount: number, parallelCount: number) => void;
+  onUpdateCustomSolarArrayRatings: (id: string, ratings: CustomSolarArrayRatings) => void;
   onUpdateConfiguredProtocol?: (id: string, portId: string, protocol: CommunicationProtocol | undefined) => void;
   onUpdateSourceType?: (id: string, sourceType: DcSourceType | AcSourceType | undefined) => void;
   onRemove: (id: string) => void;
@@ -89,7 +88,7 @@ export function ComponentInspector({
   onUpdateComponentImageScale,
   onUpdateBusPolarity,
   onUpdateFuseSlot,
-  onUpdateSolarConfiguration,
+  onUpdateCustomSolarArrayRatings,
   onUpdateConfiguredProtocol,
   onUpdateSourceType,
   onRemove,
@@ -99,17 +98,56 @@ export function ComponentInspector({
   const capacityKwh = product.capacityWh
     ? (product.capacityWh / 1000).toFixed(2)
     : null;
-  const solarPanelCount = getSolarPanelCount(product);
-  const solarSeriesCount = component.solarSeriesCount ?? solarPanelCount;
   const solarStats = calculateSolarStringStats(component, product);
   const solarUnit = getSolarPanelUnitRatings(product);
   const arrayStats = solarArray?.stats;
+  const customSolarRatings = component.customSolarArrayRatings ?? {};
+  const computedCustomSolarPower =
+    customSolarRatings.vmpV != null && customSolarRatings.impA != null
+      ? customSolarRatings.vmpV * customSolarRatings.impA
+      : undefined;
   const supplierUrl = product.productUrl ?? product.datasheetUrl;
   const includeInBom = component.includeInBom !== false;
   const fuseSlots = product.distributionTopology?.fuseSlots ?? [];
   const isDcBus = isDcBusProduct(product);
   const fuseHolder = getFuseHolderForProduct(product);
   const imageScale = componentScale(component);
+  const communicationPorts = (() => {
+    const ports = new Map<string, {
+      id: string;
+      name: string;
+      connectorType?: string;
+      supportedProtocols: CommunicationProtocol[];
+      configuredProtocol?: CommunicationProtocol;
+      isConfigurable?: boolean;
+      notes?: string;
+    }>();
+    for (const legacy of product.communicationPorts ?? []) {
+      ports.set(legacy.id, {
+        id: legacy.id,
+        name: legacy.name,
+        connectorType: legacy.connectorType,
+        supportedProtocols: legacy.supportedProtocols,
+        configuredProtocol: legacy.configuredProtocol,
+        isConfigurable: legacy.isConfigurable,
+        notes: legacy.notes,
+      });
+    }
+    for (const port of product.ports ?? []) {
+      if (port.kind !== 'comm') continue;
+      const legacy = ports.get(port.id);
+      ports.set(port.id, {
+        id: port.id,
+        name: port.label ?? legacy?.name ?? port.id,
+        connectorType: port.connectorType ?? legacy?.connectorType,
+        supportedProtocols: port.supportedProtocols ?? legacy?.supportedProtocols ?? [],
+        configuredProtocol: port.configuredProtocol ?? legacy?.configuredProtocol,
+        isConfigurable: port.isConfigurable ?? legacy?.isConfigurable,
+        notes: legacy?.notes,
+      });
+    }
+    return [...ports.values()];
+  })();
   const productMaxCableAwg = (() => {
     const awgs = product.terminals
       .filter((t) => ['dc_power', 'pv_power', 'ac_power'].includes(terminalKind(product, t)) && t.maxCableAwg)
@@ -209,23 +247,53 @@ export function ComponentInspector({
         </div>
       )}
 
-      {product.productType === 'solar_array' && solarPanelCount > 1 && (
+      {product.productType === 'custom_solar_array' && (
         <div className="inspector-section">
-          <div className="inspector-label">Solar String</div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 6 }}>
-            <div>
-              <div style={{ color: 'var(--muted)', fontSize: 11, fontWeight: 600, marginBottom: 3 }}>Panels in Series</div>
+          <div className="inspector-label">Aggregate PV Ratings</div>
+          {([
+            ['vocV', 'Array Voc', 'V'],
+            ['vmpV', 'Array Vmp', 'V'],
+            ['iscA', 'Array Isc', 'A'],
+            ['impA', 'Array Imp', 'A'],
+            ['powerW', 'Array Power', 'W'],
+            ['coldVocV', 'Cold Voc', 'V'],
+          ] as const).map(([field, label, unit]) => (
+            <div className="spec-row spec-row-editable" key={field}>
+              <span className="spec-row-label">{label}</span>
               <input
                 type="number"
-                className="inspector-input"
-                min={1}
-                value={solarSeriesCount}
+                className="spec-row-input"
+                min={0}
+                step={field === 'powerW' ? 10 : 0.1}
+                value={customSolarRatings[field] ?? ''}
+                placeholder={field === 'powerW' && computedCustomSolarPower != null ? String(Math.round(computedCustomSolarPower)) : ''}
                 onChange={(e) => {
-                  const v = Math.max(1, Math.floor(Number(e.target.value) || 1));
-                  onUpdateSolarConfiguration(component.id, v, 1);
+                  const value = parseFloat(e.target.value);
+                  onUpdateCustomSolarArrayRatings(component.id, {
+                    ...customSolarRatings,
+                    [field]: Number.isFinite(value) ? value : undefined,
+                  });
                 }}
               />
+              <span className="spec-row-unit">{unit}</span>
             </div>
+          ))}
+          {customSolarRatings.powerW == null && computedCustomSolarPower != null && (
+            <SpecRow label="Calculated Power" value={`${computedCustomSolarPower.toFixed(0)} W`} />
+          )}
+          <div style={{ marginTop: 6 }}>
+            <div style={{ color: 'var(--muted)', fontSize: 11, fontWeight: 600, marginBottom: 3 }}>Description</div>
+            <textarea
+              className="inspector-input"
+              rows={3}
+              value={customSolarRatings.description ?? ''}
+              onChange={(e) => {
+                onUpdateCustomSolarArrayRatings(component.id, {
+                  ...customSolarRatings,
+                  description: e.target.value || undefined,
+                });
+              }}
+            />
           </div>
         </div>
       )}
@@ -340,14 +408,14 @@ export function ComponentInspector({
         )}
         {solarStats && (
           <>
-            <SpecRow label="Solar String" value={`${solarStats.seriesCount}S (${solarStats.panelCount} panels)`} />
-            <SpecRow label="String Voc" value={`${solarStats.vocV.toFixed(1)} V`} />
-            {solarStats.vmpV != null && <SpecRow label="String Vmp" value={`${solarStats.vmpV.toFixed(1)} V`} />}
-            {solarStats.iscA != null && <SpecRow label="String Isc" value={`${solarStats.iscA.toFixed(1)} A`} />}
-            {solarStats.impA != null && <SpecRow label="String Imp" value={`${solarStats.impA.toFixed(1)} A`} />}
+            <SpecRow label={product.productType === 'custom_solar_array' ? 'Array Type' : 'Panel Count'} value={product.productType === 'custom_solar_array' ? 'Custom aggregate' : `${solarStats.panelCount}`} />
+            <SpecRow label={product.productType === 'custom_solar_array' ? 'Array Voc' : 'Panel Voc'} value={`${solarStats.vocV.toFixed(1)} V`} />
+            {solarStats.vmpV != null && <SpecRow label={product.productType === 'custom_solar_array' ? 'Array Vmp' : 'Panel Vmp'} value={`${solarStats.vmpV.toFixed(1)} V`} />}
+            {solarStats.iscA != null && <SpecRow label={product.productType === 'custom_solar_array' ? 'Array Isc' : 'Panel Isc'} value={`${solarStats.iscA.toFixed(1)} A`} />}
+            {solarStats.impA != null && <SpecRow label={product.productType === 'custom_solar_array' ? 'Array Imp' : 'Panel Imp'} value={`${solarStats.impA.toFixed(1)} A`} />}
           </>
         )}
-        {solarUnit && solarPanelCount > 1 && (
+        {solarUnit && (
           <SpecRow label="Panel Rating" value={`${solarUnit.powerW.toFixed(0)} W, Voc ${solarUnit.vocV.toFixed(1)} V`} />
         )}
       </div>
@@ -487,10 +555,10 @@ export function ComponentInspector({
       )}
 
       {/* Communication Ports section */}
-      {(product.communicationPorts?.length ?? 0) > 0 && (
+      {communicationPorts.length > 0 && (
         <div className="inspector-section">
           <div className="inspector-label">Communication Ports</div>
-          {product.communicationPorts!.map((port) => {
+          {communicationPorts.map((port) => {
             const currentProtocol = component.configuredProtocols?.[port.id] ?? port.configuredProtocol;
             return (
               <div key={port.id} style={{ marginBottom: 10 }}>

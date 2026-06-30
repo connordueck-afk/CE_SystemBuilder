@@ -6,7 +6,7 @@ import type {
   Product,
   SystemComponent,
   SystemConnection,
-  SolarWiringMode,
+  CustomSolarArrayRatings,
   SystemTextAnnotation,
   SystemShapeAnnotation,
   ShapeAnnotationType,
@@ -29,7 +29,6 @@ import {
 } from './utils/storage';
 import { buildShareUrl, decodeShareParam, getInitialShareParam } from './utils/shareUrl';
 import { genId } from './utils/ids';
-import { getSolarPanelCount } from './utils/solarCalculations';
 import { getEffectiveTerminal, getEffectiveTerminals, isDynamicSingleConductorProduct } from './utils/effectiveTerminals';
 import { terminalKind } from './utils/portSpecs';
 import type { BusType } from './utils/electricalNetlist';
@@ -40,6 +39,7 @@ import { DEFAULT_BUS_COLORS, type BusColorMap } from './utils/busColors';
 import { isVerticalOrientation } from './utils/componentOrientation';
 import { clampComponentScale, componentScale, scaledProductSize } from './utils/componentScale';
 import { buildBuilderIssues } from './utils/builderIssues';
+import { sanitizeSystemDesign } from './utils/systemSanitization';
 import { HeaderBar } from './components/layout/HeaderBar';
 import { LeftPartSidebar } from './components/layout/LeftPartSidebar';
 import { RightInspector } from './components/layout/RightInspector';
@@ -176,6 +176,10 @@ function withSingleComponentQuantities(system: SystemDesign): SystemDesign {
   };
 }
 
+function normalizeSystem(system: SystemDesign): SystemDesign {
+  return enrichConnections(withInferredConductors(sanitizeSystemDesign(withSingleComponentQuantities(system), PRODUCT_MAP)));
+}
+
 function withInferredConductors(system: SystemDesign): SystemDesign {
   let components = system.components.map((component) => {
     const product = PRODUCT_MAP.get(component.productId);
@@ -297,7 +301,7 @@ function enrichConnections(system: SystemDesign): SystemDesign {
 export function App() {
   const [system, setSystem] = useState<SystemDesign>(() => {
     const saved = loadCurrentSystem();
-    return enrichConnections(withInferredConductors(withSingleComponentQuantities(saved ?? DEFAULT_SYSTEM)));
+    return normalizeSystem(saved ?? DEFAULT_SYSTEM);
   });
 
   const undoStackRef = useRef<SystemDesign[]>([]);
@@ -387,7 +391,7 @@ export function App() {
         redoStackRef.current = [];
       }
 
-      return withTimestamp(enrichConnections(withInferredConductors(withSingleComponentQuantities(updater(prev)))));
+      return withTimestamp(normalizeSystem(updater(prev)));
     });
   }, []);
 
@@ -451,7 +455,7 @@ export function App() {
       quantity: 1,
       x: bounded.x,
       y: bounded.y,
-      includeInBom: true,
+      includeInBom: product.productType !== 'custom_solar_array',
       ...(options?.voltageV != null && { instanceVoltageV: options.voltageV }),
       ...(options?.maxCurrentA != null && { instanceMaxCurrentA: options.maxCurrentA }),
     };
@@ -663,33 +667,14 @@ export function App() {
     }));
   }, [updateSystem]);
 
-  const handleUpdateSolarWiringMode = useCallback((id: string, solarWiringMode: SolarWiringMode) => {
-    updateSystem((s) => ({
-      ...s,
-      components: s.components.map((c) => {
-        if (c.id !== id) return c;
-        const product = PRODUCT_MAP.get(c.productId);
-        const panelCount = product ? getSolarPanelCount(product) : 1;
-        return {
-          ...c,
-          solarWiringMode,
-          solarSeriesCount: solarWiringMode === 'parallel' ? 1 : panelCount,
-          solarParallelCount: solarWiringMode === 'parallel' ? panelCount : 1,
-        };
-      }),
-    }));
-  }, [updateSystem]);
-
-  const handleUpdateSolarConfiguration = useCallback((id: string, seriesCount: number, parallelCount: number) => {
+  const handleUpdateCustomSolarArrayRatings = useCallback((id: string, ratings: CustomSolarArrayRatings) => {
     updateSystem((s) => ({
       ...s,
       components: s.components.map((c) =>
         c.id === id
           ? {
               ...c,
-              solarSeriesCount: Math.max(1, Math.floor(seriesCount)),
-              solarParallelCount: Math.max(1, Math.floor(parallelCount)),
-              solarWiringMode: parallelCount > 1 && seriesCount <= 1 ? 'parallel' : 'series',
+              customSolarArrayRatings: ratings,
             }
           : c
       ),
@@ -1285,7 +1270,7 @@ export function App() {
   }, [handleCopyMultipleComponents, handleCopySelectedComponent, handlePasteComponent, redo, selectedComponentId, selectedComponentIds, undo]);
 
   const handleLoadSystem = useCallback((loadedSystem: SystemDesign) => {
-    const normalized = enrichConnections(withInferredConductors(withSingleComponentQuantities(loadedSystem)));
+    const normalized = normalizeSystem(loadedSystem);
     setSystem(normalized);
     setVoltageFilter(normalized.nominalVoltage);
     saveCurrentSystem(normalized);
@@ -1362,7 +1347,7 @@ export function App() {
     setStartupModalOpen(false);
     const base = template ?? { ...DEFAULT_SYSTEM, components: [], connections: [], annotations: [] };
     const fresh = { ...base, id: genId('sys'), createdAt: new Date().toISOString() };
-    const normalized = enrichConnections(withInferredConductors(withSingleComponentQuantities(fresh)));
+    const normalized = normalizeSystem(fresh);
     setSystem(normalized);
     setVoltageFilter(normalized.nominalVoltage);
     undoStackRef.current = [];
@@ -1604,8 +1589,7 @@ export function App() {
         onUpdateBusPolarity={handleUpdateBusPolarity}
         onUpdateFuseSlot={handleUpdateFuseSlot}
         onChangeComponentProduct={handleChangeComponentProduct}
-        onUpdateSolarWiringMode={handleUpdateSolarWiringMode}
-        onUpdateSolarConfiguration={handleUpdateSolarConfiguration}
+        onUpdateCustomSolarArrayRatings={handleUpdateCustomSolarArrayRatings}
         onUpdateConnectionLength={handleUpdateConnectionLength}
         onToggleConnectionBusLink={handleToggleBusLink}
         onUpdateConnectionDesignCurrent={handleUpdateConnectionDesignCurrent}

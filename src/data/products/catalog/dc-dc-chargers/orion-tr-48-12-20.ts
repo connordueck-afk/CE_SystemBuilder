@@ -10,7 +10,7 @@ const product: Product = {
   maxCurrentA: 20,
   continuousPowerW: 240,
   msrpUsd: 196,
-  description: "Victron Orion-Tr Smart 48V/12V-20A isolated DC-DC charger with Bluetooth.",
+  description: "Orion-Tr Smart 48/12-20A Isolated DC-DC charger/converter.",
   partNumber: "ORI481224120",
   source: "Victron 2025",
   dataQuality: "partial",

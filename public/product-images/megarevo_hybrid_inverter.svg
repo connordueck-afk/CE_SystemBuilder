@@ -1,0 +1,137 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="1100" viewBox="208 56 484 964" role="img" aria-label="Megarevo hybrid inverter simplified product asset">
+  <defs>
+    <linearGradient id="whitePanel" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#f7f7f7"/>
+      <stop offset="100%" stop-color="#e9e9e9"/>
+    </linearGradient>
+    <linearGradient id="panelShadow" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#dcdcdc"/>
+    </linearGradient>
+    <linearGradient id="frameDark" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#2a2d31"/>
+      <stop offset="100%" stop-color="#0d1013"/>
+    </linearGradient>
+    <linearGradient id="orange" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ff9a22"/>
+      <stop offset="100%" stop-color="#de6600"/>
+    </linearGradient>
+    <linearGradient id="screen" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#4a433e"/>
+      <stop offset="100%" stop-color="#23211f"/>
+    </linearGradient>
+    <linearGradient id="gland" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#383c41"/>
+      <stop offset="100%" stop-color="#111419"/>
+    </linearGradient>
+    <linearGradient id="glandRing" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#6b7076"/>
+      <stop offset="100%" stop-color="#2a2e33"/>
+    </linearGradient>
+    <linearGradient id="logoBlue" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#365ea8"/>
+      <stop offset="100%" stop-color="#25498c"/>
+    </linearGradient>
+    <linearGradient id="logoOrange" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#d48d34"/>
+      <stop offset="100%" stop-color="#b96a1e"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="10" stdDeviation="14" flood-color="#000" flood-opacity="0.18"/>
+    </filter>
+  </defs>
+
+  <g filter="url(#shadow)">
+    <!-- main cabinet -->
+    <rect x="206" y="70" width="488" height="876" rx="18" fill="url(#whitePanel)" stroke="#d5d5d5" stroke-width="4"/>
+    <path d="M206 70 h488" stroke="#ffffff" stroke-opacity="0.65" stroke-width="5"/>
+
+    <!-- seam between upper and lower doors -->
+    <path d="M218 700 h464" stroke="#919191" stroke-width="2" opacity="0.75"/>
+    <path d="M206 706 h488" stroke="#f7f7f7" stroke-width="2" opacity="0.85"/>
+
+    <!-- screws around perimeter -->
+    <g fill="#4b4b4b" stroke="#262626" stroke-width="2.5">
+      <circle cx="224" cy="118" r="5"/>
+      <circle cx="676" cy="118" r="5"/>
+      <circle cx="224" cy="386" r="5"/>
+      <circle cx="676" cy="386" r="5"/>
+      <circle cx="224" cy="734" r="5"/>
+      <circle cx="676" cy="734" r="5"/>
+      <circle cx="224" cy="852" r="5"/>
+      <circle cx="676" cy="852" r="5"/>
+      <circle cx="224" cy="930" r="5"/>
+      <circle cx="676" cy="930" r="5"/>
+    </g>
+
+    <!-- side red switch peeking out -->
+    <rect x="192" y="621" width="24" height="12" rx="2" fill="#9d3832"/>
+    <rect x="184" y="625" width="16" height="6" rx="2" fill="#d55d56"/>
+
+    <!-- top logo placeholder -->
+    <g>
+      <path d="M376 138 l20 -44 h38 l-20 44 z" fill="url(#logoBlue)"/>
+      <path d="M420 138 l20 -44 h38 l-20 44 z" fill="url(#logoOrange)"/>
+      <path d="M464 138 l20 -44 h38 l-20 44 z" fill="url(#logoBlue)"/>
+      <path d="M508 138 l20 -44 h38 l-20 44 z" fill="url(#logoOrange)"/>
+      <rect x="360" y="154" width="188" height="20" rx="8" fill="#3d5e9f"/>
+      <rect x="382" y="184" width="142" height="10" rx="5" fill="#6b6f7a" opacity="0.85"/>
+    </g>
+
+    <!-- central display/control panel -->
+    <rect x="352" y="218" width="196" height="230" rx="28" fill="url(#orange)"/>
+    <rect x="366" y="232" width="168" height="202" rx="20" fill="url(#frameDark)"/>
+
+    <!-- small top indicator labels as tiny bars -->
+    <g fill="#f1f3f4" opacity="0.8">
+      <rect x="392" y="258" width="14" height="4" rx="2"/>
+      <rect x="426" y="258" width="14" height="4" rx="2"/>
+      <rect x="462" y="258" width="14" height="4" rx="2"/>
+      <rect x="496" y="258" width="14" height="4" rx="2"/>
+    </g>
+
+    <!-- screen -->
+    <rect x="412" y="292" width="76" height="58" rx="2" fill="url(#screen)"/>
+    <rect x="418" y="298" width="64" height="46" rx="1" fill="#5e584f" opacity="0.42"/>
+
+    <!-- button row -->
+    <g fill="none" stroke="#d6d7d8" stroke-width="3">
+      <circle cx="394" cy="388" r="16"/>
+      <circle cx="432" cy="388" r="16"/>
+      <circle cx="470" cy="388" r="16"/>
+      <circle cx="508" cy="388" r="16"/>
+    </g>
+    <g fill="#d6d7d8">
+      <rect x="388" y="386" width="12" height="3" rx="1.5"/>
+      <path d="M426 390 l6 -8 l6 8"/>
+      <path d="M464 384 l6 8 l6 -8"/>
+      <path d="M502 388 h12"/>
+    </g>
+
+    <!-- lower cabinet clean face -->
+    <rect x="238" y="724" width="424" height="184" rx="8" fill="url(#panelShadow)" opacity="0.22"/>
+
+    <!-- bottom cable glands / feet -->
+    <g>
+      <path d="M260 944 h52 l10 28 q2 8 -6 10 h-60 q-8 -2 -6 -10z" fill="url(#gland)"/>
+      <rect x="270" y="912" width="32" height="38" rx="14" fill="url(#glandRing)"/>
+
+      <path d="M352 950 h34 l8 22 q2 8 -6 10 h-42 q-8 -2 -6 -10z" fill="url(#gland)"/>
+      <rect x="358" y="920" width="22" height="34" rx="10" fill="url(#glandRing)"/>
+
+      <path d="M424 950 h34 l8 22 q2 8 -6 10 h-42 q-8 -2 -6 -10z" fill="url(#gland)"/>
+      <rect x="430" y="920" width="22" height="34" rx="10" fill="url(#glandRing)"/>
+
+      <path d="M496 950 h34 l8 22 q2 8 -6 10 h-42 q-8 -2 -6 -10z" fill="url(#gland)"/>
+      <rect x="502" y="920" width="22" height="34" rx="10" fill="url(#glandRing)"/>
+
+      <path d="M570 944 h52 l10 28 q2 8 -6 10 h-60 q-8 -2 -6 -10z" fill="url(#gland)"/>
+      <rect x="580" y="912" width="32" height="38" rx="14" fill="url(#glandRing)"/>
+    </g>
+
+    <!-- soft edge shading -->
+    <path d="M224 94 h452" stroke="#cfcfcf" stroke-width="4" opacity="0.32"/>
+    <path d="M218 122 v796" stroke="#ffffff" stroke-width="4" opacity="0.22"/>
+    <path d="M682 122 v796" stroke="#b9b9b9" stroke-width="4" opacity="0.18"/>
+  </g>
+</svg>

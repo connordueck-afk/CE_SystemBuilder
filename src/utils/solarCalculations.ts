@@ -7,8 +7,6 @@ import type {
 } from '../types/system';
 import { terminalKind } from './portSpecs';
 
-const DEFAULT_SOLAR_WIRING_MODE: SolarWiringMode = 'series';
-
 export interface SolarArrayConfiguration {
   panelCount: number;
   seriesCount: number;
@@ -20,6 +18,8 @@ export interface SolarArrayStats extends SolarPanelRatings {
   panelCount: number;
   seriesCount: number;
   parallelCount: number;
+  coldVocV?: number;
+  isCustomAggregate?: boolean;
 }
 
 export interface SolarStringStats extends SolarArrayStats {
@@ -40,36 +40,18 @@ export interface SolarArrayAggregation {
   mismatches: SolarParallelMismatch[];
 }
 
-function parsePanelDescription(description?: string): { count: number; watts: number } | null {
-  const match = description?.match(/\((\d+)x\s*(\d+)W\s+panel/i);
-  if (!match) return null;
-
-  const count = Number(match[1]);
-  const watts = Number(match[2]);
-  if (!Number.isFinite(count) || !Number.isFinite(watts) || count <= 0 || watts <= 0) return null;
-
-  return { count, watts };
-}
-
 function positiveInteger(value: number | undefined): number | null {
   if (value == null || !Number.isFinite(value)) return null;
   return Math.max(1, Math.floor(value));
 }
 
 export function getSolarWiringMode(component: SystemComponent): SolarWiringMode {
-  return component.solarWiringMode ?? DEFAULT_SOLAR_WIRING_MODE;
+  void component;
+  return 'series';
 }
 
 export function getSolarPanelCount(product: Product): number {
-  if (product.productType !== 'solar_array') return 1;
-
-  const parsed = parsePanelDescription(product.description);
-  if (parsed) return parsed.count;
-
-  const arrayPowerW = product.solarPanelRatings?.powerW ?? product.continuousPowerW;
-  if (!arrayPowerW) return 1;
-
-  return Math.max(1, Math.round(arrayPowerW / 400));
+  return product.productType === 'solar_array' ? 1 : 0;
 }
 
 export function getSolarArrayConfiguration(
@@ -77,43 +59,55 @@ export function getSolarArrayConfiguration(
   product: Product
 ): SolarArrayConfiguration {
   const panelCount = getSolarPanelCount(product);
-  const explicitSeries = positiveInteger(component.solarSeriesCount);
-  const explicitParallel = positiveInteger(component.solarParallelCount);
-
-  if (explicitSeries || explicitParallel) {
-    const seriesCount = explicitSeries ?? Math.max(1, Math.ceil(panelCount / (explicitParallel ?? 1)));
-    const parallelCount = explicitParallel ?? Math.max(1, Math.ceil(panelCount / seriesCount));
-    return {
-      panelCount: seriesCount * parallelCount,
-      seriesCount,
-      parallelCount,
-      wiringMode: parallelCount > 1 && seriesCount <= 1 ? 'parallel' : 'series',
-    };
-  }
-
-  const wiringMode = getSolarWiringMode(component);
   return {
     panelCount,
-    seriesCount: wiringMode === 'parallel' ? 1 : panelCount,
-    parallelCount: wiringMode === 'parallel' ? panelCount : 1,
-    wiringMode,
+    seriesCount: product.productType === 'solar_array' ? 1 : 0,
+    parallelCount: product.productType === 'solar_array' ? 1 : 0,
+    wiringMode: getSolarWiringMode(component),
   };
 }
 
 export function getSolarPanelUnitRatings(product: Product): SolarPanelRatings | undefined {
   const ratings = product.solarPanelRatings;
-  if (!ratings || product.productType !== 'solar_array') return ratings;
+  return product.productType === 'solar_array' ? ratings : undefined;
+}
 
-  const panelCount = getSolarPanelCount(product);
-  if (panelCount <= 1) return ratings;
+function computedCustomPowerW(component: SystemComponent): number | undefined {
+  const ratings = component.customSolarArrayRatings;
+  if (!ratings) return undefined;
+  if (ratings.powerW != null && Number.isFinite(ratings.powerW) && ratings.powerW > 0) return ratings.powerW;
+  if (
+    ratings.vmpV != null &&
+    ratings.impA != null &&
+    Number.isFinite(ratings.vmpV) &&
+    Number.isFinite(ratings.impA) &&
+    ratings.vmpV > 0 &&
+    ratings.impA > 0
+  ) {
+    return ratings.vmpV * ratings.impA;
+  }
+  return undefined;
+}
+
+export function calculateCustomSolarArrayStats(component: SystemComponent): SolarStringStats | undefined {
+  const ratings = component.customSolarArrayRatings;
+  if (!ratings) return undefined;
+  const powerW = computedCustomPowerW(component);
+  if (ratings.vocV == null || powerW == null) return undefined;
 
   return {
-    ...ratings,
-    vocV: ratings.vocV / panelCount,
-    vmpV: ratings.vmpV != null ? ratings.vmpV / panelCount : undefined,
+    vocV: ratings.vocV,
+    vmpV: ratings.vmpV,
     iscA: ratings.iscA,
     impA: ratings.impA,
-    powerW: ratings.powerW / panelCount,
+    powerW,
+    coldVocV: ratings.coldVocV,
+    panelCount: 0,
+    seriesCount: 1,
+    parallelCount: 1,
+    isCustomAggregate: true,
+    componentId: component.id,
+    label: component.label ?? 'Custom Solar Array',
   };
 }
 
@@ -121,32 +115,14 @@ export function calculateSolarArrayStats(
   component: SystemComponent,
   product: Product
 ): SolarArrayStats | undefined {
-  const existingStats = product.solarPanelRatings as Partial<SolarArrayStats> | undefined;
-  if (
-    product.productType === 'solar_array' &&
-    existingStats?.panelCount != null &&
-    existingStats.seriesCount != null &&
-    existingStats.parallelCount != null
-  ) {
-    return existingStats as SolarArrayStats;
-  }
-
   const unit = getSolarPanelUnitRatings(product);
   if (!unit || product.productType !== 'solar_array') return undefined;
 
-  const config = getSolarArrayConfiguration(component, product);
-  const panelCount = config.seriesCount * config.parallelCount;
-
   return {
     ...unit,
-    vocV: unit.vocV * config.seriesCount,
-    vmpV: unit.vmpV != null ? unit.vmpV * config.seriesCount : undefined,
-    iscA: unit.iscA != null ? unit.iscA * config.parallelCount : undefined,
-    impA: unit.impA != null ? unit.impA * config.parallelCount : undefined,
-    powerW: unit.powerW * panelCount,
-    panelCount,
-    seriesCount: config.seriesCount,
-    parallelCount: config.parallelCount,
+    panelCount: 1,
+    seriesCount: 1,
+    parallelCount: 1,
   };
 }
 
@@ -154,20 +130,20 @@ export function calculateSolarStringStats(
   component: SystemComponent,
   product: Product
 ): SolarStringStats | undefined {
+  if (product.productType === 'custom_solar_array') return calculateCustomSolarArrayStats(component);
+
   const unit = getSolarPanelUnitRatings(product);
   if (!unit || product.productType !== 'solar_array') return undefined;
 
-  const panelCount = positiveInteger(component.solarSeriesCount) ?? getSolarPanelCount(product);
-
   return {
     ...unit,
-    vocV: unit.vocV * panelCount,
-    vmpV: unit.vmpV != null ? unit.vmpV * panelCount : undefined,
+    vocV: unit.vocV,
+    vmpV: unit.vmpV,
     iscA: unit.iscA,
     impA: unit.impA,
-    powerW: unit.powerW * panelCount,
-    panelCount,
-    seriesCount: panelCount,
+    powerW: unit.powerW,
+    panelCount: 1,
+    seriesCount: 1,
     parallelCount: 1,
     componentId: component.id,
     label: component.label ?? product.name,
@@ -178,38 +154,41 @@ export function getEffectiveSolarRatings(
   product: Product,
   wiringMode: SolarWiringMode
 ): SolarPanelRatings | undefined {
-  const ratings = product.solarPanelRatings;
-  if (!ratings || product.productType !== 'solar_array') return ratings;
-
-  const panelCount = getSolarPanelCount(product);
-  const component: SystemComponent = {
-    id: 'effective-solar',
-    productId: product.id,
-    quantity: 1,
-    x: 0,
-    y: 0,
-    solarWiringMode: wiringMode,
-  };
-
-  const stats = calculateSolarArrayStats(component, product);
-  if (!stats) return ratings;
-
-  return {
-    vocV: stats.vocV,
-    vmpV: stats.vmpV,
-    iscA: stats.iscA,
-    impA: stats.impA,
-    powerW: stats.powerW || ratings.powerW,
-    tempCoefficientPmax: ratings.tempCoefficientPmax,
-    tempCoefficientVoc: ratings.tempCoefficientVoc,
-  };
+  void wiringMode;
+  return product.productType === 'solar_array' ? product.solarPanelRatings : undefined;
 }
 
 export function getEffectiveProductForComponent(
   component: SystemComponent,
   product: Product | undefined
 ): Product | undefined {
-  if (!product || product.productType !== 'solar_array') return product;
+  if (!product) return product;
+
+  if (product.productType === 'custom_solar_array') {
+    const stats = calculateCustomSolarArrayStats(component);
+    if (!stats) return product;
+    return {
+      ...product,
+      continuousPowerW: stats.powerW,
+      maxPvVoltageV: stats.coldVocV ?? stats.vocV,
+      maxPvCurrentA: stats.iscA ?? stats.impA,
+      ports: product.ports?.map((port) => port.kind === 'pv'
+        ? {
+            ...port,
+            voltageMaxV: stats.coldVocV ?? stats.vocV,
+            maxCurrentA: stats.iscA ?? stats.impA ?? port.maxCurrentA,
+            maxPowerW: stats.powerW,
+          }
+        : port
+      ),
+      terminalGroups: product.terminalGroups?.map((group) => group.groupType === 'power_conductor'
+        ? { ...group, maxCurrentA: stats.iscA ?? stats.impA ?? group.maxCurrentA }
+        : group
+      ),
+    };
+  }
+
+  if (product.productType !== 'solar_array') return product;
 
   const stats = calculateSolarStringStats(component, product);
   if (!stats) return product;
@@ -413,6 +392,12 @@ export function findSolarArrayFeedingComponent(
 
       if (otherProduct.productType === 'solar_array') {
         addStringCluster(otherComponent.id);
+        continue;
+      }
+
+      if (otherProduct.productType === 'custom_solar_array') {
+        const stats = calculateSolarStringStats(otherComponent, otherProduct);
+        if (stats) strings.set(stats.componentId, stats);
         continue;
       }
 

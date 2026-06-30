@@ -28,7 +28,7 @@ const SIDES: TerminalSide[] = ['top', 'bottom', 'left', 'right'];
 const CONNECTOR_KINDS: ConnectorKind[] = ['stud', 'screw_terminal', 'mc4', 'lug', 'helios_orng', 'helios_blk', 'ferrule'];
 const GENDERED_CONNECTOR_KINDS: ConnectorKind[] = ['mc4'];
 const GENDERED_COMM_CONNECTORS: CommunicationConnectorType[] = ['RJ45', 'M12', 'Deutsch', 'JST'];
-const PROTOCOLS: CommunicationProtocol[] = ['CANopen', 'J1939', 'VE.Bus', 'VE.Direct', 'VE.Can', 'BMS-Can', 'AEbus', 'RS485', 'Ethernet', 'Other'];
+const PROTOCOLS: CommunicationProtocol[] = ['CANopen', 'J1939', 'VE.Bus', 'VE.Direct', 'VE.Can', 'BMS-Can', 'AEbus', 'RS485', 'Ethernet', 'Pylon LV', 'Other'];
 const COMM_CONNECTORS: CommunicationConnectorType[] = ['RJ45', 'M12', 'Deutsch', 'TerminalBlock', 'JST', 'VE.Direct', 'Other'];
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {

@@ -18,7 +18,13 @@ import { resolveTerminalCurrentA } from './terminalElectrics';
 import { formatFeetAndInches } from './cableSummary';
 import { analyzeBatteryTopology } from './batteryTopology';
 import { linkGroupSizes, portLinkPairs } from './portLinks';
-import { terminalKind } from './portSpecs';
+import { getTerminalPort, terminalKind } from './portSpecs';
+import {
+  cableAwgSatisfiesConstraint,
+  cableAwgSatisfiesElectrical,
+  combineCableSizeConstraints,
+  endpointCableSizeConstraint,
+} from './cableLimits';
 
 const PROTECTION_TYPES = new Set(['fuse', 'breaker']);
 const CONDUCTIVE_PASS_THROUGH_TYPES = new Set([
@@ -102,6 +108,7 @@ interface SideSummary {
   canReceiveCurrent: boolean;
   canSourceFaultCurrent: boolean;
   sourceCapacityA?: number;
+  loadFollowingSourceCapacityA?: number;
   requiresOvercurrentProtection: boolean;
   recommendedFuseA?: number;
   maxFuseA?: number;
@@ -289,6 +296,25 @@ function smallerMaxCableAwg(...awgs: Array<string | undefined>): string | undefi
   return CABLE_TABLE[Math.min(...indexes)].awg;
 }
 
+function isActivePowerConductor(busType: BusType): boolean {
+  return busType === 'dc_pos' || busType === 'pv_pos' || busType === 'ac_line' || busType === 'ac_line2';
+}
+
+function isReturnConductor(busType: BusType): boolean {
+  return busType === 'dc_neg' ||
+    busType === 'pv_neg' ||
+    busType === 'ac_neutral' ||
+    busType === 'ac_ground' ||
+    busType === 'chassis_ground';
+}
+
+function mayUseTerminalRatingAsOperatingCurrent(product: Product, _terminal: EffectiveTerminal): boolean {
+  if (product.productType === 'dc_load' || product.productType === 'ac_load') return true;
+  if (product.productType === 'shorePowerInlet') return true;
+  if (product.productType === 'accessory' && product.dataQuality === 'placeholder') return true;
+  return false;
+}
+
 function estimatePowerCurrent(powerW: number | undefined, voltageV: number | undefined): number | undefined {
   if (!powerW || !voltageV || voltageV <= 0) return undefined;
   return powerW / voltageV;
@@ -303,7 +329,9 @@ function defaultTerminalVoltage(product: Product, component: SystemComponent, te
       120;
   }
   if (terminal.kind === 'pv_power') {
-    return product.solarPanelRatings?.vmpV ??
+    return component.customSolarArrayRatings?.vmpV ??
+      component.customSolarArrayRatings?.vocV ??
+      product.solarPanelRatings?.vmpV ??
       product.solarPanelRatings?.vocV ??
       product.maxPvVoltageV ??
       terminal.voltageMaxV ??
@@ -350,6 +378,17 @@ function terminalCurrents(
 
   if (!isPowerBus(busType)) {
     return { normalLoadCurrentA: 0, normalSourceCurrentA: 0, hasNormalSource: false, hasLoadFollowingSource: false, canReceiveCurrent: false };
+  }
+
+  if (isReturnConductor(busType)) {
+    return {
+      normalLoadCurrentA: 0,
+      normalSourceCurrentA: 0,
+      hasNormalSource: false,
+      hasLoadFollowingSource: false,
+      canReceiveCurrent: true,
+      sourceCapabilityA: undefined,
+    };
   }
 
   const instanceOverrideA = instanceCurrentOverrideA(product, component);
@@ -402,7 +441,9 @@ function terminalCurrents(
   // Skipped for linked jacks (portId groups): there a terminal's maxCurrentA is a
   // per-jack physical limit, not the circuit current. The device-level rating below
   // is the real current and is divided across the bonded jacks by the caller.
-  const declaredA = linkSize > 1 ? null : resolveTerminalCurrentA(terminal, voltage);
+  const declaredA = mayUseTerminalRatingAsOperatingCurrent(product, terminal) && linkSize <= 1
+    ? resolveTerminalCurrentA(terminal, voltage)
+    : null;
   if (declaredA != null) {
     if (direction === 'output' || terminal.role === 'source') {
       return {
@@ -454,6 +495,15 @@ function terminalCurrents(
       sourceA = positiveNumber(product.maxPvCurrentA) ??
         positiveNumber(product.solarPanelRatings?.iscA) ??
         positiveNumber(product.solarPanelRatings?.impA) ??
+        0;
+      sourceCapabilityA = sourceA;
+      hasNormalSource = sourceA > 0;
+      break;
+    }
+
+    case 'custom_solar_array': {
+      sourceA = positiveNumber(component.customSolarArrayRatings?.iscA) ??
+        positiveNumber(component.customSolarArrayRatings?.impA) ??
         0;
       sourceCapabilityA = sourceA;
       hasNormalSource = sourceA > 0;
@@ -857,6 +907,7 @@ function summarizeSide(keys: Set<string>, nodes: Map<string, TerminalNode>): Sid
   let canSourceFaultCurrent = false;
   let requiresOvercurrentProtection = false;
   let sourceCapacityA: number | undefined;
+  let loadFollowingSourceCapacityA: number | undefined;
   let recommendedFuseA: number | undefined;
   let maxFuseA: number | undefined;
 
@@ -876,6 +927,13 @@ function summarizeSide(keys: Set<string>, nodes: Map<string, TerminalNode>): Sid
       : behavior.sourceCapabilityA == null
         ? sourceCapacityA
         : sourceCapacityA + behavior.sourceCapabilityA;
+    if (behavior.hasLoadFollowingSource) {
+      loadFollowingSourceCapacityA = loadFollowingSourceCapacityA == null
+        ? behavior.sourceCapabilityA
+        : behavior.sourceCapabilityA == null
+          ? loadFollowingSourceCapacityA
+          : loadFollowingSourceCapacityA + behavior.sourceCapabilityA;
+    }
     recommendedFuseA = maxDefined(recommendedFuseA, behavior.recommendedFuseA);
     maxFuseA = minDefined(maxFuseA, behavior.maxFuseA);
   }
@@ -889,6 +947,7 @@ function summarizeSide(keys: Set<string>, nodes: Map<string, TerminalNode>): Sid
     canReceiveCurrent,
     canSourceFaultCurrent,
     sourceCapacityA,
+    loadFollowingSourceCapacityA,
     requiresOvercurrentProtection,
     recommendedFuseA,
     maxFuseA,
@@ -907,19 +966,26 @@ function edgeCurrentFromSides(from: SideSummary, to: SideSummary): number {
     return side.hasLoadFollowingSource;
   };
 
-  const currentAvailableToLoad = (sourceSide: SideSummary, loadDemandA: number): number => {
+  const currentAvailableToLoad = (sourceSide: SideSummary, loadSide: SideSummary, loadDemandA: number): number => {
     if (!sourceSide.hasNormalSource && !sourceSide.canSourceFaultCurrent) return 0;
 
     // Batteries and other storage-like sources follow the load current. Current-limited
     // sources such as MPPTs, DC-DC chargers, and inverter AC outputs advertise their
     // normal source current, so they cannot make their branch inherit every downstream load.
-    if (sourceSide.hasLoadFollowingSource || sourceSide.normalSourceCurrentA <= 0) return loadDemandA;
+    if (sourceSide.hasLoadFollowingSource || sourceSide.normalSourceCurrentA <= 0) {
+      const sourceStorageA = sourceSide.loadFollowingSourceCapacityA ?? 0;
+      const loadSideStorageA = loadSide.loadFollowingSourceCapacityA ?? 0;
+      if (sourceStorageA > 0 && loadSideStorageA > 0) {
+        return loadDemandA * (sourceStorageA / (sourceStorageA + loadSideStorageA));
+      }
+      return loadDemandA;
+    }
     return Math.min(loadDemandA, sourceSide.normalSourceCurrentA);
   };
 
   const loadDriven = Math.max(
-    currentAvailableToLoad(to, from.normalLoadCurrentA),
-    currentAvailableToLoad(from, to.normalLoadCurrentA)
+    currentAvailableToLoad(to, from, from.normalLoadCurrentA),
+    currentAvailableToLoad(from, to, to.normalLoadCurrentA)
   );
   const sourceDriven = Math.max(
     canAbsorbNormalSourceCurrent(to) ? from.normalSourceCurrentA : 0,
@@ -1145,13 +1211,27 @@ function cableForAmpacityAndDrop(
   lengthFt: number,
   voltageV: number,
   maxDropPercent: number,
-  maxCableAwg?: string
+  minCableAwg?: string,
+  maxCableAwg?: string,
+  preferredCableAwg?: string
 ): { awg: string; dropV: number; dropPercent: number; satisfiesDrop: boolean } {
+  if (
+    preferredCableAwg &&
+    cableAwgSatisfiesConstraint(preferredCableAwg, { minCableAwg, maxCableAwg }) &&
+    cableAwgSatisfiesElectrical(preferredCableAwg, ampacityCurrentA, voltageDropCurrentA, lengthFt, voltageV, maxDropPercent)
+  ) {
+    const dropV = voltageDropV(voltageDropCurrentA, lengthFt, preferredCableAwg);
+    const dropPercent = voltageV > 0 ? (dropV / voltageV) * 100 : 0;
+    return { awg: preferredCableAwg, dropV, dropPercent, satisfiesDrop: true };
+  }
+
   const firstAmpacityMatch = cableForCurrent(ampacityCurrentA);
   const startIndex = Math.max(0, CABLE_TABLE.findIndex((cable) => cable.awg === firstAmpacityMatch.awg));
+  const minCableIndex = cableTableIndex(minCableAwg);
   const maxCableIndex = cableTableIndex(maxCableAwg);
   const endIndex = maxCableIndex == null ? CABLE_TABLE.length - 1 : maxCableIndex;
-  const cappedStartIndex = Math.min(startIndex, endIndex);
+  const constrainedStartIndex = Math.max(startIndex, minCableIndex ?? 0);
+  const cappedStartIndex = Math.min(constrainedStartIndex, endIndex);
 
   for (const cable of CABLE_TABLE.slice(cappedStartIndex, endIndex + 1)) {
     const dropV = voltageDropV(voltageDropCurrentA, lengthFt, cable.awg);
@@ -1161,7 +1241,7 @@ function cableForAmpacityAndDrop(
     }
   }
 
-  const largestAllowed = CABLE_TABLE[endIndex];
+  const largestAllowed = CABLE_TABLE[Math.max(cappedStartIndex, endIndex)];
   const dropV = voltageDropV(voltageDropCurrentA, lengthFt, largestAllowed.awg);
   const dropPercent = voltageV > 0 ? (dropV / voltageV) * 100 : 0;
   return { awg: largestAllowed.awg, dropV, dropPercent, satisfiesDrop: dropPercent <= maxDropPercent };
@@ -1450,7 +1530,10 @@ function analyzeConnection(
     };
   }
 
-  let designCurrentA = positiveNumber(connection.designCurrentOverrideA) ?? positiveNumber(inferredDesignCurrentA) ?? 0;
+  let designCurrentA = maxDefined(
+    positiveNumber(connection.designCurrentOverrideA),
+    positiveNumber(inferredDesignCurrentA)
+  ) ?? 0;
   let fromSide: SideSummary | undefined;
   let toSide: SideSummary | undefined;
 
@@ -1509,12 +1592,14 @@ function analyzeConnection(
     fromNode?.behavior.maxFuseA,
     toNode?.behavior.maxFuseA
   );
-  const maxCableAwg = smallerMaxCableAwg(
-    fromNode?.component.maxCableAwg,
-    toNode?.component.maxCableAwg,
-    fromNode?.terminal.maxCableAwg,
-    toNode?.terminal.maxCableAwg
-  );
+  const cableConstraint = fromNode && toNode
+    ? combineCableSizeConstraints(
+      endpointCableSizeConstraint(fromNode.product, fromNode.component, fromNode.terminal),
+      endpointCableSizeConstraint(toNode.product, toNode.component, toNode.terminal)
+    )
+    : {};
+  const minCableAwg = cableConstraint.minCableAwg;
+  const maxCableAwg = cableConstraint.maxCableAwg;
 
   // PV source/output conductors are sized at 156% of design current (NEC 690.8);
   // all other circuits use the standard 125% continuous-load factor.
@@ -1535,7 +1620,9 @@ function analyzeConnection(
     connection.cableLengthFt,
     voltageV,
     system.assumptions.maxVoltageDropPercent,
-    maxCableAwg
+    minCableAwg,
+    maxCableAwg,
+    cableConstraint.recommendedCableAwg
   );
   const selectedAwg = connection.manualCableAwg && cableByAwg(connection.manualCableAwg)
     ? connection.manualCableAwg
@@ -1558,6 +1645,10 @@ function analyzeConnection(
 
   if (dropPercent > system.assumptions.maxVoltageDropPercent) {
     warnings.push(`Voltage drop ${dropPercent.toFixed(1)}% exceeds ${system.assumptions.maxVoltageDropPercent}% limit - consider larger cable or shorter run`);
+  }
+
+  if (cableConstraint.conflict) {
+    addError('TERMINAL_CABLE_LIMIT_CONFLICT', cableConstraint.conflict);
   }
 
   if (selectedCable && designCurrentA > selectedCable.ampacity) {
@@ -1607,9 +1698,19 @@ function analyzeConnection(
   }
 
   const selectedCableIndex = cableTableIndex(selectedAwg);
+  const minCableIndex = cableTableIndex(minCableAwg);
   const maxCableIndex = cableTableIndex(maxCableAwg);
+  if (minCableAwg && selectedCableIndex != null && minCableIndex != null && selectedCableIndex < minCableIndex) {
+    addError(
+      'CABLE_BELOW_TERMINAL_MIN',
+      `${selectedAwg} AWG is smaller than endpoint minimum cable size of ${minCableAwg} AWG`
+    );
+  }
   if (maxCableAwg && selectedCableIndex != null && maxCableIndex != null && selectedCableIndex > maxCableIndex) {
-    warnings.push(`${selectedAwg} AWG exceeds endpoint maximum cable size of ${maxCableAwg} AWG`);
+    addError(
+      'CABLE_EXCEEDS_TERMINAL_MAX',
+      `${selectedAwg} AWG exceeds endpoint maximum cable size of ${maxCableAwg} AWG`
+    );
   }
 
   if (maxCableAwg && autoCable.awg === maxCableAwg) {
@@ -1618,11 +1719,34 @@ function analyzeConnection(
       designCurrentA,
       connection.cableLengthFt,
       voltageV,
-      system.assumptions.maxVoltageDropPercent
+      system.assumptions.maxVoltageDropPercent,
+      minCableAwg
     );
     if (cableTableIndex(uncappedCable.awg)! > cableTableIndex(maxCableAwg)!) {
       warnings.push(`Auto cable recommendation capped at endpoint maximum of ${maxCableAwg} AWG`);
     }
+  }
+
+  if (
+    cableConstraint.recommendedCableAwg &&
+    cableAwgSatisfiesConstraint(cableConstraint.recommendedCableAwg, cableConstraint) &&
+    !cableAwgSatisfiesElectrical(
+      cableConstraint.recommendedCableAwg,
+      cableSizingCurrentA,
+      designCurrentA,
+      connection.cableLengthFt,
+      voltageV,
+      system.assumptions.maxVoltageDropPercent
+    )
+  ) {
+    warnings.push(`Endpoint recommended ${cableConstraint.recommendedCableAwg} AWG is insufficient for inferred current or voltage-drop target`);
+  }
+
+  if (autoCable.awg === maxCableAwg && selectedCable && selectedCable.ampacity < cableSizingCurrentA) {
+    addError(
+      'TERMINAL_CANNOT_ACCEPT_REQUIRED_CABLE',
+      `Endpoint maximum ${maxCableAwg} AWG cannot satisfy ${cableSizingCurrentA.toFixed(0)}A cable sizing current`
+    );
   }
 
   if (!autoCable.satisfiesDrop && !connection.manualCableAwg) {
@@ -1734,6 +1858,155 @@ function buildPairedConductorSizingFloors(
   return floors;
 }
 
+interface PairedLead {
+  connectionId: string;
+  busType: BusType;
+  currentA: number;
+}
+
+function isPairableLeafEndpoint(node: TerminalNode): boolean {
+  if (!isLeafPowerDevice(node.product) || isBatteryProduct(node.product)) return false;
+  const port = getTerminalPort(node.product, node.terminal);
+  return Boolean(
+    port &&
+    port.topology === 'two_pole' &&
+    (port.kind === 'dc' || port.kind === 'pv' || port.kind === 'ac') &&
+    (isActivePowerConductor(node.busType) || node.busType === 'dc_neg' || node.busType === 'pv_neg' || node.busType === 'ac_neutral')
+  );
+}
+
+function buildPairedConductorDesignCurrents(
+  system: SystemDesign,
+  nodes: Map<string, TerminalNode>,
+  analyses: Map<string, ConnectionCircuitAnalysis>
+): Map<string, number> {
+  const byLeafPort = new Map<string, PairedLead[]>();
+  const byComponentPair = new Map<string, PairedLead[]>();
+  const pairKey = (leftId: string, rightId: string): string => (
+    leftId < rightId ? `${leftId}|${rightId}` : `${rightId}|${leftId}`
+  );
+
+  for (const connection of system.connections) {
+    if (connection.wireKind === 'communication' || connection.busLink) continue;
+    const analysis = analyses.get(connection.id);
+    if (!analysis) continue;
+
+    if (isActivePowerConductor(analysis.busType) || analysis.busType === 'dc_neg' || analysis.busType === 'pv_neg' || analysis.busType === 'ac_neutral') {
+      const key = pairKey(connection.fromComponentId, connection.toComponentId);
+      byComponentPair.set(key, [
+        ...(byComponentPair.get(key) ?? []),
+        { connectionId: connection.id, busType: analysis.busType, currentA: analysis.designCurrentA },
+      ]);
+    }
+
+    for (const [componentId, terminalId] of [
+      [connection.fromComponentId, connection.fromTerminalId],
+      [connection.toComponentId, connection.toTerminalId],
+    ] as const) {
+      const node = nodes.get(terminalKey(componentId, terminalId));
+      if (!node || !isPairableLeafEndpoint(node) || !node.terminal.portId) continue;
+      const key = `${componentId}:${node.terminal.portId}`;
+      byLeafPort.set(key, [
+        ...(byLeafPort.get(key) ?? []),
+        { connectionId: connection.id, busType: node.busType, currentA: analysis.designCurrentA },
+      ]);
+    }
+  }
+
+  const paired = new Map<string, number>();
+  const raise = (connectionId: string, valueA: number) => {
+    if (valueA <= 0) return;
+    paired.set(connectionId, Math.max(paired.get(connectionId) ?? 0, valueA));
+  };
+  const applyGroup = (leads: PairedLead[]) => {
+    const active = leads.filter((lead) => isActivePowerConductor(lead.busType));
+    const returns = leads.filter((lead) => lead.busType === 'dc_neg' || lead.busType === 'pv_neg' || lead.busType === 'ac_neutral');
+    if (active.length === 0 || returns.length === 0) return;
+    const pairedCurrentA = Math.max(...leads.map((lead) => lead.currentA));
+    for (const lead of [...active, ...returns]) raise(lead.connectionId, pairedCurrentA);
+  };
+
+  for (const leads of byLeafPort.values()) applyGroup(leads);
+  for (const leads of byComponentPair.values()) applyGroup(leads);
+
+  return paired;
+}
+
+function buildReturnCurrentDesignCurrents(
+  edges: GraphEdge[],
+  nodes: Map<string, TerminalNode>,
+  analyses: Map<string, ConnectionCircuitAnalysis>
+): Map<string, number> {
+  const dcNegEdges = edges.filter((edge) => edge.busType === 'dc_neg');
+  const dcNegAdjacency = buildAdjacency(dcNegEdges);
+  const seedByKey = new Map<string, number>();
+  const batteryKeys = new Set<string>();
+
+  for (const node of nodes.values()) {
+    if (node.busType !== 'dc_neg') continue;
+    if (isBatteryProduct(node.product)) batteryKeys.add(node.key);
+  }
+
+  for (const edge of dcNegEdges) {
+    if (edge.kind !== 'connection' || !edge.connectionId) continue;
+    const currentA = analyses.get(edge.connectionId)?.designCurrentA ?? 0;
+    if (currentA <= 0) continue;
+    for (const key of [edge.fromKey, edge.toKey]) {
+      const node = nodes.get(key);
+      if (node && isPairableLeafEndpoint(node)) {
+        seedByKey.set(key, Math.max(seedByKey.get(key) ?? 0, currentA));
+      }
+    }
+  }
+
+  const sumSeeds = (keys: Set<string>): number => {
+    let total = 0;
+    for (const key of keys) total += seedByKey.get(key) ?? 0;
+    return total;
+  };
+  const hasBattery = (keys: Set<string>): boolean => {
+    for (const key of keys) {
+      if (batteryKeys.has(key)) return true;
+    }
+    return false;
+  };
+  const batteryCapacity = (keys: Set<string>): number => {
+    let total = 0;
+    for (const key of keys) {
+      const node = nodes.get(key);
+      if (node && isBatteryProduct(node.product)) total += node.behavior.sourceCapabilityA ?? 1;
+    }
+    return total;
+  };
+
+  const inferred = new Map<string, number>();
+  for (const edge of dcNegEdges) {
+    if (edge.kind !== 'connection' || !edge.connectionId) continue;
+    const fromSide = collectSide(edge.fromKey, edge.id, 'dc_neg', dcNegAdjacency, nodes);
+    const toSide = collectSide(edge.toKey, edge.id, 'dc_neg', dcNegAdjacency, nodes);
+    const fromHasBattery = hasBattery(fromSide);
+    const toHasBattery = hasBattery(toSide);
+    let currentA = 0;
+
+    if (fromHasBattery && !toHasBattery) currentA = sumSeeds(toSide);
+    else if (toHasBattery && !fromHasBattery) currentA = sumSeeds(fromSide);
+    else if (fromHasBattery && toHasBattery) {
+      const totalSeedA = sumSeeds(fromSide) + sumSeeds(toSide);
+      const fromBatteryA = batteryCapacity(fromSide);
+      const toBatteryA = batteryCapacity(toSide);
+      if (totalSeedA > 0 && fromBatteryA > 0 && toBatteryA > 0) {
+        currentA = totalSeedA * (Math.min(fromBatteryA, toBatteryA) / (fromBatteryA + toBatteryA));
+      }
+    } else {
+      currentA = Math.min(sumSeeds(fromSide), sumSeeds(toSide));
+    }
+
+    if (currentA > 0) inferred.set(edge.connectionId, currentA);
+  }
+
+  return inferred;
+}
+
 export function analyzeSystemCircuits(system: SystemDesign, products: Map<string, Product>): SystemCircuitAnalysis {
   const nodes = buildTerminalNodes(system, products);
   const edges = buildGraphEdges(system, nodes);
@@ -1750,13 +2023,7 @@ export function analyzeSystemCircuits(system: SystemDesign, products: Map<string
       .filter((edge) => edge.kind === 'connection' && edge.connectionId)
       .map((edge) => [edge.connectionId!, edge])
   );
-  const shortSourceLeadMaxFt = system.assumptions.batteryInterconnectMaxLengthFt ?? DEFAULT_ASSUMPTIONS.batteryInterconnectMaxLengthFt;
-  const inferredDesignCurrents = buildParallelBankReturnCurrentOverrides(
-    system,
-    nodes,
-    productsByComponent,
-    shortSourceLeadMaxFt
-  );
+  const inferredDesignCurrents = new Map<string, number>();
   const inferredVoltages = new Map<string, number>();
   const batteryTopology = analyzeBatteryTopology(system, products);
   for (const pack of batteryTopology.packs) {
@@ -1780,6 +2047,56 @@ export function analyzeSystemCircuits(system: SystemDesign, products: Map<string
         componentsById,
         inferredDesignCurrents.get(connection.id),
         inferredVoltages.get(connection.id)
+      )
+    );
+  }
+
+  const pairedDesignCurrents = buildPairedConductorDesignCurrents(system, nodes, connections);
+  for (const [connectionId, currentA] of pairedDesignCurrents) {
+    inferredDesignCurrents.set(connectionId, Math.max(inferredDesignCurrents.get(connectionId) ?? 0, currentA));
+  }
+
+  for (const [connectionId, currentA] of pairedDesignCurrents) {
+    const existing = connections.get(connectionId);
+    const connection = connectionById.get(connectionId);
+    if (!existing || !connection || existing.designCurrentA >= currentA) continue;
+    connections.set(
+      connectionId,
+      analyzeConnection(
+        connection,
+        edgesByConnectionId.get(connectionId),
+        nodes,
+        adjacency,
+        system,
+        productsByComponent,
+        componentsById,
+        inferredDesignCurrents.get(connectionId),
+        inferredVoltages.get(connectionId)
+      )
+    );
+  }
+
+  const returnDesignCurrents = buildReturnCurrentDesignCurrents(edges, nodes, connections);
+  for (const [connectionId, currentA] of returnDesignCurrents) {
+    inferredDesignCurrents.set(connectionId, Math.max(inferredDesignCurrents.get(connectionId) ?? 0, currentA));
+  }
+
+  for (const [connectionId, currentA] of returnDesignCurrents) {
+    const existing = connections.get(connectionId);
+    const connection = connectionById.get(connectionId);
+    if (!existing || !connection || existing.designCurrentA >= currentA) continue;
+    connections.set(
+      connectionId,
+      analyzeConnection(
+        connection,
+        edgesByConnectionId.get(connectionId),
+        nodes,
+        adjacency,
+        system,
+        productsByComponent,
+        componentsById,
+        inferredDesignCurrents.get(connectionId),
+        inferredVoltages.get(connectionId)
       )
     );
   }

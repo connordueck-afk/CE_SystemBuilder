@@ -33,6 +33,7 @@ export const SECTION_FOR_TYPE: Record<string, string> = {
   inverter_charger: 'Power Conversion',
   mppt:             'Charging Sources',
   solar_array:      'Charging Sources',
+  custom_solar_array: 'Charging Sources',
   solar_combiner:   'Charging Sources',
   pvCombinerBox:    'Charging Sources',
   dc_dc_charger:    'Charging Sources',

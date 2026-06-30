@@ -94,8 +94,16 @@ export const PRODUCT_TYPE_DEFINITIONS: ProductTypeDefinition[] = [
   // --- Solar ---
   {
     id: 'solar_array',
-    label: 'Solar Array',
-    description: 'Photovoltaic solar panel or array generating DC power.',
+    label: 'Solar Panel',
+    description: 'One physical photovoltaic module generating DC power.',
+    defaultCategory: 'Solar',
+    bomSection: 'Charging Sources',
+    requiresTerminals: true,
+  },
+  {
+    id: 'custom_solar_array',
+    label: 'Custom Solar Array',
+    description: 'Explicit aggregate PV source with user-entered array ratings.',
     defaultCategory: 'Solar',
     bomSection: 'Charging Sources',
     requiresTerminals: true,
@@ -257,6 +265,23 @@ export const PRODUCT_TYPE_DEFINITIONS: ProductTypeDefinition[] = [
     defaultCategory: 'Monitoring',
     bomSection: 'Monitoring & Control',
     requiresTerminals: false,
+  },
+  {
+    id: 'commAccessory',
+    label: 'Communication Accessory',
+    description: 'Communication accessory such as a passive cable, coupler, splitter, or terminator.',
+    defaultCategory: 'Communication',
+    bomSection: 'Monitoring & Control',
+    requiresTerminals: true,
+    isPassThrough: true,
+  },
+  {
+    id: 'commGateway',
+    label: 'Communication Gateway',
+    description: 'Active communication interface or protocol gateway.',
+    defaultCategory: 'Communication',
+    bomSection: 'Monitoring & Control',
+    requiresTerminals: true,
   },
 
   // --- System Reference Points ---

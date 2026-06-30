@@ -3,7 +3,7 @@ import type { SystemConnection, SystemComponent, Product } from '../../types/sys
 import { getEffectiveTerminal } from '../../utils/effectiveTerminals';
 import type { ProtectionRecommendation } from '../../utils/protectionRecommendations';
 import { busTypeFromTerminal } from '../../utils/electricalNetlist';
-import { deriveCommProtocol } from '../../utils/communicationNetworks';
+import { deriveConnectionProtocol } from '../../utils/communicationNetworks';
 import type { BusColorMap } from '../../utils/busColors';
 import {
   connectionPoints,
@@ -273,14 +273,7 @@ export function ConnectionLayer({
         const markerPoint = marker.point;
         const isCommWire = conn.wireKind === 'communication';
         const commProtocolLabel = isCommWire
-          ? deriveCommProtocol(
-              fromProd.communicationPorts?.find((p) => p.id === conn.fromTerminalId),
-              fromComp.configuredProtocols?.[conn.fromTerminalId] ??
-                fromProd.communicationPorts?.find((p) => p.id === conn.fromTerminalId)?.configuredProtocol,
-              toProd.communicationPorts?.find((p) => p.id === conn.toTerminalId),
-              toComp.configuredProtocols?.[conn.toTerminalId] ??
-                toProd.communicationPorts?.find((p) => p.id === conn.toTerminalId)?.configuredProtocol,
-            )
+          ? deriveConnectionProtocol(conn, products, components)
           : undefined;
         const strokeWidth = isCommWire ? 1.5 : connectionStrokeWidth(conn);
         const protectionRecommendation = recommendationByConnection.get(conn.id);

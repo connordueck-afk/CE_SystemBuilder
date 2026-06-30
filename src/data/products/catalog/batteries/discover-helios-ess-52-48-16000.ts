@@ -243,7 +243,8 @@ const product: Product = {
         "CANopen",
         "J1939",
         "VE.Can",
-        "AEbus"
+        "AEbus",
+        "Pylon LV"
       ],
       configuredProtocol: "CANopen",
       isConfigurable: true,

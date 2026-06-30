@@ -5,7 +5,7 @@ import type {
   Product,
   FuseSlotState,
   NominalVoltage,
-  SolarWiringMode,
+  CustomSolarArrayRatings,
   SystemDiagramAnnotation,
   SystemTextAnnotation,
   SystemShapeAnnotation,
@@ -47,8 +47,7 @@ interface Props {
   onUpdateBusPolarity: (id: string, busPolarity: SystemComponent['busPolarity']) => void;
   onUpdateFuseSlot: (id: string, slotId: string, patch: FuseSlotState) => void;
   onChangeComponentProduct: (id: string, productId: string) => void;
-  onUpdateSolarWiringMode: (id: string, mode: SolarWiringMode) => void;
-  onUpdateSolarConfiguration: (id: string, seriesCount: number, parallelCount: number) => void;
+  onUpdateCustomSolarArrayRatings: (id: string, ratings: CustomSolarArrayRatings) => void;
   onUpdateConnectionLength: (id: string, ft: number) => void;
   onToggleConnectionBusLink: (id: string, busLink: boolean) => void;
   onUpdateConnectionDesignCurrent: (id: string, currentA: number | undefined) => void;
@@ -95,8 +94,7 @@ export function RightInspector({
   onUpdateBusPolarity,
   onUpdateFuseSlot,
   onChangeComponentProduct,
-  onUpdateSolarWiringMode,
-  onUpdateSolarConfiguration,
+  onUpdateCustomSolarArrayRatings,
   onUpdateConnectionLength,
   onToggleConnectionBusLink,
   onUpdateConnectionDesignCurrent,
@@ -307,7 +305,7 @@ export function RightInspector({
             onUpdateComponentImageScale={onUpdateComponentImageScale}
             onUpdateBusPolarity={onUpdateBusPolarity}
             onUpdateFuseSlot={onUpdateFuseSlot}
-            onUpdateSolarConfiguration={onUpdateSolarConfiguration}
+            onUpdateCustomSolarArrayRatings={onUpdateCustomSolarArrayRatings}
             onUpdateConfiguredProtocol={onUpdateConfiguredProtocol}
             onUpdateSourceType={onUpdateSourceType}
             onRemove={onRemoveComponent}

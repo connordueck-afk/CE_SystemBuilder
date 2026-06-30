@@ -3,7 +3,7 @@ import type { Product } from '../../../../types/system';
 const product: Product = {
   id: "solar-array-2000w",
   manufacturer: "Generic",
-  name: "Solar Array 2000W",
+  name: "Solar Panel 2000W",
   productType: "solar_array",
   category: "Solar",
   continuousPowerW: 2000,
@@ -11,7 +11,7 @@ const product: Product = {
   maxPvCurrentA: 10,
   msrpUsd: 1600,
   oemPriceUsd: 1120,
-  description: "2000W solar array placeholder (5x 400W panels)",
+  description: "2000W physical solar panel placeholder.",
   source: "Estimate",
   dataQuality: "placeholder",
   width: 120,
@@ -48,7 +48,7 @@ const product: Product = {
         kind: "mc4",
         gender: "male"
       },
-      notes: "PV array positive output."
+      notes: "PV panel positive output."
     },
     {
       id: "pv_neg",
@@ -61,7 +61,7 @@ const product: Product = {
         kind: "mc4",
         gender: "female"
       },
-      notes: "PV array negative output."
+      notes: "PV panel negative output."
     }
   ],
   solarPanelRatings: {

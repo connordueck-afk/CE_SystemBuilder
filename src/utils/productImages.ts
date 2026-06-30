@@ -4,6 +4,7 @@ const GENERIC_IMAGE_MAP: Partial<Record<ProductType, string>> = {
   mppt:             '/product-images/generic-mppt.svg',
   battery:          '/product-images/generic-battery.svg',
   solar_array:      '/product-images/generic-solar.svg',
+  custom_solar_array: '/product-images/generic-solar.svg',
   solar_combiner:   '/product-images/generic-solar-combiner.svg',
   inverter_charger: '/product-images/generic-inverter-charger.svg',
   dc_dc_charger:    '/product-images/generic-dc-dc-charger.svg',

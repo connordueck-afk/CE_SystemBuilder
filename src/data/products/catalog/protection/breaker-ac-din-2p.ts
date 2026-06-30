@@ -34,7 +34,7 @@ const product: Product = {
       portId: "main",
       label: "L2 In",
       groupType: "power_conductor",
-      polarity: "line",
+      polarity: "line2",
       internallyCommon: false
     },
     {
@@ -42,7 +42,7 @@ const product: Product = {
       portId: "main",
       label: "L2 Out",
       groupType: "power_conductor",
-      polarity: "line",
+      polarity: "line2",
       internallyCommon: false
     }
   ],
@@ -180,7 +180,7 @@ const product: Product = {
       role: "pass_through",
       direction: "bidirectional",
       label: "Main",
-      voltageClass: "ac_120v",
+      voltageClass: "ac_240v",
       maxCurrentA: 0,
       voltageMaxV: 480
     }

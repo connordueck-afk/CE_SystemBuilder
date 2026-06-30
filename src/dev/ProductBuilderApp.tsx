@@ -38,6 +38,7 @@ const TYPE_TO_SUBDIR: Partial<Record<ProductType, string>> = {
   dc_dc_charger: 'dc-dc-chargers',
   shore_charger: 'ac-chargers',
   solar_array: 'solar',
+  custom_solar_array: 'solar',
   solar_combiner: 'solar',
   pvCombinerBox: 'solar',
   dc_distribution: 'distribution',

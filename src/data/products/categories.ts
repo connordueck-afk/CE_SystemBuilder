@@ -44,6 +44,12 @@ export const CATEGORIES: CategoryDefinition[] = [
     sortOrder: 4,
   },
   {
+    id: 'Hybrid Inverters',
+    label: 'Hybrid Inverters',
+    description: 'Hybrid inverter/chargers with integrated PV inputs and battery charging.',
+    sortOrder: 4.5,
+  },
+  {
     id: 'Distribution',
     label: 'Distribution',
     description: 'DC and AC distribution panels, busbars, and combiners.',

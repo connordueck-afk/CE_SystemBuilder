@@ -88,8 +88,8 @@ const SELECTOR_CATEGORIES: SelectorCategory[] = [
       {
         id: 'solar-panels',
         label: 'Panels',
-        description: 'Solar panels and generic PV arrays.',
-        productTypes: ['solar_array'],
+        description: 'Physical solar panels and explicit custom PV arrays.',
+        productTypes: ['solar_array', 'custom_solar_array'],
       },
       {
         id: 'solar-mppts',
@@ -172,7 +172,10 @@ const SELECTOR_CATEGORIES: SelectorCategory[] = [
         label: 'Inverters',
         description: 'Inverter models for DC to AC power.',
         productTypes: ['inverter_charger'],
-        match: (product) => product.capabilities?.includes('inverter') || /phoenix inverter/i.test(product.name),
+        match: (product) =>
+          product.category !== 'Hybrid Inverters' &&
+          !product.capabilities?.includes('hybrid-inverter') &&
+          (product.capabilities?.includes('inverter') || /phoenix inverter/i.test(product.name)),
       },
       {
         id: 'ac-chargers',
@@ -181,13 +184,25 @@ const SELECTOR_CATEGORIES: SelectorCategory[] = [
         productTypes: ['shore_charger'],
       },
       {
+        id: 'ac-hybrid-inverters',
+        label: 'Hybrid Inverters',
+        description: 'Hybrid inverter/chargers with integrated PV input and battery charging.',
+        productTypes: ['inverter_charger'],
+        match: (product) =>
+          product.category === 'Hybrid Inverters' ||
+          product.capabilities?.includes('hybrid-inverter') ||
+          /hybrid inverter|hybrid solar inverter|megarevo/i.test(`${product.name} ${product.description ?? ''}`),
+      },
+      {
         id: 'ac-inverter-chargers',
         label: 'Inverter/Chargers',
         description: 'Combined inverter and charger units.',
         productTypes: ['inverter_charger'],
         match: (product) =>
-          product.capabilities?.includes('inverter-charger') ||
-          (!product.capabilities?.includes('inverter') && !/phoenix inverter/i.test(product.name)),
+          product.category !== 'Hybrid Inverters' &&
+          !product.capabilities?.includes('hybrid-inverter') &&
+          (product.capabilities?.includes('inverter-charger') ||
+          (!product.capabilities?.includes('inverter') && !/phoenix inverter/i.test(product.name))),
       },
       {
         id: 'ac-source',

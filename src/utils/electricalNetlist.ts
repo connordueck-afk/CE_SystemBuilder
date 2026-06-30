@@ -53,7 +53,6 @@ export interface ElectricalNet {
   sourceCurrentA: number;
   loadCurrentA: number;
   operatingCurrentA: number;
-  availableCurrentA?: number;
   protectedBy?: ProtectionBoundary[];
   requiresFuse: boolean;
 }
@@ -64,7 +63,6 @@ export interface ConnectionElectricalContext {
   toNetId?: string;
   busType: BusType;
   operatingCurrentA: number;
-  availableCurrentA?: number;
   recommendedFuseRequired: boolean;
 }
 
@@ -176,6 +174,9 @@ function estimateProductCurrentA(product: Product, component: SystemComponent, s
   const voltage = component.instanceVoltageV ?? system.nominalVoltage;
   if (product.productType === 'solar_array') {
     return product.maxPvCurrentA ?? product.solarPanelRatings?.iscA ?? product.solarPanelRatings?.impA ?? 0;
+  }
+  if (product.productType === 'custom_solar_array') {
+    return component.customSolarArrayRatings?.iscA ?? component.customSolarArrayRatings?.impA ?? 0;
   }
   if (product.productType === 'mppt') {
     return product.mpptRatings?.maxOutputCurrentA ?? product.maxCurrentA ?? 0;
@@ -442,11 +443,6 @@ export function buildElectricalNetlist(system: SystemDesign, products: Map<strin
 
     for (const boundary of boundaries) {
       net.protectedBy = [...(net.protectedBy ?? []), boundary];
-      net.availableCurrentA = net.availableCurrentA == null
-        ? boundary.ratingA
-        : boundary.ratingA == null
-          ? net.availableCurrentA
-          : Math.min(net.availableCurrentA, boundary.ratingA);
     }
   }
 
@@ -478,23 +474,11 @@ export function buildElectricalNetlist(system: SystemDesign, products: Map<strin
       ...(terminalProtectionBoundaries.get(fromKey) ?? []),
       ...(terminalProtectionBoundaries.get(toKey) ?? []),
     ];
-    const availableCurrentA = [
-      boundary?.ratingA,
-      ...slotBoundaries.map((slotBoundary) => slotBoundary.ratingA),
-      fromNet?.availableCurrentA,
-      toNet?.availableCurrentA,
-    ].filter((value): value is number => value != null && Number.isFinite(value)).sort((a, b) => a - b)[0];
-
     if (boundary) {
       for (const netId of [fromNetId, toNetId]) {
         const net = netId ? netsById.get(netId) : undefined;
         if (!net) continue;
         net.protectedBy = [...(net.protectedBy ?? []), boundary];
-        net.availableCurrentA = net.availableCurrentA == null
-          ? boundary.ratingA
-          : boundary.ratingA == null
-            ? net.availableCurrentA
-            : Math.min(net.availableCurrentA, boundary.ratingA);
       }
     }
 
@@ -503,11 +487,6 @@ export function buildElectricalNetlist(system: SystemDesign, products: Map<strin
         const net = netId ? netsById.get(netId) : undefined;
         if (!net) continue;
         net.protectedBy = [...(net.protectedBy ?? []), slotBoundary];
-        net.availableCurrentA = net.availableCurrentA == null
-          ? slotBoundary.ratingA
-          : slotBoundary.ratingA == null
-            ? net.availableCurrentA
-            : Math.min(net.availableCurrentA, slotBoundary.ratingA);
       }
     }
 
@@ -517,7 +496,6 @@ export function buildElectricalNetlist(system: SystemDesign, products: Map<strin
       toNetId,
       busType,
       operatingCurrentA,
-      availableCurrentA,
       recommendedFuseRequired: busTypeRequiresFuse(busType),
     });
   }

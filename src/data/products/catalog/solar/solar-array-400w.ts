@@ -3,7 +3,7 @@ import type { Product } from '../../../../types/system';
 const product: Product = {
   id: "solar-array-400w",
   manufacturer: "Generic",
-  name: "Solar Array 400W",
+  name: "Solar Panel 400W",
   productType: "solar_array",
   category: "Solar",
   continuousPowerW: 400,
@@ -11,7 +11,7 @@ const product: Product = {
   maxPvCurrentA: 10,
   msrpUsd: 320,
   oemPriceUsd: 224,
-  description: "400W solar array placeholder (1x 400W panel)",
+  description: "400W physical solar panel placeholder.",
   source: "Estimate",
   dataQuality: "placeholder",
   width: 120,
@@ -48,7 +48,7 @@ const product: Product = {
         kind: "mc4",
         gender: "male"
       },
-      notes: "PV array positive output."
+      notes: "PV panel positive output."
     },
     {
       id: "pv_neg",
@@ -61,7 +61,7 @@ const product: Product = {
         kind: "mc4",
         gender: "female"
       },
-      notes: "PV array negative output."
+      notes: "PV panel negative output."
     }
   ],
   solarPanelRatings: {

@@ -76,7 +76,6 @@ export function ElectricalSummaryPanel({ summary }: Props) {
               <Row label="Bus" value={busLabel(node.busType)} />
               <Row label="Terminals" value={`${node.terminalCount}`} />
               <Row label="Current" value={`${fmtNumber(node.operatingCurrentA)} A`} />
-              {node.availableCurrentA != null && <Row label="Available" value={`${fmtNumber(node.availableCurrentA)} A`} />}
               {node.protectedBy && <Row label="Protected By" value={node.protectedBy} />}
               <Row label="Power" value={`${fmtNumber(node.totalPowerW)} W`} />
             </div>

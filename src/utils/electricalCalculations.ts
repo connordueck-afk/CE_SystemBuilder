@@ -44,6 +44,7 @@ const SOURCE_COMPATIBILITY_TYPES = new Set<string>([
   'shore_charger',
   'inverter_charger',
   'solar_array',
+  'custom_solar_array',
   'shorePowerInlet',
 ]);
 
@@ -588,16 +589,29 @@ export function generateWarnings(
     }
 
     const returnAmpacityA = maxReturnAmpacityA(returnConnections);
-    if (returnAmpacityA != null && returnAmpacityA < requiredA) {
+    const returnDesignCurrentA = Math.max(...returnConnections.map(connectionDesignCurrentA));
+    const requiredReturnA = returnDesignCurrentA > 0 ? returnDesignCurrentA : requiredA;
+    if (returnAmpacityA != null && returnAmpacityA < requiredReturnA) {
       warn(
         'error',
-        `DC negative return for ${label} is rated ${returnAmpacityA}A but the positive branch can carry ${requiredA.toFixed(0)}A`,
+        `DC negative return for ${label} is rated ${returnAmpacityA}A but the return branch carries ${requiredReturnA.toFixed(0)}A`,
         'DC_NEG_RETURN_UNDERSIZED',
         componentId,
         positiveConnection.id
       );
     }
   };
+
+  // Battery-to-battery helpers: detect and find matching negative interconnects
+  // between the same two batteries, regardless of terminal number or direction.
+  const isBatteryToBatteryPositiveInterconnect = (connection: SystemConnection): boolean => {
+    const fromProduct = productByComponent.get(connection.fromComponentId);
+    const toProduct = productByComponent.get(connection.toComponentId);
+    return fromProduct?.productType === 'battery' && toProduct?.productType === 'battery';
+  };
+
+  const matchingNegativeBatteryInterconnects = (batteryIdA: string, batteryIdB: string): SystemConnection[] =>
+    negativeConnections.filter((conn) => connectionBetweenComponents(conn, batteryIdA, batteryIdB));
 
   for (const connection of system.connections) {
     if (connectionBusType(connection) !== 'dc_pos') continue;
@@ -611,6 +625,20 @@ export function generateWarnings(
     const toProduct = productByComponent.get(connection.toComponentId);
     if (!fromComp || !toComp || !fromProduct || !toProduct) continue;
 
+    // --- Question A: Battery-to-battery positive interconnect ---
+    // Look for a matching negative interconnect between the same two batteries.
+    // Terminal numbers and connection direction do not matter.
+    if (isBatteryToBatteryPositiveInterconnect(connection)) {
+      const matchingNegatives = matchingNegativeBatteryInterconnects(connection.fromComponentId, connection.toComponentId);
+      checkReturnPath(
+        connection,
+        designCurrentA,
+        matchingNegatives,
+        `battery interconnect between ${productLabel(fromComp, fromProduct)} and ${productLabel(toComp, toProduct)}`
+      );
+      continue;
+    }
+
     const endpoints = [
       { component: fromComp, product: fromProduct },
       { component: toComp, product: toProduct },
@@ -623,10 +651,21 @@ export function generateWarnings(
     const requiredA = designCurrentA;
     if (endpoints.length >= 2) {
       const [left, right] = endpoints;
+      // --- Question B: Pack-external positive feeder ---
+      // For pack-external DC+ feeders, look for a pack-external DC- return from
+      // any battery in the same pack. Diagonal takeoff is valid (the positive
+      // and negative external takeoffs do not need to be on the same physical
+      // battery). Do not filter by the right component — DC+ and DC- may use
+      // different busbar components in parallel busbar systems.
+      const returnConnections = left.product.productType === 'battery'
+        ? returnConnectionsForBatteryPack(left.component.id)
+        : right.product.productType === 'battery'
+          ? returnConnectionsForBatteryPack(right.component.id)
+          : returnConnectionsBetween(left.component.id, right.component.id);
       checkReturnPath(
         connection,
         requiredA,
-        returnConnectionsBetween(left.component.id, right.component.id),
+        returnConnections,
         `${productLabel(left.component, left.product)} and ${productLabel(right.component, right.product)}`
       );
       continue;
@@ -756,6 +795,43 @@ export function generateWarnings(
       warn('info', `"${product.name}" has no price data`, 'MISSING_PRICE', comp.id);
     }
 
+    if (product.productType === 'custom_solar_array') {
+      const ratings = comp.customSolarArrayRatings;
+      const computedPowerW =
+        ratings?.powerW ??
+        (ratings?.vmpV != null && ratings.impA != null ? ratings.vmpV * ratings.impA : undefined);
+      const missingRequired =
+        ratings?.vocV == null ||
+        ratings.iscA == null ||
+        computedPowerW == null ||
+        !(ratings.vocV > 0) ||
+        !(ratings.iscA > 0) ||
+        !(computedPowerW > 0);
+
+      if (missingRequired) {
+        warn(
+          'warning',
+          `"${comp.label ?? product.name}" needs aggregate PV ratings: Voc, Isc, and power or Vmp x Imp.`,
+          'CUSTOM_SOLAR_ARRAY_INCOMPLETE',
+          comp.id
+        );
+      }
+
+      const invalid =
+        (ratings?.vmpV != null && ratings.vocV != null && ratings.vmpV > ratings.vocV) ||
+        (ratings?.impA != null && ratings.iscA != null && ratings.impA > ratings.iscA) ||
+        (ratings?.coldVocV != null && ratings.vocV != null && ratings.coldVocV < ratings.vocV);
+
+      if (invalid) {
+        warn(
+          'error',
+          `"${comp.label ?? product.name}" has invalid aggregate PV ratings. Check Vmp <= Voc, Imp <= Isc, and cold Voc >= Voc.`,
+          'CUSTOM_SOLAR_ARRAY_INVALID_RATINGS',
+          comp.id
+        );
+      }
+    }
+
     const hasAnyConnection = system.connections.some(
       (c) => c.fromComponentId === comp.id || c.toComponentId === comp.id
     );
@@ -797,17 +873,18 @@ export function generateWarnings(
     }
 
     const mppt = product.mpptRatings;
-    if (solarStats.vocV > mppt.maxPvVoltageV) {
+    const arrayVoltageV = solarStats.coldVocV ?? solarStats.vocV;
+    if (arrayVoltageV > mppt.maxPvVoltageV) {
       warn(
         'error',
-        `"${comp.label ?? product.name}" PV input over-voltage: array Voc ${solarStats.vocV.toFixed(1)}V exceeds ${mppt.maxPvVoltageV}V limit`,
+        `"${comp.label ?? product.name}" PV input over-voltage: array Voc ${arrayVoltageV.toFixed(1)}V exceeds ${mppt.maxPvVoltageV}V limit`,
         'MPPT_PV_VOLTAGE_EXCEEDED',
         comp.id
       );
-    } else if (solarStats.vocV > mppt.maxPvVoltageV * 0.9) {
+    } else if (arrayVoltageV > mppt.maxPvVoltageV * 0.9) {
       warn(
         'warning',
-        `"${comp.label ?? product.name}" PV input is close to voltage limit: array Voc ${solarStats.vocV.toFixed(1)}V of ${mppt.maxPvVoltageV}V`,
+        `"${comp.label ?? product.name}" PV input is close to voltage limit: array Voc ${arrayVoltageV.toFixed(1)}V of ${mppt.maxPvVoltageV}V`,
         'MPPT_PV_VOLTAGE_MARGIN',
         comp.id
       );

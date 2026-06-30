@@ -2,6 +2,7 @@ import type {
   CommunicationConnectorType,
   ConnectorKind,
   ProductCommunicationPort,
+  ProductPort,
   SystemConnection,
   TerminalDefinition,
 } from '../types/system';
@@ -16,10 +17,10 @@ const SINGLE_CONN_COMM: CommunicationConnectorType[] = ['RJ45', 'M12', 'Deutsch'
  */
 export function effectiveMaxConnections(
   terminal: TerminalDefinition,
-  commPort?: ProductCommunicationPort
+  commPort?: ProductCommunicationPort | ProductPort
 ): number | undefined {
   if (terminal.maxConnections != null) return terminal.maxConnections;
-  if (commPort && SINGLE_CONN_COMM.includes(commPort.connectorType)) return 1;
+  if (commPort?.connectorType && SINGLE_CONN_COMM.includes(commPort.connectorType)) return 1;
   if (terminal.connector && SINGLE_CONN_ELECTRICAL.includes(terminal.connector.kind)) return 1;
   return undefined;
 }

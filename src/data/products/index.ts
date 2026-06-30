@@ -96,7 +96,7 @@ function defaultConnector(product: Product, port: ProductPort | undefined, group
     return port.connectorType ? { kind: 'comm', holeSize: port.connectorType } : { kind: 'comm' };
   }
   if (group?.groupType !== 'power_conductor' && group?.groupType !== 'ground_reference') return undefined;
-  if (port?.kind === 'pv' && product.productType === 'solar_array') {
+  if (port?.kind === 'pv' && (product.productType === 'solar_array' || product.productType === 'custom_solar_array')) {
     return { kind: 'mc4', gender: group.polarity === 'negative' ? 'female' : 'male' };
   }
   if (['battery', 'busbar', 'dc_distribution', 'monitor'].includes(product.productType)) {

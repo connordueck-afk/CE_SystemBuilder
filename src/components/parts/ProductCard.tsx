@@ -12,6 +12,7 @@ const TYPE_BADGE_COLORS: Record<string, string> = {
   inverter_charger: '#7c61c7',
   mppt:             '#c98518',
   solar_array:      '#c98518',
+  custom_solar_array: '#c98518',
   solar_combiner:   '#c98518',
   dc_distribution:  '#3975c5',
   fuse:             '#b93232',

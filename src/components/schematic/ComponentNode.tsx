@@ -78,6 +78,7 @@ function Symbol({
     case 'mppt':
       return <MpptSymbol product={scaledProduct} selected={selected} />;
     case 'solar_array':
+    case 'custom_solar_array':
       return <SolarArraySymbol product={scaledProduct} component={component} selected={selected} />;
     case 'inverter_charger':
       return <InverterChargerSymbol product={scaledProduct} selected={selected} />;

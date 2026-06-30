@@ -17,5 +17,5 @@
     "noFallthroughCasesInSwitch": true
   },
   "include": ["src"],
-  "exclude": ["src/data/products/legacy", "src/data/products/legacy-rebuild"]
+  "exclude": ["src/data/products/legacy"]
 }

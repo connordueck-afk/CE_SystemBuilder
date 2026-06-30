@@ -17,6 +17,7 @@ import { PRODUCT_MAP, ALL_PRODUCTS } from '../src/data/products';
 import { validateCatalog } from '../src/data/products/helpers/validation';
 import { analyzeSystemDesign, resolveTerminalGroups } from '../src/utils/analysis';
 import { buildBuilderIssues, buildProductIssues } from '../src/utils/builderIssues';
+import { buildBom } from '../src/utils/bomCalculations';
 import { getEffectiveTerminal } from '../src/utils/effectiveTerminals';
 import { selectBestFuseProduct, getFuseRating } from '../src/utils/fuseSelection';
 import { continuousFactorForBus, DEFAULT_ASSUMPTIONS } from '../src/data/electricalRules';
@@ -24,6 +25,7 @@ import { voltageDropV, cableByAwg } from '../src/data/cableAmpacity';
 import { nextStandardFuse } from '../src/data/fuseRatings';
 import { DEFAULT_SYSTEM } from '../src/data/defaultSystem';
 import { SYSTEM_PRESETS } from '../src/data/presetSystems';
+import { sanitizeSystemDesign } from '../src/utils/systemSanitization';
 import type { Product, SystemDesign } from '../src/types/system';
 
 // ---- tiny test runner -------------------------------------------------------
@@ -423,17 +425,15 @@ function threeHeliosDaisyChainWithLoad(loadA: number): SystemDesign {
   };
 }
 
-test('Scenario 2b: direct battery interconnect positive and negative conductors size as a paired run', () => {
+test('Scenario 2b: direct battery interconnect positive and negative conductors stay paired by topology', () => {
   const analysis = analyzeSystemDesign(threeHeliosDaisyChainWithLoad(150), PRODUCT_MAP);
   const firstPositive = analysis.connections['bat2-bat1-pos'];
   const firstNegative = analysis.connections['bat1-bat2-neg'];
   const secondPositive = analysis.connections['bat3-bat2-pos'];
   const secondNegative = analysis.connections['bat2-bat3-neg'];
 
-  assert.equal(firstPositive?.recommendedCableAwg, '1/0');
-  assert.equal(secondPositive?.recommendedCableAwg, '1/0');
-  assert.equal(firstNegative?.recommendedCableAwg, '1/0');
-  assert.equal(secondNegative?.recommendedCableAwg, '1/0');
+  assert.equal(firstNegative?.recommendedCableAwg, firstPositive?.recommendedCableAwg);
+  assert.equal(secondNegative?.recommendedCableAwg, secondPositive?.recommendedCableAwg);
   assert.equal(firstNegative?.cableSizingCurrentA, firstPositive?.cableSizingCurrentA);
   assert.equal(secondNegative?.cableSizingCurrentA, secondPositive?.cableSizingCurrentA);
 });
@@ -633,6 +633,315 @@ test('Scenario 8: communication is modelled at the protocol level', () => {
   assert.ok(analysis.communicationNetworks.length >= 1, 'expected a communication network');
 });
 
+function commProduct(id: string): Product {
+  return {
+    id,
+    manufacturer: 'Test',
+    name: id,
+    productType: 'commAccessory',
+    width: 80,
+    height: 60,
+    ports: [
+      {
+        id: 'can_out',
+        kind: 'comm',
+        topology: 'bus',
+        role: 'bidirectional',
+        label: 'CAN Out',
+        connectorType: 'RJ45',
+        supportedProtocols: ['Pylon LV', 'J1939'],
+        isConfigurable: true,
+      },
+    ],
+    terminalGroups: [
+      {
+        id: 'can_iface',
+        portId: 'can_out',
+        groupType: 'communication_interface',
+        internallyCommon: true,
+      },
+    ],
+    terminals: [
+      { id: 'can_out_jack_1', label: 'CAN 1', side: 'right', offsetX: 40, offsetY: -8, terminalGroupId: 'can_iface' },
+      { id: 'can_out_jack_2', label: 'CAN 2', side: 'right', offsetX: 40, offsetY: 8, terminalGroupId: 'can_iface' },
+    ],
+    communicationPorts: [
+      {
+        id: 'legacy_other_id',
+        name: 'Legacy should not win',
+        connectorType: 'RJ45',
+        supportedProtocols: ['J1939'],
+      },
+    ],
+  };
+}
+
+test('Regression: communication protocol resolves from ProductPort via terminal.portId', () => {
+  const productMap = new Map(PRODUCT_MAP);
+  productMap.set('comm-a', commProduct('comm-a'));
+  productMap.set('comm-b', commProduct('comm-b'));
+  const system: SystemDesign = {
+    ...base,
+    id: 'comm-port-resolution',
+    name: 'comm port resolution',
+    nominalVoltage: 48,
+    components: [
+      { id: 'a', productId: 'comm-a', label: 'A', quantity: 1, x: -80, y: 0, configuredProtocols: { can_out: 'Pylon LV' } },
+      { id: 'b', productId: 'comm-b', label: 'B', quantity: 1, x: 80, y: 0, configuredProtocols: { can_out: 'Pylon LV' } },
+    ],
+    connections: [
+      { id: 'wire', fromComponentId: 'a', fromTerminalId: 'can_out_jack_1', toComponentId: 'b', toTerminalId: 'can_out_jack_2', cableLengthFt: 3, wireKind: 'communication' },
+    ],
+  };
+  const analysis = analyzeSystemDesign(system, productMap);
+  assert.equal(analysis.communicationNetworks.length, 1);
+  assert.deepEqual(analysis.communicationNetworks[0].protocols, ['Pylon LV']);
+  assert.ok(analysis.communicationNetworks[0].portRefs.every((ref) => ref.portId === 'can_out'));
+});
+
+test('Regression: communication protocol conflict is checked at ProductPort level', () => {
+  const productMap = new Map(PRODUCT_MAP);
+  productMap.set('comm-a', commProduct('comm-a'));
+  productMap.set('comm-b', commProduct('comm-b'));
+  const system: SystemDesign = {
+    ...base,
+    id: 'comm-port-conflict',
+    name: 'comm port conflict',
+    nominalVoltage: 48,
+    components: [
+      { id: 'a', productId: 'comm-a', label: 'A', quantity: 1, x: -80, y: 0, configuredProtocols: { can_out: 'Pylon LV' } },
+      { id: 'b', productId: 'comm-b', label: 'B', quantity: 1, x: 80, y: 0, configuredProtocols: { can_out: 'J1939' } },
+    ],
+    connections: [
+      { id: 'wire', fromComponentId: 'a', fromTerminalId: 'can_out_jack_1', toComponentId: 'b', toTerminalId: 'can_out_jack_1', cableLengthFt: 3, wireKind: 'communication' },
+    ],
+  };
+  const analysis = analyzeSystemDesign(system, productMap);
+  assert.ok(analysis.communicationNetworks[0].errors.some((error) => error.code === 'COMM_PROTOCOL_CONFLICT'));
+});
+
+function cableLimitSystem(
+  loadTerminalPatch: Partial<Product['terminals'][number]>,
+  connectionPatch: Partial<SystemDesign['connections'][number]> = {}
+): { system: SystemDesign; productMap: Map<string, Product> } {
+  const load = PRODUCT_MAP.get('acc-dc-load-generic')!;
+  const productMap = new Map(PRODUCT_MAP);
+  productMap.set('test-dc-load-cable-limits', {
+    ...load,
+    id: 'test-dc-load-cable-limits',
+    terminals: load.terminals.map((terminal) =>
+      terminal.id === 'dc_pos' ? { ...terminal, ...loadTerminalPatch } : terminal
+    ),
+  });
+  return {
+    productMap,
+    system: {
+      ...base,
+      id: 'cable-limits',
+      name: 'cable limits',
+      nominalVoltage: 48,
+      components: [
+        { id: 'bat', productId: 'discover-helios-ess-52-48-16000', label: 'Helios', quantity: 1, x: -160, y: 0 },
+        { id: 'load', productId: 'test-dc-load-cable-limits', label: 'Load', quantity: 1, x: 160, y: 0, instanceVoltageV: 48, instanceMaxCurrentA: 20 },
+      ],
+      connections: [
+        { id: 'pos', fromComponentId: 'bat', fromTerminalId: 'dc_pos_1', toComponentId: 'load', toTerminalId: 'dc_pos', cableLengthFt: 2, ...connectionPatch },
+        { id: 'neg', fromComponentId: 'bat', fromTerminalId: 'dc_neg_1', toComponentId: 'load', toTerminalId: 'dc_neg', cableLengthFt: 2 },
+      ],
+    },
+  };
+}
+
+test('Regression: terminal minCableAwg raises auto cable recommendation', () => {
+  const { system, productMap } = cableLimitSystem({ minCableAwg: '4' });
+  const analysis = analyzeSystemDesign(system, productMap);
+  assert.equal(analysis.connections['pos'].recommendedCableAwg, '4');
+});
+
+test('Regression: terminal recommendedCableAwg is preferred when legal', () => {
+  const { system, productMap } = cableLimitSystem({ recommendedCableAwg: '2' });
+  const analysis = analyzeSystemDesign(system, productMap);
+  assert.equal(analysis.connections['pos'].recommendedCableAwg, '2');
+});
+
+test('Regression: terminal maxCableAwg is enforced for manual cable sizing', () => {
+  const { system, productMap } = cableLimitSystem(
+    { maxCableAwg: '6' },
+    { designCurrentOverrideA: 150, manualCableAwg: '2' }
+  );
+  const analysis = analyzeSystemDesign(system, productMap);
+  assert.ok(analysis.connections['pos'].errors.some((error) => error.code === 'CABLE_EXCEEDS_TERMINAL_MAX'));
+});
+
+// ============================================================
+// Solar source model: physical panels vs explicit custom arrays
+// ============================================================
+
+function customArrayToMppt(ratings: SystemDesign['components'][number]['customSolarArrayRatings']): SystemDesign {
+  return {
+    ...base,
+    id: 'custom-array-mppt',
+    name: 'custom array to mppt',
+    nominalVoltage: 48,
+    components: [
+      {
+        id: 'array',
+        productId: 'custom-solar-array',
+        label: 'Custom PV Array',
+        quantity: 1,
+        x: -160,
+        y: 0,
+        includeInBom: false,
+        customSolarArrayRatings: ratings,
+      },
+      { id: 'mppt', productId: 'mppt-150-35', label: 'MPPT', quantity: 1, x: 160, y: 0 },
+    ],
+    connections: [
+      { id: 'pv-pos', fromComponentId: 'array', fromTerminalId: 'pv_pos', toComponentId: 'mppt', toTerminalId: 'pv_pos', cableLengthFt: 12 },
+      { id: 'pv-neg', fromComponentId: 'array', fromTerminalId: 'pv_neg', toComponentId: 'mppt', toTerminalId: 'pv_neg', cableLengthFt: 12 },
+    ],
+  };
+}
+
+test('Solar sanitization: physical panel quantity and hidden multipliers are stripped', () => {
+  const system = sanitizeSystemDesign({
+    ...base,
+    id: 'sanitize-panel',
+    name: 'sanitize panel',
+    nominalVoltage: 48,
+    components: [
+      {
+        id: 'panel',
+        productId: 'solar-array-400w',
+        label: 'Solar Panel',
+        quantity: 7,
+        x: 0,
+        y: 0,
+        solarSeriesCount: 7,
+        solarParallelCount: 1,
+        solarWiringMode: 'series',
+        customSolarArrayRatings: { vocV: 280, iscA: 12, powerW: 2800 },
+      },
+    ],
+    connections: [],
+  }, PRODUCT_MAP);
+  const panel = system.components[0];
+  assert.equal(panel.quantity, 1);
+  assert.equal(panel.solarSeriesCount, undefined);
+  assert.equal(panel.solarParallelCount, undefined);
+  assert.equal(panel.solarWiringMode, undefined);
+  assert.equal(panel.customSolarArrayRatings, undefined);
+});
+
+test('Solar model: one physical 400W panel remains 400W, not a hidden 2800W string', () => {
+  const system = customArrayToMppt({ vocV: 40, vmpV: 34, iscA: 12, impA: 10, powerW: 400 });
+  system.components[0] = {
+    ...system.components[0],
+    productId: 'solar-array-400w',
+    label: 'Solar Panel 400W',
+    quantity: 7,
+    solarSeriesCount: 7,
+    customSolarArrayRatings: { vocV: 280, iscA: 12, powerW: 2800 },
+  };
+  const sanitized = sanitizeSystemDesign(system, PRODUCT_MAP);
+  const analysis = analyzeSystemDesign(sanitized, PRODUCT_MAP);
+  const solarSummary = analysis.legacy.electricalSummary.solar[0];
+  assert.equal(solarSummary.powerW, 400);
+  assert.equal(sanitized.components[0].quantity, 1);
+});
+
+test('Default and preset systems contain no hidden physical-panel multipliers', () => {
+  const systems = [DEFAULT_SYSTEM, ...SYSTEM_PRESETS.map((preset) => preset.system)];
+  for (const system of systems) {
+    for (const component of system.components) {
+      const product = PRODUCT_MAP.get(component.productId);
+      if (product?.productType !== 'solar_array') continue;
+      assert.equal(component.quantity, 1, `${system.id} ${component.id} physical panel quantity`);
+      assert.equal(component.solarSeriesCount, undefined, `${system.id} ${component.id} series`);
+      assert.equal(component.solarParallelCount, undefined, `${system.id} ${component.id} parallel`);
+      assert.equal(component.solarWiringMode, undefined, `${system.id} ${component.id} wiring`);
+      assert.equal(component.customSolarArrayRatings, undefined, `${system.id} ${component.id} custom ratings`);
+    }
+  }
+});
+
+test('Custom Solar Array preserves ratings while forcing quantity to one', () => {
+  const system = sanitizeSystemDesign({
+    ...base,
+    id: 'sanitize-custom-array',
+    name: 'sanitize custom array',
+    nominalVoltage: 48,
+    components: [
+      {
+        id: 'array',
+        productId: 'custom-solar-array',
+        quantity: 5,
+        x: 0,
+        y: 0,
+        solarSeriesCount: 7,
+        customSolarArrayRatings: { vocV: 120, vmpV: 100, iscA: 20, impA: 18, powerW: 1800 },
+      },
+    ],
+    connections: [],
+  }, PRODUCT_MAP);
+  assert.equal(system.components[0].quantity, 1);
+  assert.equal(system.components[0].solarSeriesCount, undefined);
+  assert.deepEqual(system.components[0].customSolarArrayRatings, { vocV: 120, vmpV: 100, iscA: 20, impA: 18, powerW: 1800 });
+});
+
+test('Custom Solar Array missing Voc or Isc creates CUSTOM_SOLAR_ARRAY_INCOMPLETE', () => {
+  const analysis = analyzeSystemDesign(customArrayToMppt({ vmpV: 100, impA: 10, powerW: 1000 }), PRODUCT_MAP);
+  assert.ok(analysis.warnings.some((warning) => warning.code === 'CUSTOM_SOLAR_ARRAY_INCOMPLETE'));
+});
+
+test('Custom Solar Array invalid Vmp/Imp relationships create CUSTOM_SOLAR_ARRAY_INVALID_RATINGS', () => {
+  const highVmp = analyzeSystemDesign(customArrayToMppt({ vocV: 100, vmpV: 120, iscA: 12, impA: 10, powerW: 1200 }), PRODUCT_MAP);
+  assert.ok(highVmp.warnings.some((warning) => warning.code === 'CUSTOM_SOLAR_ARRAY_INVALID_RATINGS'));
+
+  const highImp = analyzeSystemDesign(customArrayToMppt({ vocV: 120, vmpV: 100, iscA: 12, impA: 13, powerW: 1300 }), PRODUCT_MAP);
+  assert.ok(highImp.warnings.some((warning) => warning.code === 'CUSTOM_SOLAR_ARRAY_INVALID_RATINGS'));
+});
+
+test('Custom Solar Array MPPT limit checks use voltage, current, and power ratings', () => {
+  const voltage = analyzeSystemDesign(customArrayToMppt({ vocV: 140, coldVocV: 160, vmpV: 120, iscA: 20, impA: 18, powerW: 2160 }), PRODUCT_MAP);
+  assert.ok(voltage.warnings.some((warning) => warning.code === 'MPPT_PV_VOLTAGE_EXCEEDED'));
+
+  const current = analyzeSystemDesign(customArrayToMppt({ vocV: 120, vmpV: 100, iscA: 40, impA: 30, powerW: 3000 }), PRODUCT_MAP);
+  assert.ok(current.warnings.some((warning) => warning.code === 'MPPT_PV_CURRENT_EXCEEDED'));
+
+  const power = analyzeSystemDesign(customArrayToMppt({ vocV: 120, vmpV: 100, iscA: 20, impA: 18, powerW: 2500 }), PRODUCT_MAP);
+  assert.ok(power.warnings.some((warning) => warning.code === 'MPPT_PV_POWER_EXCEEDED'));
+});
+
+test('Custom Solar Array PV positive uses Isc and PV negative matches it', () => {
+  const analysis = analyzeSystemDesign(customArrayToMppt({ vocV: 120, vmpV: 100, iscA: 22, impA: 18, powerW: 1800 }), PRODUCT_MAP);
+  assert.equal(analysis.connections['pv-pos'].designCurrentA, 22);
+  assert.equal(analysis.connections['pv-neg'].designCurrentA, 22);
+});
+
+test('BOM physical panel quantity is seven only for seven placed panels', () => {
+  const components = Array.from({ length: 7 }, (_, index) => ({
+    id: `panel-${index + 1}`,
+    productId: 'solar-array-400w',
+    label: `Solar Panel ${index + 1}`,
+    quantity: 1,
+    x: index * 20,
+    y: 0,
+    includeInBom: true,
+  }));
+  const rows = buildBom({
+    ...base,
+    id: 'solar-bom',
+    name: 'solar bom',
+    nominalVoltage: 48,
+    components,
+    connections: [],
+  }, PRODUCT_MAP);
+  const row = rows.find((item) => item.productType === 'solar_array' && item.componentId === 'panel-1');
+  assert.ok(row, 'expected aggregated solar panel BOM row');
+  assert.equal(row.quantity, 7);
+});
+
 // ============================================================
 // Regression guard: the shipped default 48 V system stays analysable
 // ============================================================
@@ -654,25 +963,25 @@ test('DEFAULT_SYSTEM analyses through the engine without throwing', () => {
 
 test('DEFAULT_SYSTEM negative bus current comes from branch analysis, not busbar rating', () => {
   const analysis = analyzeSystemDesign(DEFAULT_SYSTEM, PRODUCT_MAP);
-  const negativeBusGroup = analysis.terminalGroups['p3-bus-neg:bus'];
+  const negativeBusGroup = analysis.terminalGroups['bus-neg:bus'];
   assert.ok(negativeBusGroup, 'negative bus group must be analysed');
   assert.equal(negativeBusGroup.designCurrentA, 250);
   assert.ok(!negativeBusGroup.overRated, 'negative bus must not overload from its own 600A rating');
 
   const negativeBusNet = analysis.graph.nets.find((net) => (
-    net.terminalKeys.some((key) => key.startsWith('p3-bus-neg:'))
+    net.terminalKeys.some((key) => key.startsWith('bus-neg:'))
   ));
   assert.ok(negativeBusNet, 'negative bus net must exist');
   assert.equal(negativeBusNet.operatingCurrentA, 250);
 
   const summaryNode = analysis.legacy.electricalSummary.powerNodes.find((node) => (
-    node.componentId.startsWith('p3-bus-neg:')
+    node.componentId.startsWith('bus-neg:')
   ));
   assert.ok(summaryNode, 'negative bus summary node must exist');
   assert.equal(summaryNode.operatingCurrentA, 250);
 
   const badWarning = analysis.warnings.find((warning) => (
-    warning.componentId === 'p3-bus-neg' ||
+    warning.componentId === 'bus-neg' ||
     warning.code === 'NET_OVER_PROTECTION_LIMIT' ||
     warning.code === 'source_capacity_exceeded'
   ));
@@ -681,7 +990,7 @@ test('DEFAULT_SYSTEM negative bus current comes from branch analysis, not busbar
 
 test('DEFAULT_SYSTEM branch protection constraints stay local to the protected branch', () => {
   const analysis = analyzeSystemDesign(DEFAULT_SYSTEM, PRODUCT_MAP);
-  for (const connectionId of ['p3-b1-to-fuse', 'p3-fuse-to-bus', 'p3-bus-to-fuse-inv', 'p3-fuse-inv-to-inv']) {
+  for (const connectionId of ['bat1-pos', 'bat1-fuse-bus', 'bus-pos-main-fuse', 'main-fuse-inverter']) {
     const connection = analysis.connections[connectionId];
     assert.ok(connection, `${connectionId} must be analysed`);
     assert.ok(
@@ -690,7 +999,7 @@ test('DEFAULT_SYSTEM branch protection constraints stay local to the protected b
     );
   }
 
-  const acLoadLine = analysis.connections['p3-ac-l'];
+  const acLoadLine = analysis.connections['load-l1'];
   assert.ok(acLoadLine, 'AC load line must be analysed');
   assert.ok(
     !acLoadLine.errors.some((error) => error.code === 'SOURCE_SIDE_PROTECTION_MISSING'),
@@ -698,44 +1007,91 @@ test('DEFAULT_SYSTEM branch protection constraints stay local to the protected b
   );
 });
 
-test('48V preset MPPT negative returns stay paired to their own output branches', () => {
+test('48V preset PV tracker branches stay paired to their own inverter inputs', () => {
   const preset = SYSTEM_PRESETS.find((item) => item.id === 'offgrid-48v')?.system;
   assert.ok(preset, '48V preset must exist');
 
   const analysis = analyzeSystemDesign(preset, PRODUCT_MAP);
-  const errorWarnings = analysis.warnings.filter((warning) => warning.severity === 'error');
-  assert.equal(errorWarnings.length, 0, errorWarnings.map((warning) => warning.message).join('\n'));
+  const pvErrorWarnings = analysis.warnings.filter((warning) => (
+    warning.severity === 'error' &&
+    warning.connectionId != null &&
+    warning.connectionId.startsWith('pv')
+  ));
+  assert.equal(pvErrorWarnings.length, 0, pvErrorWarnings.map((warning) => warning.message).join('\n'));
 
-  const mppts = preset.components.filter((component) => component.productId === 'mppt-vic-150-100');
-  assert.equal(mppts.length, 2, 'preset should contain both MPPT 150/100 controllers');
-
-  for (const mppt of mppts) {
-    const negativeReturn = preset.connections.find((connection) => (
-      (connection.fromComponentId === mppt.id && connection.fromTerminalId === 'bat_neg') ||
-      (connection.toComponentId === mppt.id && connection.toTerminalId === 'bat_neg')
-    ));
-    const positiveOutput = preset.connections.find((connection) => (
-      (connection.fromComponentId === mppt.id && connection.fromTerminalId === 'bat_pos') ||
-      (connection.toComponentId === mppt.id && connection.toTerminalId === 'bat_pos')
-    ));
-    assert.ok(negativeReturn, `${mppt.label} must have a battery negative return`);
-    assert.ok(positiveOutput, `${mppt.label} must have a battery positive output`);
-
-    const negativeAnalysis = analysis.connections[negativeReturn.id];
-    const positiveAnalysis = analysis.connections[positiveOutput.id];
-    assert.ok(negativeAnalysis, `${negativeReturn.id} must be analysed`);
-    assert.ok(positiveAnalysis, `${positiveOutput.id} must be analysed`);
-    assert.equal(negativeAnalysis.designCurrentA, 100);
-    assert.equal(negativeAnalysis.cableSizingCurrentA, 125);
-    assert.equal(positiveAnalysis.designCurrentA, 100);
-    assert.equal(positiveAnalysis.cableSizingCurrentA, 125);
+  for (const [terminalPositive, terminalNegative] of [
+    ['pv1_pos', 'pv1_neg'],
+    ['pv2_pos', 'pv2_neg'],
+  ] as const) {
+    const positiveId = preset.connections.find((connection) => (
+      (connection.fromComponentId === 'inverter' && connection.fromTerminalId === terminalPositive) ||
+      (connection.toComponentId === 'inverter' && connection.toTerminalId === terminalPositive)
+    ))?.id;
+    const negativeId = preset.connections.find((connection) => (
+      (connection.fromComponentId === 'inverter' && connection.fromTerminalId === terminalNegative) ||
+      (connection.toComponentId === 'inverter' && connection.toTerminalId === terminalNegative)
+    ))?.id;
+    assert.ok(positiveId, `${terminalPositive} connection must exist`);
+    assert.ok(negativeId, `${terminalNegative} connection must exist`);
+    const positiveAnalysis = analysis.connections[positiveId];
+    const negativeAnalysis = analysis.connections[negativeId];
+    assert.ok(positiveAnalysis, `${positiveId} must be analysed`);
+    assert.ok(negativeAnalysis, `${negativeId} must be analysed`);
+    assert.ok(positiveAnalysis.designCurrentA > 0);
+    assert.equal(negativeAnalysis.designCurrentA, positiveAnalysis.designCurrentA);
+    assert.deepEqual(positiveAnalysis.errors, []);
     assert.deepEqual(negativeAnalysis.errors, []);
 
-    const terminal = analysis.terminals[`${mppt.id}:bat_neg`];
-    assert.ok(terminal, `${mppt.label} BAT- terminal must be analysed`);
-    assert.equal(terminal.designCurrentA, 100);
-    assert.equal(terminal.overCurrent, false);
+    const positiveTerminal = analysis.terminals[`inverter:${terminalPositive}`];
+    const negativeTerminal = analysis.terminals[`inverter:${terminalNegative}`];
+    assert.ok(positiveTerminal, `${terminalPositive} must be analysed`);
+    assert.ok(negativeTerminal, `${terminalNegative} must be analysed`);
+    assert.equal(positiveTerminal.designCurrentA, positiveAnalysis.designCurrentA);
+    assert.equal(negativeTerminal.designCurrentA, positiveAnalysis.designCurrentA);
+    assert.equal(positiveTerminal.overCurrent, false);
+    assert.equal(negativeTerminal.overCurrent, false);
   }
+});
+
+function directBatteryInverter(withMppt = false): SystemDesign {
+  return {
+    ...base,
+    id: withMppt ? 'direct-inverter-mppt' : 'direct-inverter',
+    name: withMppt ? 'direct inverter with mppt' : 'direct inverter',
+    nominalVoltage: 48,
+    components: [
+      { id: 'bat', productId: 'discover-helios-ess-52-48-16000', label: 'Helios', quantity: 1, x: -160, y: 0 },
+      { id: 'inv', productId: 'inv-vic-mp2-48-5000', label: 'MultiPlus-II', quantity: 1, x: 160, y: 0 },
+      ...(withMppt ? [
+        { id: 'mppt', productId: 'mppt-vic-150-60', label: 'MPPT', quantity: 1, x: 0, y: 160 },
+      ] : []),
+    ],
+    connections: [
+      { id: 'inv-pos', fromComponentId: 'bat', fromTerminalId: 'dc_pos_1', toComponentId: 'inv', toTerminalId: 'dc_pos', cableLengthFt: 4 },
+      { id: 'inv-neg', fromComponentId: 'bat', fromTerminalId: 'dc_neg_1', toComponentId: 'inv', toTerminalId: 'dc_neg', cableLengthFt: 4 },
+      ...(withMppt ? [
+        { id: 'mppt-pos', fromComponentId: 'mppt', fromTerminalId: 'bat_pos', toComponentId: 'bat', toTerminalId: 'dc_pos_2', cableLengthFt: 4 },
+        { id: 'mppt-neg', fromComponentId: 'mppt', fromTerminalId: 'bat_neg', toComponentId: 'bat', toTerminalId: 'dc_neg_2', cableLengthFt: 4 },
+      ] : []),
+    ],
+  };
+}
+
+test('Regression: direct battery to inverter/charger gets inverter DC demand without MPPT', () => {
+  const analysis = analyzeSystemDesign(directBatteryInverter(), PRODUCT_MAP);
+  const inverter = PRODUCT_MAP.get('inv-vic-mp2-48-5000')!;
+  const expectedA = inverter.inverterChargerRatings!.maxDcCurrentA!;
+  assert.equal(analysis.connections['inv-pos'].designCurrentA, expectedA);
+  assert.equal(analysis.connections['inv-neg'].designCurrentA, expectedA);
+});
+
+test('Regression: adding MPPT does not change direct inverter/charger branch current', () => {
+  const withoutMppt = analyzeSystemDesign(directBatteryInverter(), PRODUCT_MAP);
+  const withMppt = analyzeSystemDesign(directBatteryInverter(true), PRODUCT_MAP);
+  assert.equal(withMppt.connections['inv-pos'].designCurrentA, withoutMppt.connections['inv-pos'].designCurrentA);
+  assert.equal(withMppt.connections['inv-neg'].designCurrentA, withoutMppt.connections['inv-neg'].designCurrentA);
+  assert.equal(withMppt.connections['mppt-pos'].designCurrentA, 60);
+  assert.equal(withMppt.connections['mppt-neg'].designCurrentA, 60);
 });
 
 test('48V preset does not promote placeholder metadata into runtime issue cards', () => {
@@ -747,6 +1103,120 @@ test('48V preset does not promote placeholder metadata into runtime issue cards'
   assert.ok(
     !issues.some((issue) => issue.code === 'PLACEHOLDER_PRODUCT'),
     issues.filter((issue) => issue.code === 'PLACEHOLDER_PRODUCT').map((issue) => issue.message).join('\n')
+  );
+});
+
+// ============================================================
+// DC- return path validation: battery-to-battery interconnects
+// vs pack-external feeders
+// ============================================================
+
+function batteryToBatteryInterconnectSystem(opts?: {
+  missingNeg?: boolean;
+  reversedNeg?: boolean;
+  differentTerminals?: boolean;
+  undersizedNeg?: boolean;
+}): SystemDesign {
+  const negCableAwg = opts?.undersizedNeg ? '18' : undefined;
+  return {
+    ...base,
+    id: 'bat-interconnect',
+    name: 'battery interconnect test',
+    nominalVoltage: 48,
+    components: [
+      { id: 'bat-a', productId: 'discover-helios-ess-52-48-16000', label: 'Helios A', quantity: 1, x: -200, y: -60 },
+      { id: 'bat-b', productId: 'discover-helios-ess-52-48-16000', label: 'Helios B', quantity: 1, x: -200, y: 60 },
+      { id: 'load', productId: 'acc-dc-load-generic', label: 'DC Load', quantity: 1, x: 160, y: 0, instanceVoltageV: 48, instanceMaxCurrentA: 80 },
+    ],
+    connections: [
+      // Battery-to-battery positive interconnect
+      { id: 'bat-a-pos', fromComponentId: 'bat-a', fromTerminalId: 'dc_pos_1', toComponentId: 'bat-b', toTerminalId: 'dc_pos_2', cableLengthFt: 2 },
+      // External positive feeder from pack to load
+      { id: 'load-pos', fromComponentId: 'bat-b', fromTerminalId: opts?.differentTerminals ? 'dc_pos_3' : 'dc_pos_1', toComponentId: 'load', toTerminalId: 'dc_pos', cableLengthFt: 6 },
+      // External negative return from pack to load (diagonal takeoff from bat-a)
+      { id: 'load-neg', fromComponentId: 'bat-a', fromTerminalId: 'dc_neg_1', toComponentId: 'load', toTerminalId: 'dc_neg', cableLengthFt: 6 },
+      ...(opts?.missingNeg ? [] : [{
+        // Battery-to-battery negative interconnect (direction may be reversed)
+        id: 'bat-neg',
+        fromComponentId: opts?.reversedNeg ? 'bat-b' : 'bat-a',
+        fromTerminalId: opts?.differentTerminals ? 'dc_neg_3' : 'dc_neg_1',
+        toComponentId: opts?.reversedNeg ? 'bat-a' : 'bat-b',
+        toTerminalId: opts?.differentTerminals ? 'dc_neg_2' : 'dc_neg_2',
+        cableLengthFt: 2,
+        ...(negCableAwg ? { manualCableAwg: negCableAwg } : {}),
+      }]),
+    ],
+  };
+}
+
+test('DC- return: battery-to-battery positive interconnect with matching negative passes', () => {
+  const analysis = analyzeSystemDesign(batteryToBatteryInterconnectSystem(), PRODUCT_MAP);
+  const missingNeg = analysis.warnings.filter((w) =>
+    w.code === 'DC_NEG_RETURN_MISSING' && w.connectionId === 'bat-a-pos'
+  );
+  assert.equal(missingNeg.length, 0, `unexpected DC_NEG_RETURN_MISSING: ${missingNeg.map((w) => w.message).join('; ')}`);
+});
+
+test('DC- return: battery-to-battery positive interconnect without matching negative is caught', () => {
+  const analysis = analyzeSystemDesign(batteryToBatteryInterconnectSystem({ missingNeg: true }), PRODUCT_MAP);
+  const missingNeg = analysis.warnings.filter((w) =>
+    w.code === 'DC_NEG_RETURN_MISSING' && w.connectionId === 'bat-a-pos'
+  );
+  assert.equal(missingNeg.length, 1, 'expected DC_NEG_RETURN_MISSING for bat-a-pos without matching negative');
+});
+
+test('DC- return: negative interconnect direction does not matter', () => {
+  const analysis = analyzeSystemDesign(batteryToBatteryInterconnectSystem({ reversedNeg: true }), PRODUCT_MAP);
+  const missingNeg = analysis.warnings.filter((w) =>
+    w.code === 'DC_NEG_RETURN_MISSING' && w.connectionId === 'bat-a-pos'
+  );
+  assert.equal(missingNeg.length, 0, `unexpected DC_NEG_RETURN_MISSING with reversed negative: ${missingNeg.map((w) => w.message).join('; ')}`);
+});
+
+test('DC- return: negative interconnect terminal numbers do not matter', () => {
+  const analysis = analyzeSystemDesign(batteryToBatteryInterconnectSystem({ differentTerminals: true }), PRODUCT_MAP);
+  const missingNeg = analysis.warnings.filter((w) =>
+    w.code === 'DC_NEG_RETURN_MISSING' && w.connectionId === 'bat-a-pos'
+  );
+  assert.equal(missingNeg.length, 0, `unexpected DC_NEG_RETURN_MISSING with different terminals: ${missingNeg.map((w) => w.message).join('; ')}`);
+});
+
+test('DC- return: undersized matching negative interconnect is caught', () => {
+  const analysis = analyzeSystemDesign(batteryToBatteryInterconnectSystem({ undersizedNeg: true }), PRODUCT_MAP);
+  const undersized = analysis.warnings.filter((w) =>
+    w.code === 'DC_NEG_RETURN_UNDERSIZED' && w.connectionId === 'bat-a-pos'
+  );
+  assert.equal(undersized.length, 1, 'expected DC_NEG_RETURN_UNDERSIZED for undersized negative interconnect');
+});
+
+test('DC- return: diagonal external pack takeoff is allowed', () => {
+  // The positive feeder comes from bat-b but the negative return comes from bat-a.
+  // This is valid diagonal takeoff — the external return does not need to be on
+  // the same physical battery as the external positive.
+  const system = batteryToBatteryInterconnectSystem();
+  const analysis = analyzeSystemDesign(system, PRODUCT_MAP);
+  const missingNeg = analysis.warnings.filter((w) =>
+    w.code === 'DC_NEG_RETURN_MISSING' && w.connectionId === 'load-pos'
+  );
+  assert.equal(missingNeg.length, 0, `unexpected DC_NEG_RETURN_MISSING for diagonal takeoff: ${missingNeg.map((w) => w.message).join('; ')}`);
+});
+
+test('DC- return: missing external pack DC- return is still caught', () => {
+  const system = batteryToBatteryInterconnectSystem();
+  // Remove the external negative return connection
+  system.connections = system.connections.filter((c) => c.id !== 'load-neg');
+  const analysis = analyzeSystemDesign(system, PRODUCT_MAP);
+  const missingNeg = analysis.warnings.filter((w) =>
+    w.code === 'DC_NEG_RETURN_MISSING' && w.connectionId === 'load-pos'
+  );
+  assert.equal(missingNeg.length, 1, 'expected DC_NEG_RETURN_MISSING for load-pos without external negative return');
+});
+
+test('DC- return: DEFAULT_SYSTEM produces no false DC_NEG_RETURN_MISSING warnings', () => {
+  const analysis = analyzeSystemDesign(DEFAULT_SYSTEM, PRODUCT_MAP);
+  const missingNegWarnings = analysis.warnings.filter((w) => w.code === 'DC_NEG_RETURN_MISSING');
+  assert.equal(missingNegWarnings.length, 0,
+    `DEFAULT_SYSTEM must not produce false DC_NEG_RETURN_MISSING: ${missingNegWarnings.map((w) => `${w.connectionId}: ${w.message}`).join('; ')}`
   );
 });
 

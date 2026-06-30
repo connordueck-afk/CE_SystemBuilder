@@ -1,4 +1,4 @@
-import type { SystemDesign } from '../types/system';
+﻿import type { SystemDesign } from '../types/system';
 import { DEFAULT_SYSTEM } from './defaultSystem';
 
 export interface SystemPreset {
@@ -16,9 +16,9 @@ export interface SystemPreset {
 // scaffolds until they are authored from the canvas.
 // ----------------------------------------------------------
 const SIMPLE_12V: SystemDesign = {
-  id: "sys-1782677616826-1",
-  name: "48V Off-Grid Cabin",
-  nominalVoltage: 48,
+  id: "sys-simple-24v-rv",
+  name: "24V Small RV System",
+  nominalVoltage: 24,
   assumptions: {
     inverterEfficiency: 0.92,
     defaultOemDiscountPercent: 30,
@@ -27,59 +27,214 @@ const SIMPLE_12V: SystemDesign = {
     continuousLoadMultiplier: 1.25,
     batteryInterconnectMaxLengthFt: 3
   },
-  createdAt: "2026-06-28T20:13:36.826Z",
-  updatedAt: "2026-06-28T20:17:11.416Z",
+  createdAt: "2026-06-29T00:00:00.000Z",
+  updatedAt: "2026-06-29T00:00:00.000Z",
   components: [
+    // ============================================================
+    // Batteries — Discover AES-B 24V 100Ah (2 in parallel = 200Ah)
+    // ============================================================
     {
-      id: "comp-1782677621992-2",
-      productId: "discover-helios-ess-52-48-16000",
-      label: "HELIOS ESS 52-48-16000",
+      id: "bat-1",
+      productId: "discover-aes-lithium-24-100",
+      label: "AES-B Battery 1",
       quantity: 1,
-      x: 80,
-      y: 340,
-      includeInBom: true,
-      imageScale: 2
+      x: -40,
+      y: 360,
+      includeInBom: true
     },
     {
-      id: "comp-1782677671538-9",
-      productId: "discover-helios-ess-52-48-16000",
-      label: "HELIOS ESS 52-48-16000 Copy",
+      id: "bat-2",
+      productId: "discover-aes-lithium-24-100",
+      label: "AES-B Battery 2",
       quantity: 1,
-      x: -120,
-      y: 340,
+      x: 160,
+      y: 360,
+      includeInBom: true
+    },
+    // ============================================================
+    // Battery pack fuse — Class-T 250A
+    // 2 x 100A batteries in parallel = 200A max x 1.25 = 250A
+    // Single fuse protecting the pack feeder to the positive busbar
+    // ============================================================
+    {
+      id: "fuse-pack",
+      productId: "fuse-class-t-250a",
+      label: "Battery Pack Fuse",
+      quantity: 1,
+      x: 60,
+      y: 230,
+      rotationDeg: 270,
       includeInBom: true,
-      imageScale: 2,
-      locked: false
+      inferredConnectionKind: "dc_power",
+      inferredPolarity: "positive",
+      inferredVoltageClass: "dc_low_voltage"
+    },
+    // ============================================================
+    // DC Busbars — 5-point, positive and negative
+    // ============================================================
+    {
+      id: "bus-pos",
+      productId: "dist-generic-busbar-5pt",
+      label: "Positive Busbar",
+      quantity: 1,
+      x: 220,
+      y: 50,
+      includeInBom: true,
+      busPolarity: "positive",
+      dcNominalVoltage: 24,
+      inferredConnectionKind: "dc_power",
+      inferredPolarity: "positive",
+      inferredVoltageClass: "dc_low_voltage"
     },
     {
-      id: "comp-1782677705858-13",
-      productId: "discover-helios-ess-52-48-16000",
-      label: "HELIOS ESS 52-48-16000 Copy Copy",
+      id: "bus-neg",
+      productId: "dist-generic-busbar-5pt",
+      label: "Negative Busbar",
       quantity: 1,
-      x: -320,
-      y: 340,
+      x: 220,
+      y: 170,
       includeInBom: true,
-      imageScale: 2,
-      locked: false
+      busPolarity: "negative",
+      dcNominalVoltage: 24,
+      inferredConnectionKind: "dc_power",
+      inferredPolarity: "negative",
+      inferredVoltageClass: "dc_low_voltage"
+    },
+    // ============================================================
+    // Main inverter fuse — Class-T 175A
+    // MultiPlus-II 24/3000 max DC 130A x 1.25 = 162.5A -> 175A
+    // ============================================================
+    {
+      id: "fuse-inverter",
+      productId: "fuse-class-t-175a",
+      label: "Inverter Main Fuse",
+      quantity: 1,
+      x: 420,
+      y: 30,
+      rotationDeg: 270,
+      includeInBom: true,
+      inferredConnectionKind: "dc_power",
+      inferredPolarity: "positive",
+      inferredVoltageClass: "dc_low_voltage"
+    },
+    // ============================================================
+    // MultiPlus-II 24/3000/70-50 2x120V Inverter/Charger
+    // ============================================================
+    {
+      id: "inverter",
+      productId: "multiplus-ii-24-3000-2x120v",
+      label: "MultiPlus-II 24/3000",
+      quantity: 1,
+      x: 600,
+      y: 150,
+      includeInBom: true
+    },
+    // ============================================================
+    // Shore power — 240V split-phase grid source
+    // ============================================================
+    {
+      id: "shore-source",
+      productId: "generic-grid-source-240v",
+      label: "Shore Power",
+      quantity: 1,
+      x: 600,
+      y: -140,
+      includeInBom: true
+    },
+    // ============================================================
+    // AC loads — 240V split-phase
+    // ============================================================
+    {
+      id: "ac-loads",
+      productId: "acc-ac-load-split-phase-240v",
+      label: "RV AC Loads",
+      quantity: 1,
+      x: 600,
+      y: 460,
+      includeInBom: true
+    },
+    // ============================================================
+    // Solar — 2 x 400W panels, 2-string combiner, MPPT 150/60
+    // ============================================================
+    {
+      id: "pv-1",
+      productId: "solar-array-400w",
+      label: "PV Panel 1",
+      quantity: 1,
+      x: -360,
+      y: -460,
+      includeInBom: true
     },
     {
-      id: "comp-1782677787656-18",
-      productId: "acc-dc-load-generic",
-      label: "DC Load (generic)",
+      id: "pv-2",
+      productId: "solar-array-400w",
+      label: "PV Panel 2",
       quantity: 1,
-      x: 260,
-      y: 20,
-      includeInBom: true,
-      instanceVoltageV: 48,
-      instanceMaxCurrentA: 150
+      x: -160,
+      y: -460,
+      includeInBom: true
     },
     {
-      id: "comp-1782677820985-21",
-      productId: "fuse-midi-200a",
-      label: "Fuse",
+      id: "pv-combiner",
+      productId: "solar-combiner-2-string",
+      label: "PV Combiner",
       quantity: 1,
-      x: 170,
-      y: 95,
+      x: -250,
+      y: -340,
+      includeInBom: true
+    },
+    {
+      id: "mppt",
+      productId: "mppt-vic-150-60",
+      label: "MPPT 150/60",
+      quantity: 1,
+      x: 60,
+      y: -200,
+      includeInBom: true
+    },
+    // MPPT output fuse — MIDI 80A (60A x 1.25 = 75A -> 80A)
+    {
+      id: "fuse-mppt",
+      productId: "fuse-midi-80a",
+      label: "MPPT Fuse",
+      quantity: 1,
+      x: 60,
+      y: -90,
+      rotationDeg: 270,
+      includeInBom: true,
+      inferredConnectionKind: "dc_power",
+      inferredPolarity: "positive",
+      inferredVoltageClass: "dc_low_voltage"
+    },
+    // ============================================================
+    // DC-DC charger — Orion-Tr Smart 12/24-15A (alternator -> 24V house)
+    // ============================================================
+    {
+      id: "alt-source",
+      productId: "generic-alternator-source",
+      label: "Alternator / Starter Batt",
+      quantity: 1,
+      x: -700,
+      y: -180,
+      includeInBom: true
+    },
+    {
+      id: "dc-dc",
+      productId: "orion-tr-smart-12-24-15-non-isolated",
+      label: "Orion 12/24-15A DC-DC",
+      quantity: 1,
+      x: -510,
+      y: -160,
+      includeInBom: true
+    },
+    // DC-DC output fuse — MIDI 30A (15A x 1.25 = 18.75A -> 30A)
+    {
+      id: "fuse-dcdc",
+      productId: "fuse-midi-30a",
+      label: "DC-DC Output Fuse",
+      quantity: 1,
+      x: -350,
+      y: -90,
       rotationDeg: 270,
       includeInBom: true,
       inferredConnectionKind: "dc_power",
@@ -88,206 +243,243 @@ const SIMPLE_12V: SystemDesign = {
     }
   ],
   connections: [
+    // ============================================================
+    // Battery parallel interconnect — Bat1 pos <-> Bat2 pos
+    // ============================================================
     {
-      id: "conn-1782677711809-14",
-      fromComponentId: "comp-1782677705858-13",
-      fromTerminalId: "dc_pos_1",
-      toComponentId: "comp-1782677671538-9",
-      toTerminalId: "dc_pos_2",
-      cableLengthFt: 2,
-      routePoints: [
-        {
-          x: -230,
-          y: 216
-        },
-        {
-          x: -230,
-          y: 180
-        },
-        {
-          x: -30,
-          y: 180
-        },
-        {
-          x: -30,
-          y: 230
-        }
-      ],
-      routeMode: "manual",
-      busType: "dc_pos",
-      calculatedCurrentA: 150,
-      recommendedFuseA: 200,
-      recommendedCableAwg: "1/0",
-      voltageDropV: 0.059,
-      voltageDropPercent: 0.12,
-      warnings: []
-    },
-    {
-      id: "conn-1782677712997-15",
-      fromComponentId: "comp-1782677671538-9",
-      fromTerminalId: "dc_pos_1",
-      toComponentId: "comp-1782677621992-2",
-      toTerminalId: "dc_pos_2",
-      cableLengthFt: 2,
-      routePoints: [
-        {
-          x: -30,
-          y: 216
-        },
-        {
-          x: -30,
-          y: 180
-        },
-        {
-          x: 170,
-          y: 180
-        },
-        {
-          x: 170,
-          y: 230
-        }
-      ],
-      routeMode: "manual",
-      busType: "dc_pos",
-      calculatedCurrentA: 150,
-      recommendedFuseA: 200,
-      recommendedCableAwg: "1/0",
-      voltageDropV: 0.059,
-      voltageDropPercent: 0.12,
-      warnings: []
-    },
-    {
-      id: "conn-1782677714730-16",
-      fromComponentId: "comp-1782677621992-2",
-      fromTerminalId: "dc_neg_1",
-      toComponentId: "comp-1782677671538-9",
-      toTerminalId: "dc_neg_2",
-      cableLengthFt: 2,
-      routePoints: [
-        {
-          x: -10,
-          y: 216
-        },
-        {
-          x: -10,
-          y: 150
-        },
-        {
-          x: -210,
-          y: 150
-        },
-        {
-          x: -210,
-          y: 230
-        }
-      ],
-      routeMode: "manual",
-      busType: "dc_neg",
-      calculatedCurrentA: 150,
-      recommendedCableAwg: "1",
-      voltageDropV: 0.074,
-      voltageDropPercent: 0.15,
-      warnings: []
-    },
-    {
-      id: "conn-1782677716262-17",
-      fromComponentId: "comp-1782677671538-9",
-      fromTerminalId: "dc_neg_1",
-      toComponentId: "comp-1782677705858-13",
-      toTerminalId: "dc_neg_2",
-      cableLengthFt: 2,
-      routePoints: [
-        {
-          x: -210,
-          y: 216
-        },
-        {
-          x: -210,
-          y: 150
-        },
-        {
-          x: -410,
-          y: 150
-        },
-        {
-          x: -410,
-          y: 230
-        }
-      ],
-      routeMode: "manual",
-      busType: "dc_neg",
-      calculatedCurrentA: 150,
-      recommendedCableAwg: "1",
-      voltageDropV: 0.074,
-      voltageDropPercent: 0.15,
-      warnings: []
-    },
-    {
-      id: "conn-1782677801296-20",
-      fromComponentId: "comp-1782677705858-13",
-      fromTerminalId: "dc_neg_1",
-      toComponentId: "comp-1782677787656-18",
-      toTerminalId: "dc_neg",
-      cableLengthFt: 6,
-      routePoints: [
-        {
-          x: -410,
-          y: 216
-        },
-        {
-          x: -410,
-          y: 30
-        }
-      ],
-      routeMode: "manual",
-      busType: "dc_neg",
-      calculatedCurrentA: 150,
-      recommendedCableAwg: "1/0",
-      voltageDropV: 0.177,
-      voltageDropPercent: 0.35,
-      warnings: []
-    },
-    {
-      id: "conn-1782677820985-24",
-      fromComponentId: "comp-1782677787656-18",
+      id: "bat1-bat2-pos",
+      fromComponentId: "bat-1",
       fromTerminalId: "dc_pos",
-      toComponentId: "comp-1782677820985-21",
-      toTerminalId: "out",
-      cableLengthFt: 3,
-      routePoints: [
-        {
-          x: 170,
-          y: 10
-        }
-      ],
-      busType: "dc_pos",
-      calculatedCurrentA: 150,
-      recommendedFuseA: 200,
-      recommendedCableAwg: "1/0",
-      voltageDropV: 0.088,
-      voltageDropPercent: 0.18,
-      warnings: []
+      toComponentId: "bat-2",
+      toTerminalId: "dc_pos",
+      cableLengthFt: 1.5
     },
     {
-      id: "conn-1782677820985-25",
-      fromComponentId: "comp-1782677820985-21",
-      fromTerminalId: "in",
-      toComponentId: "comp-1782677621992-2",
-      toTerminalId: "dc_pos_1",
-      cableLengthFt: 3,
-      routePoints: [
-        {
-          x: 170,
-          y: 216
-        }
-      ],
-      busType: "dc_pos",
-      calculatedCurrentA: 150,
-      recommendedFuseA: 200,
-      recommendedCableAwg: "1/0",
-      voltageDropV: 0.088,
-      voltageDropPercent: 0.17,
-      warnings: []
+      id: "bat1-bat2-neg",
+      fromComponentId: "bat-1",
+      fromTerminalId: "dc_neg",
+      toComponentId: "bat-2",
+      toTerminalId: "dc_neg",
+      cableLengthFt: 1.5
+    },
+    // ============================================================
+    // Battery pack -> pack fuse -> positive busbar
+    // ============================================================
+    {
+      id: "bat2-pos-fuse",
+      fromComponentId: "bat-2",
+      fromTerminalId: "dc_pos",
+      toComponentId: "fuse-pack",
+      toTerminalId: "in",
+      cableLengthFt: 2
+    },
+    {
+      id: "pack-fuse-bus",
+      fromComponentId: "fuse-pack",
+      fromTerminalId: "out",
+      toComponentId: "bus-pos",
+      toTerminalId: "terminal_1",
+      cableLengthFt: 3
+    },
+    {
+      id: "bat2-neg-bus",
+      fromComponentId: "bat-2",
+      fromTerminalId: "dc_neg",
+      toComponentId: "bus-neg",
+      toTerminalId: "terminal_1",
+      cableLengthFt: 4
+    },
+    // ============================================================
+    // Inverter DC — bus -> fuse -> inverter
+    // ============================================================
+    {
+      id: "bus-pos-inv-fuse",
+      fromComponentId: "bus-pos",
+      fromTerminalId: "terminal_5",
+      toComponentId: "fuse-inverter",
+      toTerminalId: "in",
+      cableLengthFt: 3
+    },
+    {
+      id: "inv-fuse-inverter",
+      fromComponentId: "fuse-inverter",
+      fromTerminalId: "out",
+      toComponentId: "inverter",
+      toTerminalId: "dc_pos",
+      cableLengthFt: 3
+    },
+    {
+      id: "bus-neg-inverter",
+      fromComponentId: "bus-neg",
+      fromTerminalId: "terminal_5",
+      toComponentId: "inverter",
+      toTerminalId: "dc_neg",
+      cableLengthFt: 4
+    },
+    // ============================================================
+    // Shore power AC in
+    // ============================================================
+    {
+      id: "shore-l1",
+      fromComponentId: "shore-source",
+      fromTerminalId: "ac_l1",
+      toComponentId: "inverter",
+      toTerminalId: "ac_in_l",
+      cableLengthFt: 10
+    },
+    {
+      id: "shore-n",
+      fromComponentId: "shore-source",
+      fromTerminalId: "ac_n",
+      toComponentId: "inverter",
+      toTerminalId: "ac_in_n",
+      cableLengthFt: 10
+    },
+    // ============================================================
+    // AC loads out
+    // ============================================================
+    {
+      id: "ac-out-l1",
+      fromComponentId: "inverter",
+      fromTerminalId: "ac_out_l",
+      toComponentId: "ac-loads",
+      toTerminalId: "ac_l1",
+      cableLengthFt: 10
+    },
+    {
+      id: "ac-out-n",
+      fromComponentId: "inverter",
+      fromTerminalId: "ac_out_n",
+      toComponentId: "ac-loads",
+      toTerminalId: "ac_n",
+      cableLengthFt: 10
+    },
+    // ============================================================
+    // PV panels -> combiner
+    // ============================================================
+    {
+      id: "pv1-pos",
+      fromComponentId: "pv-1",
+      fromTerminalId: "pv_pos",
+      toComponentId: "pv-combiner",
+      toTerminalId: "string_1_pos",
+      cableLengthFt: 15
+    },
+    {
+      id: "pv1-neg",
+      fromComponentId: "pv-1",
+      fromTerminalId: "pv_neg",
+      toComponentId: "pv-combiner",
+      toTerminalId: "string_1_neg",
+      cableLengthFt: 15
+    },
+    {
+      id: "pv2-pos",
+      fromComponentId: "pv-2",
+      fromTerminalId: "pv_pos",
+      toComponentId: "pv-combiner",
+      toTerminalId: "string_2_pos",
+      cableLengthFt: 15
+    },
+    {
+      id: "pv2-neg",
+      fromComponentId: "pv-2",
+      fromTerminalId: "pv_neg",
+      toComponentId: "pv-combiner",
+      toTerminalId: "string_2_neg",
+      cableLengthFt: 15
+    },
+    // ============================================================
+    // PV combiner -> MPPT
+    // ============================================================
+    {
+      id: "comb-pos",
+      fromComponentId: "pv-combiner",
+      fromTerminalId: "out_pos",
+      toComponentId: "mppt",
+      toTerminalId: "pv_pos",
+      cableLengthFt: 5
+    },
+    {
+      id: "comb-neg",
+      fromComponentId: "pv-combiner",
+      fromTerminalId: "out_neg",
+      toComponentId: "mppt",
+      toTerminalId: "pv_neg",
+      cableLengthFt: 5
+    },
+    // ============================================================
+    // MPPT -> fuse -> busbar
+    // ============================================================
+    {
+      id: "mppt-pos",
+      fromComponentId: "mppt",
+      fromTerminalId: "bat_pos",
+      toComponentId: "fuse-mppt",
+      toTerminalId: "in",
+      cableLengthFt: 3
+    },
+    {
+      id: "mppt-fuse-bus",
+      fromComponentId: "fuse-mppt",
+      fromTerminalId: "out",
+      toComponentId: "bus-pos",
+      toTerminalId: "terminal_3",
+      cableLengthFt: 3
+    },
+    {
+      id: "mppt-neg",
+      fromComponentId: "mppt",
+      fromTerminalId: "bat_neg",
+      toComponentId: "bus-neg",
+      toTerminalId: "terminal_3",
+      cableLengthFt: 5
+    },
+    // ============================================================
+    // Alternator -> DC-DC charger
+    // ============================================================
+    {
+      id: "alt-pos",
+      fromComponentId: "alt-source",
+      fromTerminalId: "dc_pos",
+      toComponentId: "dc-dc",
+      toTerminalId: "in_pos",
+      cableLengthFt: 15
+    },
+    {
+      id: "alt-neg",
+      fromComponentId: "alt-source",
+      fromTerminalId: "dc_neg",
+      toComponentId: "dc-dc",
+      toTerminalId: "in_neg",
+      cableLengthFt: 15
+    },
+    // ============================================================
+    // DC-DC -> fuse -> busbar
+    // ============================================================
+    {
+      id: "dcdc-pos",
+      fromComponentId: "dc-dc",
+      fromTerminalId: "out_pos",
+      toComponentId: "fuse-dcdc",
+      toTerminalId: "in",
+      cableLengthFt: 3
+    },
+    {
+      id: "dcdc-fuse-bus",
+      fromComponentId: "fuse-dcdc",
+      fromTerminalId: "out",
+      toComponentId: "bus-pos",
+      toTerminalId: "terminal_4",
+      cableLengthFt: 3
+    },
+    {
+      id: "dcdc-neg",
+      fromComponentId: "dc-dc",
+      fromTerminalId: "out_neg",
+      toComponentId: "bus-neg",
+      toTerminalId: "terminal_4",
+      cableLengthFt: 5
     }
   ],
   annotations: []
@@ -956,11 +1148,11 @@ const OFFGRID_48V: SystemDesign = {
 export const SYSTEM_PRESETS: SystemPreset[] = [
   {
     id: 'simple-12v',
-    name: 'Simple 12V Solar',
+    name: '24V Small RV System',
     description:
-      'Small 12 V starter system slot for the final default library.',
-    voltage: 12,
-    tags: ['12V', 'Small', 'Solar'],
+      'Small 24V RV system: 2x Discover AES-B batteries, MultiPlus-II 24/3000 2x120V, MPPT 150/60, Orion DC-DC charger, and dual 400W PV panels.',
+    voltage: 24,
+    tags: ['24V', 'RV', 'Solar', 'DC-DC', 'Lithium'],
     system: SIMPLE_12V,
   },
   {

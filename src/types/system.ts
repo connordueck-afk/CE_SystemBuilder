@@ -20,6 +20,7 @@ export type ProductType =
   | 'inverter_charger'
   | 'mppt'
   | 'solar_array'
+  | 'custom_solar_array'
   | 'solar_combiner'
   | 'dc_distribution'
   | 'fuse'
@@ -153,8 +154,16 @@ export interface TerminalDefinition {
   required?: boolean;
   /** Terminal IDs on other products that this terminal can legally connect to. */
   connectableTo?: string[];
+  /**
+   * Smallest cable this terminal/datasheet allows, e.g. "14" or "2".
+   * Cable acceptance is terminal-owned because the device terminal block/stud
+   * and product datasheet determine the usable wire range.
+   */
+  minCableAwg?: string;
   /** Largest cable this terminal can physically accept, e.g. "6" or "1/0". */
   maxCableAwg?: string;
+  /** Manufacturer-recommended cable size for this terminal/connection. */
+  recommendedCableAwg?: string;
   /** Default physical connector/termination at this node (overridable per placed component). */
   connector?: TerminalConnector;
   /**
@@ -601,6 +610,24 @@ export interface SolarPanelRatings {
   tempCoefficientVoc?: number;
 }
 
+/** Per-instance ratings for an explicit aggregate/customer-supplied PV array. */
+export interface CustomSolarArrayRatings {
+  /** Total open-circuit voltage of the array/string/input (V). */
+  vocV?: number;
+  /** Total voltage at max power (V). */
+  vmpV?: number;
+  /** Total short-circuit current (A). */
+  iscA?: number;
+  /** Total current at max power (A). */
+  impA?: number;
+  /** Total STC rated power (W). */
+  powerW?: number;
+  /** Optional cold-corrected Voc for MPPT max voltage checks (V). */
+  coldVocV?: number;
+  /** User note describing the customer-supplied/existing array. */
+  description?: string;
+}
+
 /** Ratings for PV combiner boxes. */
 export interface SolarCombinerRatings {
   /** Number of PV input strings. */
@@ -631,6 +658,7 @@ export type CommunicationProtocol =
   | 'AEbus'
   | 'RS485'
   | 'Ethernet'
+  | 'Pylon LV'
   | 'Other';
 
 export type CommunicationConnectorType =
@@ -890,7 +918,8 @@ export interface Product {
   isBOMItem?: boolean;
 
   /**
-   * Communication ports available on this product for permanent installed network connections.
+   * Legacy communication port metadata. ProductPort(kind='comm') is the canonical
+   * owner of protocol/connector metadata; keep this only as a migration fallback.
    */
   communicationPorts?: ProductCommunicationPort[];
 
@@ -929,12 +958,14 @@ export interface SystemComponent {
   imageScale?: number;
   locked?: boolean;
   busPolarity?: BusPolarity;
-  /** Legacy quick selector for arrays that are all-series or all-parallel. */
+  /** @deprecated Legacy hidden solar multiplier; sanitized from live components. */
   solarWiringMode?: SolarWiringMode;
-  /** Number of panels/modules in each string. */
+  /** @deprecated Legacy hidden solar multiplier; sanitized from live components. */
   solarSeriesCount?: number;
-  /** Number of parallel strings in the array. */
+  /** @deprecated Legacy hidden solar multiplier; sanitized from live components. */
   solarParallelCount?: number;
+  /** Per-instance aggregate ratings. Valid only for productType custom_solar_array. */
+  customSolarArrayRatings?: CustomSolarArrayRatings;
   customPriceUsd?: number;
   /** Whether this placed component should contribute to BOM rows and cost totals. */
   includeInBom?: boolean;

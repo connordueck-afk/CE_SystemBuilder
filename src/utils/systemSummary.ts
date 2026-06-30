@@ -42,7 +42,6 @@ export interface PowerNodeElectricalSummary {
   busType: BusType;
   terminalCount: number;
   operatingCurrentA: number;
-  availableCurrentA?: number;
   totalPowerW: number;
   protectedBy?: string;
 }
@@ -130,7 +129,6 @@ export function buildElectricalSummary(
         busType: net.busType,
         terminalCount: terminalIds.length,
         operatingCurrentA,
-        availableCurrentA: net.availableCurrentA,
         totalPowerW: operatingCurrentA * system.nominalVoltage,
         protectedBy: net.protectedBy?.map((boundary) => `${boundary.label}${boundary.ratingA ? ` ${boundary.ratingA}A` : ''}`).join(', '),
       };

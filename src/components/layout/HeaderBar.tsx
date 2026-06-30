@@ -27,6 +27,12 @@ interface Props {
   onSetDefault?: (target: string, label: string) => void;
 }
 
+const VOLTAGE_OPTIONS = ['all', 12, 24, 48] as const;
+
+function voltageOptionLabel(v: NominalVoltage | 'all'): string {
+  return v === 'all' ? 'All Voltages' : `${v}V`;
+}
+
 export function HeaderBar({
   systemName,
   voltageFilter,
@@ -47,61 +53,59 @@ export function HeaderBar({
   onExportPdf,
   onSetDefault,
 }: Props) {
-  const [busColorsOpen, setBusColorsOpen] = useState(false);
-  const [setDefaultOpen, setSetDefaultOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [voltageOpen, setVoltageOpen] = useState(false);
   const [shareCopied, setShareCopied] = useState(false);
-  const setDefaultRef = useRef<HTMLDivElement>(null);
+  const [busColorsExpanded, setBusColorsExpanded] = useState(false);
+  const settingsRef = useRef<HTMLDivElement>(null);
+  const voltageRef = useRef<HTMLDivElement>(null);
 
   const handleShareClick = async () => {
     await onShare();
     setShareCopied(true);
     setTimeout(() => setShareCopied(false), 2500);
   };
-  const busColorsMenuRef = useRef<HTMLDivElement>(null);
+
   const errorCount = warnings.filter((w) => w.severity === 'error').length;
   const warnCount = warnings.filter((w) => w.severity === 'warning').length;
 
+  // Close settings dropdown on outside click / Escape
   useEffect(() => {
-    if (!busColorsOpen) return;
-
+    if (!settingsOpen) return;
     function handlePointerDown(event: PointerEvent) {
       const target = event.target as Node | null;
-      if (target && busColorsMenuRef.current?.contains(target)) return;
-      setBusColorsOpen(false);
+      if (target && settingsRef.current?.contains(target)) return;
+      setSettingsOpen(false);
     }
-
     function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape') setBusColorsOpen(false);
+      if (event.key === 'Escape') setSettingsOpen(false);
     }
-
     window.addEventListener('pointerdown', handlePointerDown);
     window.addEventListener('keydown', handleKeyDown);
     return () => {
       window.removeEventListener('pointerdown', handlePointerDown);
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [busColorsOpen]);
+  }, [settingsOpen]);
 
+  // Close voltage dropdown on outside click / Escape
   useEffect(() => {
-    if (!setDefaultOpen) return;
-
+    if (!voltageOpen) return;
     function handlePointerDown(event: PointerEvent) {
       const target = event.target as Node | null;
-      if (target && setDefaultRef.current?.contains(target)) return;
-      setSetDefaultOpen(false);
+      if (target && voltageRef.current?.contains(target)) return;
+      setVoltageOpen(false);
     }
-
     function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape') setSetDefaultOpen(false);
+      if (event.key === 'Escape') setVoltageOpen(false);
     }
-
     window.addEventListener('pointerdown', handlePointerDown);
     window.addEventListener('keydown', handleKeyDown);
     return () => {
       window.removeEventListener('pointerdown', handlePointerDown);
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [setDefaultOpen]);
+  }, [voltageOpen]);
 
   return (
     <header className="header-bar">
@@ -123,27 +127,36 @@ export function HeaderBar({
         v{CURRENT_APP_VERSION}
       </span>
 
-      {/* Voltage selector */}
-      <div className="header-voltage-group">
-        <span className="header-field-label">System V</span>
+      {/* Voltage dropdown */}
+      <div className="header-dropdown-group" ref={voltageRef}>
         <button
-          className={`voltage-btn ${voltageFilter === 'all' ? 'voltage-btn-active' : ''}`}
-          onClick={() => onVoltageChange('all')}
+          className="header-dropdown-btn"
+          onClick={() => setVoltageOpen((o) => !o)}
+          title="Select system voltage"
         >
-          All
+          <span className="header-field-label">System V</span>
+          <span className="header-dropdown-value">{voltageOptionLabel(voltageFilter)}</span>
+          <span className="header-dropdown-arrow">▾</span>
         </button>
-        {([12, 24, 48] as NominalVoltage[]).map((v) => (
-          <button
-            key={v}
-            className={`voltage-btn ${voltageFilter === v ? 'voltage-btn-active' : ''}`}
-            onClick={() => onVoltageChange(v)}
-          >
-            {v}V
-          </button>
-        ))}
+        {voltageOpen && (
+          <div className="header-dropdown-menu">
+            {VOLTAGE_OPTIONS.map((v) => (
+              <button
+                key={String(v)}
+                className={`header-dropdown-item${voltageFilter === v ? ' header-dropdown-item-active' : ''}`}
+                onClick={() => {
+                  onVoltageChange(v as NominalVoltage | 'all');
+                  setVoltageOpen(false);
+                }}
+              >
+                {voltageOptionLabel(v as NominalVoltage | 'all')}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
-      {/* Price total */}
+      {/* BOM widget — kept as-is */}
       <button className="header-price" onClick={onOpenBom} title="Open BOM summary">
         <span className="header-field-label">BOM Total</span>
         <span className="header-price-value">{fmt(totalMsrp)}</span>
@@ -157,8 +170,8 @@ export function HeaderBar({
         </div>
       )}
 
-      {/* Actions */}
-      <div className="header-actions" ref={busColorsMenuRef}>
+      {/* Right-aligned group: name input + settings */}
+      <div className="header-actions">
         <input
           className="header-name-input"
           value={systemName}
@@ -166,108 +179,103 @@ export function HeaderBar({
           title="System name"
           aria-label="System name"
         />
+
+        {/* Settings dropdown */}
+        <div className="header-dropdown-group" ref={settingsRef}>
         <button
-          className={`btn-header btn-header-icon ${busColorsOpen ? 'btn-header-active' : ''}`}
-          onClick={() => setBusColorsOpen((open) => !open)}
-          title="Bus colours"
-          aria-label="Bus colours"
+          className="header-dropdown-btn"
+          onClick={() => setSettingsOpen((o) => !o)}
+          title="Settings"
         >
-          <span className="bus-colour-icon" aria-hidden="true">
-            <span style={{ background: busColors.dc_pos }} />
-            <span style={{ background: busColors.dc_neg }} />
-            <span style={{ background: busColors.pv_pos }} />
-          </span>
+          <span className="header-dropdown-value">Settings</span>
+          <span className="header-dropdown-arrow">▾</span>
         </button>
-        {busColorsOpen && (
-          <div className="bus-colour-panel">
-            <div className="bus-colour-panel-header">
-              <span>Bus Colours</span>
-              <button className="bus-colour-reset" onClick={onResetBusColors} type="button">
-                Reset
-              </button>
-            </div>
-            <div className="bus-colour-list">
-              {BUS_COLOR_OPTIONS.map((option) => (
-                <label key={option.key} className="bus-colour-row">
-                  <span className="bus-colour-label">{option.label}</span>
-                  <span className="bus-colour-default" style={{ background: DEFAULT_BUS_COLORS[option.key] }} />
-                  <input
-                    type="color"
-                    value={busColors[option.key]}
-                    onChange={(e) => onBusColorChange(option.key, e.target.value)}
-                    title={`${option.label} colour`}
-                  />
-                </label>
-              ))}
-            </div>
-          </div>
-        )}
-        <button
-          className={`theme-toggle ${themeMode === 'dark' ? 'theme-toggle-dark' : ''}`}
-          type="button"
-          onClick={onToggleTheme}
-          title={`Switch to ${themeMode === 'dark' ? 'light' : 'dark'} theme`}
-          aria-label={`Switch to ${themeMode === 'dark' ? 'light' : 'dark'} theme`}
-          aria-pressed={themeMode === 'dark'}
-        >
-          <span className="theme-toggle-track" aria-hidden="true">
-            <span className="theme-toggle-thumb">{themeMode === 'dark' ? 'D' : 'L'}</span>
-          </span>
-          <span className="theme-toggle-label">{themeMode === 'dark' ? 'Dark' : 'Light'}</span>
-        </button>
-        <button className="btn-header" onClick={onSave} title="Save system">Save</button>
-        <button className="btn-header" onClick={onLoad} title="Load saved system">Load</button>
-        <button
-          className={`btn-header ${shareCopied ? 'btn-header-copied' : ''}`}
-          onClick={handleShareClick}
-          title="Copy a share link for this design to your clipboard"
-        >
-          {shareCopied ? 'Copied!' : 'Share'}
-        </button>
-        <button className="btn-header" onClick={onExportPdf} title="Export system as PDF">Export PDF</button>
-        <button className="btn-header btn-danger" onClick={onReset} title="Reset to default sample system">Reset</button>
-        {onSetDefault && (
-          <div ref={setDefaultRef} style={{ position: 'relative' }}>
+        {settingsOpen && (
+          <div className="header-dropdown-menu header-dropdown-menu-right header-dropdown-menu-scroll">
+            {/* Theme toggle */}
             <button
-              className={`btn-header ${setDefaultOpen ? 'btn-header-active' : ''}`}
-              onClick={() => setSetDefaultOpen((o) => !o)}
-              title="[Dev] Push current drawing to a default/preset file"
+              className="header-dropdown-item header-dropdown-theme-row"
+              onClick={() => onToggleTheme()}
             >
-              Set Default ▾
+              <span>{themeMode === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>
+              <span className={`menu-theme-icon ${themeMode === 'dark' ? 'menu-theme-icon-dark' : ''}`}>
+                <span className="menu-theme-sun">☀</span>
+                <span className="menu-theme-moon">☾</span>
+                <span className="menu-theme-knob" />
+              </span>
             </button>
-            {setDefaultOpen && (
-              <div style={{
-                position: 'absolute', top: '100%', right: 0, marginTop: 4,
-                background: 'var(--surface)', border: '1px solid var(--border)',
-                borderRadius: 6, boxShadow: '0 4px 12px rgba(0,0,0,0.18)',
-                minWidth: 190, zIndex: 200, overflow: 'hidden',
-              }}>
+
+            <div className="header-dropdown-divider" />
+
+            {/* File actions */}
+            <button className="header-dropdown-item" onClick={() => { onSave(); setSettingsOpen(false); }}>Save</button>
+            <button className="header-dropdown-item" onClick={() => { onLoad(); setSettingsOpen(false); }}>Load</button>
+            <button className="header-dropdown-item" onClick={async () => { await handleShareClick(); }}>{shareCopied ? 'Copied!' : 'Share'}</button>
+            <button className="header-dropdown-item" onClick={() => { onExportPdf(); setSettingsOpen(false); }}>Export PDF</button>
+            <button className="header-dropdown-item header-dropdown-item-danger" onClick={() => { onReset(); setSettingsOpen(false); }}>Reset</button>
+
+            {onSetDefault && (
+              <>
+                <div className="header-dropdown-divider" />
+                <div className="header-dropdown-section-label">Dev: Set Default</div>
                 {([
-                  { target: 'simple-12v',  label: 'Simple 12V Solar' },
-                  { target: 'full-12v',    label: 'Full 12V Mobile' },
+                  { target: 'simple-12v', label: 'Simple 12V Solar' },
+                  { target: 'full-12v', label: 'Full 12V Mobile' },
                   { target: 'offgrid-48v', label: '48V Off-Grid Cabin' },
                 ] as const).map(({ target, label }) => (
                   <button
                     key={target}
-                    style={{
-                      display: 'block', width: '100%', textAlign: 'left',
-                      padding: '8px 14px', background: 'none', border: 'none',
-                      color: 'var(--ink)', fontSize: 13, cursor: 'pointer',
-                    }}
-                    onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-hover, var(--border))')}
-                    onMouseLeave={(e) => (e.currentTarget.style.background = 'none')}
+                    className="header-dropdown-item"
                     onClick={() => {
-                      setSetDefaultOpen(false);
                       onSetDefault(target, label);
+                      setSettingsOpen(false);
                     }}
                   >
                     {label}
                   </button>
                 ))}
+              </>
+            )}
+
+            <div className="header-dropdown-divider" />
+
+            {/* Bus colours — collapsed by default */}
+            <button
+              className="header-dropdown-item header-dropdown-collapse-btn"
+              onClick={() => setBusColorsExpanded((o) => !o)}
+            >
+              <span>Bus Colours</span>
+              <span className="header-dropdown-collapse-arrow">{busColorsExpanded ? '▾' : '▸'}</span>
+            </button>
+            {busColorsExpanded && (
+              <div className="header-dropdown-bus-colors">
+                {BUS_COLOR_OPTIONS.map((option) => (
+                  <label key={option.key} className="header-dropdown-item header-dropdown-color-row">
+                    <span className="header-dropdown-color-label">{option.label}</span>
+                    <span
+                      className="header-dropdown-color-swatch"
+                      style={{ background: DEFAULT_BUS_COLORS[option.key] }}
+                      title="Default"
+                    />
+                    <input
+                      type="color"
+                      value={busColors[option.key]}
+                      onChange={(e) => onBusColorChange(option.key, e.target.value)}
+                      title={`${option.label} colour`}
+                    />
+                  </label>
+                ))}
+                <button
+                  className="header-dropdown-item header-dropdown-reset"
+                  onClick={onResetBusColors}
+                >
+                  Reset Bus Colours
+                </button>
               </div>
             )}
           </div>
         )}
+      </div>
       </div>
     </header>
   );

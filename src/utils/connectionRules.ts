@@ -4,6 +4,7 @@ import type {
   ConnectionRole,
   Product,
   ProductCommunicationPort,
+  ProductPort,
   SystemComponent,
   SystemConnection,
   EffectiveTerminal,
@@ -44,8 +45,11 @@ function directionCompatible(a: EffectiveTerminal, b: EffectiveTerminal): boolea
   return (canProvidePower(a) && canReceivePower(b)) || (canProvidePower(b) && canReceivePower(a));
 }
 
-function commPortFor(ref: TerminalRef): ProductCommunicationPort | undefined {
-  return ref.product.communicationPorts?.find((p) => p.id === ref.terminal.id);
+function commPortFor(ref: TerminalRef): ProductCommunicationPort | ProductPort | undefined {
+  const portId = ref.terminal.portId ?? ref.terminal.id;
+  return ref.product.ports?.find((p) => p.id === portId && p.kind === 'comm') ??
+    ref.product.communicationPorts?.find((p) => p.id === portId) ??
+    ref.product.communicationPorts?.find((p) => p.id === ref.terminal.id);
 }
 
 /**
@@ -57,17 +61,18 @@ function commPortFor(ref: TerminalRef): ProductCommunicationPort | undefined {
 function effectiveProtocol(ref: TerminalRef): string | 'unconfigured' | undefined {
   const port = commPortFor(ref);
   if (!port) return undefined;
+  const supportedProtocols = port.supportedProtocols ?? [];
   // Per-instance override (set by the user in the inspector)
-  const instanceProto = ref.component.configuredProtocols?.[ref.terminal.id];
+  const instanceProto = ref.component.configuredProtocols?.[port.id];
   if (instanceProto) return instanceProto;
   // Product-level default
   if (port.configuredProtocol) return port.configuredProtocol;
   // Single-protocol port — no ambiguity
-  if (port.supportedProtocols.length === 1) return port.supportedProtocols[0];
+  if (supportedProtocols.length === 1) return supportedProtocols[0];
   // Multi-protocol configurable port — user must pick one before connecting
   if (port.isConfigurable) return 'unconfigured';
   // Multi-protocol non-configurable (e.g. passive bus) — use first entry
-  return port.supportedProtocols[0];
+  return supportedProtocols[0];
 }
 
 /**

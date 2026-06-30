@@ -1,5 +1,7 @@
 import type { SystemDesign } from '../types/system';
 import { DEFAULT_ASSUMPTIONS } from '../data/electricalRules';
+import { PRODUCT_MAP } from '../data/products';
+import { sanitizeSystemDesign } from './systemSanitization';
 
 const STORAGE_KEY = 'nomadeus-system-v1';
 const SAVED_SYSTEMS_KEY = 'nomadeus-saved-systems-v1';
@@ -79,12 +81,13 @@ export function checkCompatibility(sourceVersion: string | null): CompatibilityR
 }
 
 export function createSystemSaveFile(system: SystemDesign): SystemSaveFile {
+  const sanitized = sanitizeSystemDesign(system, PRODUCT_MAP);
   return {
     fileType: 'nomadeus-system-builder',
     version: SAVE_FILE_VERSION,
     appVersion: CURRENT_APP_VERSION,
     exportedAt: new Date().toISOString(),
-    system,
+    system: sanitized,
   };
 }
 
@@ -118,7 +121,7 @@ export function parseSystemSaveFile(raw: string): LoadResult {
     },
   };
 
-  return { system, compatibility: checkCompatibility(sourceVersion) };
+  return { system: sanitizeSystemDesign(system, PRODUCT_MAP), compatibility: checkCompatibility(sourceVersion) };
 }
 
 export function systemSaveFilename(system: SystemDesign): string {
@@ -134,13 +137,14 @@ export function systemSaveFilename(system: SystemDesign): string {
 
 export function saveCurrentSystem(system: SystemDesign): void {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(system));
+    const sanitized = sanitizeSystemDesign(system, PRODUCT_MAP);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(sanitized));
     const saved = loadSavedSystems();
-    const idx = saved.findIndex((s) => s.id === system.id);
+    const idx = saved.findIndex((s) => s.id === sanitized.id);
     if (idx >= 0) {
-      saved[idx] = system;
+      saved[idx] = sanitized;
     } else {
-      saved.push(system);
+      saved.push(sanitized);
     }
     localStorage.setItem(SAVED_SYSTEMS_KEY, JSON.stringify(saved));
   } catch {
@@ -151,7 +155,7 @@ export function saveCurrentSystem(system: SystemDesign): void {
 export function loadCurrentSystem(): SystemDesign | null {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? (JSON.parse(raw) as SystemDesign) : null;
+    return raw ? sanitizeSystemDesign(JSON.parse(raw) as SystemDesign, PRODUCT_MAP) : null;
   } catch {
     return null;
   }
@@ -160,7 +164,7 @@ export function loadCurrentSystem(): SystemDesign | null {
 export function loadSavedSystems(): SystemDesign[] {
   try {
     const raw = localStorage.getItem(SAVED_SYSTEMS_KEY);
-    return raw ? (JSON.parse(raw) as SystemDesign[]) : [];
+    return raw ? (JSON.parse(raw) as SystemDesign[]).map((system) => sanitizeSystemDesign(system, PRODUCT_MAP)) : [];
   } catch {
     return [];
   }
