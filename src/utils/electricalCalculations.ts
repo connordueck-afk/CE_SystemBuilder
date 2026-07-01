@@ -1,18 +1,17 @@
-import type { EffectiveTerminal, SystemDesign, SystemComponent, SystemConnection, SystemWarning, Product } from '../types/system';
+import type { CommunicationNetwork, EffectiveTerminal, SystemDesign, SystemComponent, SystemConnection, SystemWarning, Product } from '../types/system';
 import { buildCommunicationNetworks, communicationNetworkWarnings } from './communicationNetworks';
-import { nextStandardFuse } from '../data/fuseRatings';
 import { cableByAwg } from '../data/cableAmpacity';
-import { CONTINUOUS_LOAD_FACTOR } from '../data/electricalRules';
 import { validateSystemConnection } from './connectionRules';
 import { findSolarArrayFeedingComponent } from './solarCalculations';
 import { canProvidePower } from './terminalDirection';
 import { buildBatteryInterconnectMap } from './batteryPackAnalysis';
-import { analyzeSystemCircuits } from './circuitAnalysis';
+import { analyzeSystemCircuits, type ConnectionCircuitAnalysis, type SystemCircuitAnalysis } from './circuitAnalysis';
 import {
   buildElectricalNetlist,
   busTypeFromTerminal,
   busTypeRequiresFuse,
   isReturnOrGroundBus,
+  type ElectricalNetlist,
   type BusType,
   type TerminalNodeRef,
 } from './electricalNetlist';
@@ -21,7 +20,7 @@ import { getProductPort, linkGroupKey } from './portLinks';
 import { getTerminalPortId, portMaxCurrentA, terminalKind, terminalRole } from './portSpecs';
 import { getDcBusNominalVoltage, isDcBusTerminal } from './dcBusVoltage';
 import { formatFeetAndInches } from './cableSummary';
-import { analyzeBatteryTopology } from './batteryTopology';
+import { analyzeBatteryTopology, type BatteryTopologyAnalysis } from './batteryTopology';
 import { resolveFuseSlot } from './distributionTopology';
 
 const PASS_THROUGH_TYPES = new Set<string>(['fuse', 'breaker']);
@@ -167,7 +166,13 @@ function shuntCurrentRatingA(product: Product): number | undefined {
 
 export function generateWarnings(
   system: SystemDesign,
-  products: Map<string, Product>
+  products: Map<string, Product>,
+  inputs: {
+    netlist?: ElectricalNetlist;
+    circuitAnalysis?: SystemCircuitAnalysis;
+    batteryTopology?: BatteryTopologyAnalysis;
+    communicationNetworks?: CommunicationNetwork[];
+  } = {}
 ): SystemWarning[] {
   const warnings: SystemWarning[] = [];
   let warnId = 0;
@@ -188,10 +193,10 @@ export function generateWarnings(
     connectedTerminals.add(`${conn.toComponentId}:${conn.toTerminalId}`);
   }
 
-  const netlist = buildElectricalNetlist(system, products);
-  const circuitAnalysis = analyzeSystemCircuits(system, products);
+  const netlist = inputs.netlist ?? buildElectricalNetlist(system, products);
+  const circuitAnalysis = inputs.circuitAnalysis ?? analyzeSystemCircuits(system, products);
   const batteryInterconnects = buildBatteryInterconnectMap(system, products);
-  const batteryTopology = analyzeBatteryTopology(system, products);
+  const batteryTopology = inputs.batteryTopology ?? analyzeBatteryTopology(system, products);
   const componentById = new Map(system.components.map((component) => [component.id, component]));
   const productByComponent = new Map(
     system.components
@@ -218,14 +223,19 @@ export function generateWarnings(
   const connectionDesignCurrentA = (connection: SystemConnection): number => (
     circuitAnalysis.connections.get(connection.id)?.designCurrentA ??
     connection.designCurrentOverrideA ??
-    connection.calculatedCurrentA ??
     0
   );
   const connectionCableAmpacityA = (connection: SystemConnection): number | undefined => {
     const context = circuitAnalysis.connections.get(connection.id);
-    const awg = connection.manualCableAwg ?? context?.selectedCableAwg ?? context?.recommendedCableAwg ?? connection.recommendedCableAwg;
+    const awg = connection.manualCableAwg ?? context?.selectedCableAwg ?? context?.recommendedCableAwg;
     return awg ? cableByAwg(awg)?.ampacity : undefined;
   };
+  const adjacentCircuitContexts = (componentId: string): ConnectionCircuitAnalysis[] => (
+    system.connections
+      .filter((connection) => connectionTouchesComponent(connection, componentId))
+      .map((connection) => circuitAnalysis.connections.get(connection.id))
+      .filter((context): context is ConnectionCircuitAnalysis => Boolean(context))
+  );
   const attachedCurrentA = (componentId: string, terminalIds: string[]): number => {
     const terminalSet = new Set(terminalIds);
     const seenConnectionIds = new Set<string>();
@@ -943,17 +953,17 @@ export function generateWarnings(
       );
     }
 
-    const adjConns = system.connections.filter(
-      (c) => c.fromComponentId === comp.id || c.toComponentId === comp.id
-    );
-    if (adjConns.length === 0) continue;
+    const adjacentContexts = adjacentCircuitContexts(comp.id);
+    if (adjacentContexts.length === 0) continue;
 
     // Under-rated: fuse will nuisance-trip under continuous load
-    const knownCurrentConns = adjConns.filter((c) => (c.calculatedCurrentA ?? 0) > 0);
-    if (knownCurrentConns.length > 0) {
-      const throughCurrentA = Math.max(...knownCurrentConns.map((c) => c.calculatedCurrentA!));
-      const minRequired = nextStandardFuse(throughCurrentA * CONTINUOUS_LOAD_FACTOR);
-      if (fuseRatingA < throughCurrentA * CONTINUOUS_LOAD_FACTOR) {
+    const requiredFuseRatings = adjacentContexts
+      .map((context) => context.minimumFuseA)
+      .filter((value): value is number => value != null && Number.isFinite(value) && value > 0);
+    if (requiredFuseRatings.length > 0) {
+      const throughCurrentA = Math.max(...adjacentContexts.map((context) => context.designCurrentA));
+      const minRequired = Math.max(...requiredFuseRatings);
+      if (fuseRatingA < minRequired) {
         warn(
           'error',
           `"${comp.label ?? product.name}" is under-rated: ${fuseRatingA}A fuse for ${throughCurrentA.toFixed(0)}A continuous load — minimum ${minRequired}A required`,
@@ -964,7 +974,7 @@ export function generateWarnings(
     }
 
     // Over-rated: fuse exceeds cable ampacity — cable may burn before fuse blows
-    const awgs = adjConns.map((c) => c.recommendedCableAwg).filter(Boolean) as string[];
+    const awgs = adjacentContexts.map((context) => context.selectedCableAwg ?? context.recommendedCableAwg).filter(Boolean) as string[];
     if (awgs.length > 0) {
       const minAmpacity = Math.min(...awgs.map((awg) => cableByAwg(awg)?.ampacity ?? Infinity));
       if (minAmpacity < Infinity && fuseRatingA > minAmpacity) {
@@ -1025,23 +1035,24 @@ export function generateWarnings(
       }
     }
 
-    if ((conn.voltageDropPercent ?? 0) > system.assumptions.maxVoltageDropPercent) {
+    const context = circuitAnalysis.connections.get(conn.id);
+    if ((context?.voltageDropPercent ?? 0) > system.assumptions.maxVoltageDropPercent) {
       warn(
         'warning',
-        `Connection has ${conn.voltageDropPercent?.toFixed(1)}% voltage drop (limit: ${system.assumptions.maxVoltageDropPercent}%)`,
+        `Connection has ${context?.voltageDropPercent?.toFixed(1)}% voltage drop (limit: ${system.assumptions.maxVoltageDropPercent}%)`,
         'HIGH_VOLTAGE_DROP',
         undefined,
         conn.id
       );
     }
 
-    for (const connectionWarning of conn.warnings ?? []) {
+    for (const connectionWarning of context?.warnings ?? []) {
       if (connectionWarning.toLowerCase().includes('voltage drop')) continue;
       warn('warning', connectionWarning, 'CONNECTION_SIZING_WARNING', undefined, conn.id);
     }
   }
 
-  const commNetworks = buildCommunicationNetworks(system, products);
+  const commNetworks = inputs.communicationNetworks ?? buildCommunicationNetworks(system, products);
   for (const commWarning of communicationNetworkWarnings(commNetworks)) {
     warnings.push(commWarning as SystemWarning);
   }

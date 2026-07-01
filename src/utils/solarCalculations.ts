@@ -208,6 +208,7 @@ export function aggregateParallelSolarStats(stats: SolarArrayStats[]): SolarArra
   const first = stats[0];
   return {
     vocV: Math.max(...stats.map((s) => s.vocV)),
+    coldVocV: Math.max(...stats.map((s) => s.coldVocV ?? s.vocV)),
     vmpV: stats.some((s) => s.vmpV != null) ? Math.max(...stats.map((s) => s.vmpV ?? 0)) : undefined,
     iscA: stats.some((s) => s.iscA != null) ? stats.reduce((sum, s) => sum + (s.iscA ?? 0), 0) : undefined,
     impA: stats.some((s) => s.impA != null) ? stats.reduce((sum, s) => sum + (s.impA ?? 0), 0) : undefined,
@@ -328,6 +329,7 @@ function calculateSeriesClusterStats(
     componentId: clusterKey(cluster),
     label: segments.map((segment) => segment.label).join(' + '),
     vocV: segments.reduce((sum, segment) => sum + segment.vocV, 0),
+    coldVocV: segments.reduce((sum, segment) => sum + (segment.coldVocV ?? segment.vocV), 0),
     vmpV: segments.some((segment) => segment.vmpV != null)
       ? segments.reduce((sum, segment) => sum + (segment.vmpV ?? 0), 0)
       : undefined,

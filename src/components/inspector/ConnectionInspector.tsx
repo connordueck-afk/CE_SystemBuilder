@@ -11,6 +11,7 @@ import { BUS_DEFAULT_COLOR, BUS_DEFAULT_TYPE } from '../../utils/cableDefaults';
 import { getPremanufacturedCable } from '../../data/products/cableAssemblies';
 import { PremanufacturedCableSelector } from '../parts/PremanufacturedCableSelector';
 import { deriveConnectionProtocol } from '../../utils/communicationNetworks';
+import type { ConnectionCircuitAnalysis } from '../../utils/circuitAnalysis';
 
 const CABLE_COLORS = ['Red', 'Black', 'Yellow', 'Orange', 'Blue', 'Green', 'White', 'Brown', 'Gray', 'Purple'];
 const CABLE_TYPES = ['THHN/THWN', 'RHH/RHW-2', 'Marine Grade', 'Welding Cable', 'Battery Cable', 'Chassis Wire (MTW)'];
@@ -33,6 +34,7 @@ interface Props {
   fromProduct: Product | undefined;
   toProduct: Product | undefined;
   systemVoltage: number;
+  analysis?: ConnectionCircuitAnalysis;
   protectionRecommendations: ProtectionRecommendation[];
   onUpdateLength: (id: string, ft: number) => void;
   onToggleBusLink: (id: string, busLink: boolean) => void;
@@ -112,6 +114,7 @@ export function ConnectionInspector({
   fromProduct,
   toProduct,
   systemVoltage,
+  analysis,
   protectionRecommendations,
   onUpdateLength,
   onToggleBusLink,
@@ -128,8 +131,15 @@ export function ConnectionInspector({
   const [showCableSelector, setShowCableSelector] = useState(false);
   const fromLabel = fromComponent?.label ?? fromProduct?.name ?? 'Unknown';
   const toLabel = toComponent?.label ?? toProduct?.name ?? 'Unknown';
-  const dropWarn = (connection.voltageDropPercent ?? 0) > 3;
-  const busType = connection.busType;
+  const calculatedCurrentA = analysis?.designCurrentA;
+  const recommendedFuseA = analysis?.recommendedFuseA;
+  const recommendedCableAwg = analysis?.recommendedCableAwg;
+  const selectedCableAwg = analysis?.selectedCableAwg ?? recommendedCableAwg;
+  const voltageDropV = analysis?.voltageDropV;
+  const voltageDropPercent = analysis?.voltageDropPercent;
+  const connectionWarnings = analysis?.warnings ?? [];
+  const dropWarn = (voltageDropPercent ?? 0) > 3;
+  const busType = analysis?.busType ?? connection.busType;
   const suggestedColor = busType ? (BUS_DEFAULT_COLOR[busType] ?? null) : null;
   const suggestedType = busType ? (BUS_DEFAULT_TYPE[busType] ?? null) : null;
   const fromTerminal = fromComponent && fromProduct
@@ -160,7 +170,7 @@ export function ConnectionInspector({
     endpointSourceCapabilityA(toComponent, toProduct, connection.toTerminalId, systemVoltage) ?? 0
   ) || undefined;
   const showSourceCapability = maxSourceCapabilityA != null &&
-    (connection.calculatedCurrentA == null || maxSourceCapabilityA > connection.calculatedCurrentA);
+    (calculatedCurrentA == null || maxSourceCapabilityA > calculatedCurrentA);
 
   const updateCableLength = (next: Partial<typeof cableLength>) => {
     onUpdateLength(
@@ -207,7 +217,7 @@ export function ConnectionInspector({
           />
           <span style={{ color: 'var(--muted)', fontSize: 12, fontWeight: 600 }}>A</span>
         </div>
-        <Row label="Branch Current" value={connection.calculatedCurrentA != null ? `${connection.calculatedCurrentA.toFixed(0)} A` : null} />
+        <Row label="Branch Current" value={calculatedCurrentA != null ? `${calculatedCurrentA.toFixed(0)} A` : null} />
         {showSourceCapability && (
           <Row label="Max Source Capability" value={`${maxSourceCapabilityA.toFixed(0)} A`} />
         )}
@@ -217,8 +227,8 @@ export function ConnectionInspector({
             ? `${terminalDirectionLabel(fromTerminal)} -> ${terminalDirectionLabel(toTerminal)}`
             : null}
         />
-        <Row label="Recommended Fuse" value={connection.recommendedFuseA != null ? `${connection.recommendedFuseA} A` : null} />
-        <Row label="Recommended Cable" value={connection.recommendedCableAwg != null ? `${connection.recommendedCableAwg} AWG` : null} />
+        <Row label="Recommended Fuse" value={recommendedFuseA != null ? `${recommendedFuseA} A` : null} />
+        <Row label="Recommended Cable" value={recommendedCableAwg != null ? `${recommendedCableAwg} AWG` : null} />
         <Row label="System Voltage" value={`${systemVoltage} V`} />
       </div>
       )}
@@ -359,10 +369,10 @@ export function ConnectionInspector({
             <div className="cable-size-control">
               <select
                 className="inspector-input"
-                value={connection.manualCableAwg ?? connection.recommendedCableAwg ?? ''}
+                value={connection.manualCableAwg ?? selectedCableAwg ?? ''}
                 onChange={(e) => onUpdateCableAwg(connection.id, e.target.value)}
               >
-                {!connection.manualCableAwg && !connection.recommendedCableAwg && (
+                {!connection.manualCableAwg && !selectedCableAwg && (
                   <option value="" disabled>
                     Select size
                   </option>
@@ -445,12 +455,12 @@ export function ConnectionInspector({
             </div>
             <Row
               label="Voltage Drop"
-              value={connection.voltageDropV != null ? `${connection.voltageDropV.toFixed(3)} V` : null}
+              value={voltageDropV != null ? `${voltageDropV.toFixed(3)} V` : null}
               warn={dropWarn}
             />
             <Row
               label="Drop %"
-              value={connection.voltageDropPercent != null ? `${connection.voltageDropPercent.toFixed(2)}%` : null}
+              value={voltageDropPercent != null ? `${voltageDropPercent.toFixed(2)}%` : null}
               warn={dropWarn}
             />
             {dropWarn && (
@@ -466,6 +476,7 @@ export function ConnectionInspector({
       {showCableSelector && (
         <PremanufacturedCableSelector
           connection={connection}
+          requiredGauge={connection.manualCableAwg ?? selectedCableAwg}
           onSelect={(cableId) => onUpdatePremanufacturedCable(connection.id, cableId)}
           onClose={() => setShowCableSelector(false)}
         />
@@ -488,9 +499,9 @@ export function ConnectionInspector({
         </div>
       )}
 
-      {(connection.warnings?.length ?? 0) > 0 && (
+      {connectionWarnings.length > 0 && (
         <div className="inspector-section">
-          {connection.warnings!.map((w, i) => (
+          {connectionWarnings.map((w, i) => (
             <div key={i} style={{ color: 'var(--amber)', fontSize: 12, fontWeight: 600, padding: '3px 0' }}>Warning: {w}</div>
           ))}
         </div>

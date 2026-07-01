@@ -27,6 +27,7 @@ import { buildProtectionRecommendations } from '../protectionRecommendations';
 import { generateWarnings } from '../electricalCalculations';
 import { getEffectiveTerminals } from '../effectiveTerminals';
 import { effectiveMaxConnections } from '../connectorLimits';
+import { analyzeBatteryTopology } from '../batteryTopology';
 import { resolveTerminalGroups } from './terminalGroups';
 import type {
   ComponentDesignAnalysis,
@@ -96,10 +97,22 @@ export function analyzeSystemDesign(
   const netlist = buildElectricalNetlist(system, products);
   const circuit = analyzeSystemCircuits(system, products);
   applyBranchCurrentsToNetlist(netlist, system, circuit);
+  const batteryTopology = analyzeBatteryTopology(system, products);
   const communicationNetworks = buildCommunicationNetworks(system, products);
-  const electricalSummary = buildElectricalSummary(system, products);
-  const protectionRecommendations = buildProtectionRecommendations(system, products);
-  const baseWarnings = generateWarnings(system, products);
+  const electricalSummary = buildElectricalSummary(system, products, {
+    batteryTopology,
+    circuitAnalysis: circuit,
+    netlist,
+  });
+  const protectionRecommendations = buildProtectionRecommendations(system, products, {
+    circuitAnalysis: circuit,
+  });
+  const baseWarnings = generateWarnings(system, products, {
+    batteryTopology,
+    circuitAnalysis: circuit,
+    communicationNetworks,
+    netlist,
+  });
 
   const issues: DesignIssue[] = [];
 

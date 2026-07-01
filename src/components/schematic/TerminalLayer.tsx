@@ -19,6 +19,7 @@ interface Props {
   fullTerminals: Set<string>;
   busColors: BusColorMap;
   onTerminalMouseDown: (compId: string, termId: string, e: React.MouseEvent) => void;
+  onTerminalMouseUp: (compId: string, termId: string, e: React.MouseEvent) => void;
 }
 
 /**
@@ -34,6 +35,7 @@ export const TerminalLayer = memo(function TerminalLayer({
   fullTerminals,
   busColors,
   onTerminalMouseDown,
+  onTerminalMouseUp,
 }: Props) {
   const [hoveredKey, setHoveredKey] = useState<string | null>(null);
   const onHover = (compId: string, termId: string, hovered: boolean) => {
@@ -128,6 +130,7 @@ export const TerminalLayer = memo(function TerminalLayer({
                     busColors={busColors}
                     onHover={onHover}
                     onMouseDown={onTerminalMouseDown}
+                    onMouseUp={onTerminalMouseUp}
                   />
                 );
               })}

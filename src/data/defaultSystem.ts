@@ -72,9 +72,7 @@ export const DEFAULT_SYSTEM: SystemDesign = {
       label: "Solar Array (4x 400W)",
       quantity: 1,
       x: -140,
-      y: -80,
-      solarSeriesCount: 2,
-      solarParallelCount: 2
+      y: -80
     },
     {
       id: "p3-mppt",

@@ -10,6 +10,7 @@ import { getEffectiveProductForComponent } from '../../utils/solarCalculations';
 import type { ProtectionRecommendation } from '../../utils/protectionRecommendations';
 import type { BusColorMap } from '../../utils/busColors';
 import type { PathMarker } from '../../utils/connectionGeometry';
+import type { ConnectionCircuitAnalysis } from '../../utils/circuitAnalysis';
 import { isVerticalOrientation, transformOrientationOffset } from '../../utils/componentOrientation';
 import { clampComponentScale, componentScale, scaledProductSize, scaledTerminalOffset } from '../../utils/componentScale';
 import { validateSystemConnection } from '../../utils/connectionRules';
@@ -115,6 +116,7 @@ interface Props {
   selectedConnectionId: string | null;
   selectedAnnotationId: string | null;
   protectionRecommendations: ProtectionRecommendation[];
+  connectionAnalysis?: Record<string, ConnectionCircuitAnalysis | undefined>;
   busColors: BusColorMap;
   focusedComponentId: string | null;
   focusRequestId: number;
@@ -406,6 +408,7 @@ export function SchematicCanvas({
   selectedConnectionId,
   selectedAnnotationId,
   protectionRecommendations,
+  connectionAnalysis,
   busColors,
   focusedComponentId,
   focusRequestId,
@@ -464,6 +467,7 @@ export function SchematicCanvas({
   const isBoxSelectRef = useRef(false);
   const didPanRef = useRef(false);
   const didBoxSelectRef = useRef(false);
+  const didDragConnectRef = useRef(false);
   const handledFocusRequestIdRef = useRef(0);
   const handledFocusConnectionRequestIdRef = useRef(0);
   const handledCancelInteractionRequestIdRef = useRef(0);
@@ -681,6 +685,7 @@ export function SchematicCanvas({
     isBoxSelectRef.current = false;
     didPanRef.current = false;
     didBoxSelectRef.current = false;
+    didDragConnectRef.current = false;
   }, [cancelInteractionRequestId, clearComponentMovePreview, clearComponentScalePreview, handleCancelConnectionRoutePreview]);
 
   useEffect(() => {
@@ -1282,6 +1287,25 @@ export function SchematicCanvas({
     }
   }, [pendingConn, validTargetTerminals, fullTerminals, onAddConnection, system.components, products]);
 
+  // Completes a drag-to-connect gesture: when the mouse is released over a
+  // valid target terminal while a connection is pending, finish the connection.
+  // The click-to-connect flow is unaffected because releasing over the source
+  // terminal (a plain click) is treated as a no-op, leaving the connection
+  // pending for a follow-up click.
+  const handleTerminalMouseUp = useCallback((compId: string, termId: string) => {
+    if (!pendingConn) return;
+    const isSelf = pendingConn.fromComponentId === compId && pendingConn.fromTerminalId === termId;
+    if (isSelf) return;
+    if (validTargetTerminals?.has(`${compId}:${termId}`)) {
+      onAddConnection(pendingConn.fromComponentId, pendingConn.fromTerminalId, compId, termId);
+      setPendingConn(null);
+      setFusePrompt(null);
+      // Suppress the synthetic click that fires on the SVG after a cross-terminal
+      // drag, which would otherwise clear the current selection.
+      didDragConnectRef.current = true;
+    }
+  }, [pendingConn, validTargetTerminals, onAddConnection]);
+
   const handleCanvasClick = useCallback(() => {
     setComponentContextMenu(null);
     setCanvasContextMenu(null);
@@ -1291,6 +1315,10 @@ export function SchematicCanvas({
     }
     if (didBoxSelectRef.current) {
       didBoxSelectRef.current = false;
+      return;
+    }
+    if (didDragConnectRef.current) {
+      didDragConnectRef.current = false;
       return;
     }
     if (pendingConn) {
@@ -1438,6 +1466,7 @@ export function SchematicCanvas({
           products={products}
           selectedConnectionId={selectedConnectionId}
           protectionRecommendations={protectionRecommendations}
+          connectionAnalysis={connectionAnalysis}
           busColors={busColors}
           onSelectConnection={handleConnectionSelect}
           onShowProtectionPrompt={handleShowProtectionPrompt}
@@ -1470,6 +1499,7 @@ export function SchematicCanvas({
           products={products}
           selectedConnectionId={selectedConnectionId}
           protectionRecommendations={protectionRecommendations}
+          connectionAnalysis={connectionAnalysis}
           busColors={busColors}
           onSelectConnection={handleConnectionSelect}
           onShowProtectionPrompt={handleShowProtectionPrompt}
@@ -1491,6 +1521,7 @@ export function SchematicCanvas({
           fullTerminals={fullTerminals}
           busColors={busColors}
           onTerminalMouseDown={handleTerminalMouseDown}
+          onTerminalMouseUp={handleTerminalMouseUp}
         />
 
         {selectionBox && (

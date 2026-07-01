@@ -461,7 +461,6 @@ export function buildElectricalNetlist(system: SystemDesign, products: Map<strin
       ? fromNet.busType
       : toNet?.busType ?? 'unknown';
     const operatingCurrentA = Math.max(
-      connection.calculatedCurrentA ?? 0,
       fromNet?.operatingCurrentA ?? 0,
       toNet?.operatingCurrentA ?? 0
     );

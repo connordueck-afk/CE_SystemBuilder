@@ -336,6 +336,7 @@ export function RightInspector({
             fromProduct={fromComp ? getEffectiveProductForComponent(fromComp, products.get(fromComp.productId)) : undefined}
             toProduct={toComp ? getEffectiveProductForComponent(toComp, products.get(toComp.productId)) : undefined}
             systemVoltage={systemVoltage}
+            analysis={analysis.connections[selectedConnection.id]}
             protectionRecommendations={connectionProtectionRecommendations}
             onUpdateLength={onUpdateConnectionLength}
             onToggleBusLink={onToggleConnectionBusLink}

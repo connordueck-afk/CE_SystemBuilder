@@ -44,7 +44,8 @@ export function getPort(product: Product, portId: string | undefined): ProductPo
  * Resolve the port id for a terminal.
  *
  * Port assignment is group-owned: a terminal belongs to a terminal group, and
- * the group belongs to a port.
+ * the group belongs to a port. Active catalog validation rejects terminal-level
+ * `portId`, so there is deliberately no legacy fallback here.
  */
 export function getTerminalPortId(product: Product, terminal: TerminalDefinition): string | undefined {
   const group = terminal.terminalGroupId

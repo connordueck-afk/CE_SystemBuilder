@@ -223,6 +223,7 @@ export function StaticSchematic({ system, products, busColors, filter }: Props) 
         fullTerminals={fullTerminals}
         busColors={busColors}
         onTerminalMouseDown={NOOP}
+        onTerminalMouseUp={NOOP}
       />
 
       {/* AWG labels */}

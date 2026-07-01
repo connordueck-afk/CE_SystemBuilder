@@ -15,6 +15,7 @@ interface Props {
   busColors: BusColorMap;
   onHover: (compId: string, termId: string, hovered: boolean) => void;
   onMouseDown: (compId: string, termId: string, e: React.MouseEvent) => void;
+  onMouseUp: (compId: string, termId: string, e: React.MouseEvent) => void;
 }
 
 function terminalTooltip(terminal: EffectiveTerminal, componentLabel?: string): string {
@@ -29,7 +30,7 @@ function terminalColor(terminal: EffectiveTerminal, busColors: BusColorMap): str
   return busColors[busTypeFromTerminal(terminal)];
 }
 
-export function Terminal({ terminal, componentId, componentLabel, isHighlighted, isPending, isSource, isDisabled, isFull, isHovered, busColors, onHover, onMouseDown }: Props) {
+export function Terminal({ terminal, componentId, componentLabel, isHighlighted, isPending, isSource, isDisabled, isFull, isHovered, busColors, onHover, onMouseDown, onMouseUp }: Props) {
   const color = terminalColor(terminal, busColors);
   const enlarged = isHighlighted || isSource || isHovered;
   const r = enlarged ? 6 : 4;
@@ -53,6 +54,12 @@ export function Terminal({ terminal, componentId, componentLabel, isHighlighted,
       onMouseDown={(e) => {
         e.stopPropagation();
         onMouseDown(componentId, terminal.id, e);
+      }}
+      // Completes a drag-to-connect: releasing the mouse over this terminal
+      // finishes the connection started on a source terminal's mousedown.
+      onMouseUp={(e) => {
+        e.stopPropagation();
+        onMouseUp(componentId, terminal.id, e);
       }}
       // Keep the click from reaching the canvas, which would cancel the
       // pending connection we just started on mousedown.

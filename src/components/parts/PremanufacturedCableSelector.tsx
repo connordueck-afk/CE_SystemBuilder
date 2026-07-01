@@ -4,6 +4,7 @@ import { PREMANUFACTURED_CABLES } from '../../data/products/cableAssemblies';
 
 interface Props {
   connection: SystemConnection;
+  requiredGauge?: string;
   onSelect: (cableId: string) => void;
   onClose: () => void;
 }
@@ -20,10 +21,9 @@ function gaugeAtLeastAsHeavy(assemblyGauge: string, requiredGauge: string): bool
   return gaugeIndex(assemblyGauge) <= gaugeIndex(requiredGauge);
 }
 
-export function PremanufacturedCableSelector({ connection, onSelect, onClose }: Props) {
+export function PremanufacturedCableSelector({ connection, requiredGauge, onSelect, onClose }: Props) {
   const [selectedId, setSelectedId] = useState<string | null>(connection.premanufacturedCableId ?? null);
 
-  const requiredGauge = connection.manualCableAwg ?? connection.recommendedCableAwg;
   const requiredLengthFt = connection.cableLengthFt;
 
   const { exact, valid, tooShort, wrongGauge } = useMemo(() => {

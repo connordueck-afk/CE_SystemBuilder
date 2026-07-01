@@ -1,7 +1,7 @@
 import type { Product, SystemDesign } from '../types/system';
 import type { BusType } from './electricalNetlist';
 import { buildBatteryInterconnectMap } from './batteryPackAnalysis';
-import { analyzeSystemCircuits } from './circuitAnalysis';
+import { analyzeSystemCircuits, type SystemCircuitAnalysis } from './circuitAnalysis';
 
 export type ProtectionRecommendationKind = 'missing_overcurrent_protection';
 
@@ -15,6 +15,10 @@ export interface ProtectionRecommendation {
   reason: string;
   recommendedFuseA?: number;
   recommendedCableAwg?: string;
+}
+
+export interface ProtectionRecommendationInputs {
+  circuitAnalysis?: SystemCircuitAnalysis;
 }
 
 function busLabel(busType: BusType): string {
@@ -31,9 +35,10 @@ function canRecommendInlineProtection(busType: BusType): boolean {
 
 export function buildProtectionRecommendations(
   system: SystemDesign,
-  products: Map<string, Product>
+  products: Map<string, Product>,
+  inputs: ProtectionRecommendationInputs = {}
 ): ProtectionRecommendation[] {
-  const analysis = analyzeSystemCircuits(system, products);
+  const analysis = inputs.circuitAnalysis ?? analyzeSystemCircuits(system, products);
   const batteryInterconnects = buildBatteryInterconnectMap(system, products);
   const recommendations: ProtectionRecommendation[] = [];
 
@@ -52,8 +57,8 @@ export function buildProtectionRecommendations(
       severity: 'warning',
       connectionId: connection.id,
       busType: context.busType,
-      recommendedFuseA: connection.recommendedFuseA,
-      recommendedCableAwg: connection.recommendedCableAwg,
+      recommendedFuseA: context.recommendedFuseA,
+      recommendedCableAwg: context.recommendedCableAwg,
       message: `Missing ${protectionName(context.busType)} on ${busLabel(context.busType)} branch`,
       reason: `${busLabel(context.busType)} conductors carrying load should be protected by an in-line fuse or breaker sized for the branch.`,
     });

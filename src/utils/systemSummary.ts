@@ -1,9 +1,10 @@
 import type { Product, SystemDesign } from '../types/system';
-import type { BusType } from './electricalNetlist';
+import type { BusType, ElectricalNetlist } from './electricalNetlist';
 import { buildElectricalNetlist } from './electricalNetlist';
+import type { SystemCircuitAnalysis } from './circuitAnalysis';
 import { analyzeSystemCircuits } from './circuitAnalysis';
 import { findSolarArrayFeedingComponent } from './solarCalculations';
-import { analyzeBatteryTopology } from './batteryTopology';
+import { analyzeBatteryTopology, type BatteryTopologyAnalysis } from './batteryTopology';
 
 export interface BatteryElectricalSummary {
   batteryCount: number;
@@ -46,11 +47,18 @@ export interface PowerNodeElectricalSummary {
   protectedBy?: string;
 }
 
+export interface ElectricalSummaryInputs {
+  batteryTopology?: BatteryTopologyAnalysis;
+  netlist?: ElectricalNetlist;
+  circuitAnalysis?: SystemCircuitAnalysis;
+}
+
 export function buildElectricalSummary(
   system: SystemDesign,
-  products: Map<string, Product>
+  products: Map<string, Product>,
+  inputs: ElectricalSummaryInputs = {}
 ): ElectricalSummary {
-  const topology = analyzeBatteryTopology(system, products);
+  const topology = inputs.batteryTopology ?? analyzeBatteryTopology(system, products);
   const primaryPack = topology.packs
     .slice()
     .sort((a, b) => b.capacityWh - a.capacityWh)[0];
@@ -92,8 +100,8 @@ export function buildElectricalSummary(
     }];
   });
 
-  const netlist = buildElectricalNetlist(system, products);
-  const circuitAnalysis = analyzeSystemCircuits(system, products);
+  const netlist = inputs.netlist ?? buildElectricalNetlist(system, products);
+  const circuitAnalysis = inputs.circuitAnalysis ?? analyzeSystemCircuits(system, products);
   const nodeProductTypes = new Set(['busbar', 'dc_distribution', 'ac_distribution']);
   const connectionCurrentAtTerminal = (componentId: string, terminalId: string): number => {
     let maxA = 0;

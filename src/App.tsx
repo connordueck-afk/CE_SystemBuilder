@@ -323,11 +323,17 @@ export function App() {
 
   // Derived
   const bomRows = useMemo(() => buildBom(system, PRODUCT_MAP), [system]);
-  const cableSummary = useMemo(() => buildCableLengthSummary(system.connections), [system.connections]);
-  const cableBomRows = useMemo(() => buildCableBomRows(system, PRODUCT_MAP), [system]);
+  const systemDesignAnalysis = useMemo(() => analyzeSystemDesign(system, PRODUCT_MAP), [system]);
+  const cableSummary = useMemo(
+    () => buildCableLengthSummary(system.connections, systemDesignAnalysis.connections),
+    [system.connections, systemDesignAnalysis]
+  );
+  const cableBomRows = useMemo(
+    () => buildCableBomRows(system, PRODUCT_MAP, systemDesignAnalysis.connections),
+    [system, systemDesignAnalysis]
+  );
   const connectorSummary = useMemo(() => buildConnectorSummary(cableBomRows), [cableBomRows]);
   const priceSummary = useMemo(() => buildPriceSummary(bomRows), [bomRows]);
-  const systemDesignAnalysis = useMemo(() => analyzeSystemDesign(system, PRODUCT_MAP), [system]);
   const electricalSummary = systemDesignAnalysis.legacy.electricalSummary;
   const warnings = systemDesignAnalysis.warnings;
   const builderIssues = useMemo(
@@ -1531,6 +1537,7 @@ export function App() {
           selectedConnectionId={selectedConnectionId}
           selectedAnnotationId={selectedAnnotationId}
           protectionRecommendations={protectionRecommendations}
+          connectionAnalysis={systemDesignAnalysis.connections}
           busColors={busColors}
           focusedComponentId={focusedComponentId}
           focusRequestId={focusRequestId}

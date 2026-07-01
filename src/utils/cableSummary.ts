@@ -8,17 +8,35 @@ import type {
 import { selectLug, lugKey, type LugSpec } from '../data/lugs';
 import { connectorLabel, getEffectiveConnector, getMatingConnector } from './terminalConnectors';
 import { BUS_DEFAULT_COLOR, BUS_DEFAULT_TYPE } from './cableDefaults';
+import type { BusType } from './electricalNetlist';
+import type { ConnectionCircuitAnalysis } from './circuitAnalysis';
 
-function effectiveCableColor(connection: SystemConnection): string {
-  const explicit = connection.cableColor?.trim();
-  if (explicit) return explicit;
-  return (connection.busType && BUS_DEFAULT_COLOR[connection.busType]) ?? '';
+export type CableAnalysisLookup = Map<string, ConnectionCircuitAnalysis> | Record<string, ConnectionCircuitAnalysis | undefined>;
+
+function analysisFor(
+  lookup: CableAnalysisLookup | undefined,
+  connectionId: string
+): ConnectionCircuitAnalysis | undefined {
+  if (!lookup) return undefined;
+  return lookup instanceof Map ? lookup.get(connectionId) : lookup[connectionId];
 }
 
-function effectiveCableType(connection: SystemConnection): string {
+function effectiveBusType(connection: SystemConnection, analysis?: ConnectionCircuitAnalysis): BusType | undefined {
+  return analysis?.busType ?? connection.busType;
+}
+
+function effectiveCableColor(connection: SystemConnection, analysis?: ConnectionCircuitAnalysis): string {
+  const explicit = connection.cableColor?.trim();
+  if (explicit) return explicit;
+  const busType = effectiveBusType(connection, analysis);
+  return (busType && BUS_DEFAULT_COLOR[busType]) ?? '';
+}
+
+function effectiveCableType(connection: SystemConnection, analysis?: ConnectionCircuitAnalysis): string {
   const explicit = connection.cableType?.trim();
   if (explicit) return explicit;
-  return (connection.busType && BUS_DEFAULT_TYPE[connection.busType]) ?? '';
+  const busType = effectiveBusType(connection, analysis);
+  return (busType && BUS_DEFAULT_TYPE[busType]) ?? '';
 }
 
 const INCHES_PER_FOOT = 12;
@@ -51,7 +69,10 @@ export function formatFeetAndInches(lengthFt: number): string {
   return `${feet} ft ${inches} in`;
 }
 
-export function buildCableLengthSummary(connections: SystemConnection[]): CableLengthSummaryItem[] {
+export function buildCableLengthSummary(
+  connections: SystemConnection[],
+  analysisLookup?: CableAnalysisLookup
+): CableLengthSummaryItem[] {
   const byKey = new Map<string, CableLengthSummaryItem>();
 
   for (const connection of connections) {
@@ -62,9 +83,10 @@ export function buildCableLengthSummary(connections: SystemConnection[]): CableL
     const totalLengthFt = connection.cableLengthFt;
     if (totalLengthFt <= 0) continue;
 
-    const gauge = connection.manualCableAwg ?? connection.recommendedCableAwg ?? 'Unspecified';
-    const color = effectiveCableColor(connection);
-    const type = effectiveCableType(connection);
+    const analysis = analysisFor(analysisLookup, connection.id);
+    const gauge = connection.manualCableAwg ?? analysis?.selectedCableAwg ?? analysis?.recommendedCableAwg ?? 'Unspecified';
+    const color = effectiveCableColor(connection, analysis);
+    const type = effectiveCableType(connection, analysis);
     const key = `${gauge}|${color}|${type}`;
 
     const existing = byKey.get(key);
@@ -132,8 +154,8 @@ export interface ConnectorSummaryItem {
   estExtendedMsrpUsd: number | null;
 }
 
-function effectiveGauge(connection: SystemConnection): string | undefined {
-  return connection.manualCableAwg ?? connection.recommendedCableAwg ?? undefined;
+function effectiveGauge(connection: SystemConnection, analysis?: ConnectionCircuitAnalysis): string | undefined {
+  return connection.manualCableAwg ?? analysis?.selectedCableAwg ?? analysis?.recommendedCableAwg ?? undefined;
 }
 
 function resolveTermination(
@@ -167,7 +189,8 @@ function resolveTermination(
 
 export function buildCableBomRows(
   system: SystemDesign,
-  products: Map<string, Product>
+  products: Map<string, Product>,
+  analysisLookup?: CableAnalysisLookup
 ): CableBomRow[] {
   const componentsById = new Map(system.components.map((c) => [c.id, c]));
 
@@ -205,15 +228,16 @@ export function buildCableBomRows(
     const toComponent = componentsById.get(connection.toComponentId);
     const fromProduct = fromComponent ? products.get(fromComponent.productId) : undefined;
     const toProduct = toComponent ? products.get(toComponent.productId) : undefined;
-    const gauge = effectiveGauge(connection);
+    const analysis = analysisFor(analysisLookup, connection.id);
+    const gauge = effectiveGauge(connection, analysis);
 
     rows.push({
       connectionId: connection.id,
       fromLabel: labelFor(connection.fromComponentId),
       toLabel: labelFor(connection.toComponentId),
       gauge: gauge ?? 'Unspecified',
-      color: effectiveCableColor(connection),
-      type: effectiveCableType(connection),
+      color: effectiveCableColor(connection, analysis),
+      type: effectiveCableType(connection, analysis),
       lengthFt: connection.cableLengthFt,
       fromEnd: resolveTermination(fromProduct, connection.fromTerminalId, fromComponent, gauge),
       toEnd: resolveTermination(toProduct, connection.toTerminalId, toComponent, gauge),

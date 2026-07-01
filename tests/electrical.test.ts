@@ -1006,25 +1006,27 @@ test('DEFAULT_SYSTEM analyses through the engine without throwing', () => {
 
 test('DEFAULT_SYSTEM negative bus current comes from branch analysis, not busbar rating', () => {
   const analysis = analyzeSystemDesign(DEFAULT_SYSTEM, PRODUCT_MAP);
-  const negativeBusGroup = analysis.terminalGroups['bus-neg:bus'];
+  const negativeBusId = DEFAULT_SYSTEM.components.find((component) => component.label === 'Negative Busbar')?.id;
+  assert.ok(negativeBusId, 'default system must include a negative busbar');
+  const negativeBusGroup = analysis.terminalGroups[`${negativeBusId}:bus`];
   assert.ok(negativeBusGroup, 'negative bus group must be analysed');
   assert.equal(negativeBusGroup.designCurrentA, 250);
   assert.ok(!negativeBusGroup.overRated, 'negative bus must not overload from its own 600A rating');
 
   const negativeBusNet = analysis.graph.nets.find((net) => (
-    net.terminalKeys.some((key) => key.startsWith('bus-neg:'))
+    net.terminalKeys.some((key) => key.startsWith(`${negativeBusId}:`))
   ));
   assert.ok(negativeBusNet, 'negative bus net must exist');
   assert.equal(negativeBusNet.operatingCurrentA, 250);
 
   const summaryNode = analysis.legacy.electricalSummary.powerNodes.find((node) => (
-    node.componentId.startsWith('bus-neg:')
+    node.componentId.startsWith(`${negativeBusId}:`)
   ));
   assert.ok(summaryNode, 'negative bus summary node must exist');
   assert.equal(summaryNode.operatingCurrentA, 250);
 
   const badWarning = analysis.warnings.find((warning) => (
-    warning.componentId === 'bus-neg' ||
+    warning.componentId === negativeBusId ||
     warning.code === 'NET_OVER_PROTECTION_LIMIT' ||
     warning.code === 'source_capacity_exceeded'
   ));
@@ -1033,7 +1035,7 @@ test('DEFAULT_SYSTEM negative bus current comes from branch analysis, not busbar
 
 test('DEFAULT_SYSTEM branch protection constraints stay local to the protected branch', () => {
   const analysis = analyzeSystemDesign(DEFAULT_SYSTEM, PRODUCT_MAP);
-  for (const connectionId of ['bat1-pos', 'bat1-fuse-bus', 'bus-pos-main-fuse', 'main-fuse-inverter']) {
+  for (const connectionId of ['p3-b1-to-fuse', 'p3-fuse-to-bus', 'p3-bus-to-fuse-inv', 'p3-fuse-inv-to-inv']) {
     const connection = analysis.connections[connectionId];
     assert.ok(connection, `${connectionId} must be analysed`);
     assert.ok(
@@ -1042,7 +1044,7 @@ test('DEFAULT_SYSTEM branch protection constraints stay local to the protected b
     );
   }
 
-  const acLoadLine = analysis.connections['load-l1'];
+  const acLoadLine = analysis.connections['p3-ac-l'];
   assert.ok(acLoadLine, 'AC load line must be analysed');
   assert.ok(
     !acLoadLine.errors.some((error) => error.code === 'SOURCE_SIDE_PROTECTION_MISSING'),
@@ -1062,20 +1064,22 @@ test('48V preset PV tracker branches stay paired to their own inverter inputs', 
   ));
   assert.equal(pvErrorWarnings.length, 0, pvErrorWarnings.map((warning) => warning.message).join('\n'));
 
-  for (const [terminalPositive, terminalNegative] of [
-    ['pv1_pos', 'pv1_neg'],
-    ['pv2_pos', 'pv2_neg'],
-  ] as const) {
+  const mpptIds = preset.components
+    .filter((component) => PRODUCT_MAP.get(component.productId)?.productType === 'mppt')
+    .map((component) => component.id);
+  assert.ok(mpptIds.length > 0, '48V preset must include MPPTs');
+
+  for (const mpptId of mpptIds) {
     const positiveId = preset.connections.find((connection) => (
-      (connection.fromComponentId === 'inverter' && connection.fromTerminalId === terminalPositive) ||
-      (connection.toComponentId === 'inverter' && connection.toTerminalId === terminalPositive)
+      (connection.fromComponentId === mpptId && connection.fromTerminalId === 'pv_pos') ||
+      (connection.toComponentId === mpptId && connection.toTerminalId === 'pv_pos')
     ))?.id;
     const negativeId = preset.connections.find((connection) => (
-      (connection.fromComponentId === 'inverter' && connection.fromTerminalId === terminalNegative) ||
-      (connection.toComponentId === 'inverter' && connection.toTerminalId === terminalNegative)
+      (connection.fromComponentId === mpptId && connection.fromTerminalId === 'pv_neg') ||
+      (connection.toComponentId === mpptId && connection.toTerminalId === 'pv_neg')
     ))?.id;
-    assert.ok(positiveId, `${terminalPositive} connection must exist`);
-    assert.ok(negativeId, `${terminalNegative} connection must exist`);
+    assert.ok(positiveId, `${mpptId} PV positive connection must exist`);
+    assert.ok(negativeId, `${mpptId} PV negative connection must exist`);
     const positiveAnalysis = analysis.connections[positiveId];
     const negativeAnalysis = analysis.connections[negativeId];
     assert.ok(positiveAnalysis, `${positiveId} must be analysed`);
@@ -1085,10 +1089,10 @@ test('48V preset PV tracker branches stay paired to their own inverter inputs', 
     assert.deepEqual(positiveAnalysis.errors, []);
     assert.deepEqual(negativeAnalysis.errors, []);
 
-    const positiveTerminal = analysis.terminals[`inverter:${terminalPositive}`];
-    const negativeTerminal = analysis.terminals[`inverter:${terminalNegative}`];
-    assert.ok(positiveTerminal, `${terminalPositive} must be analysed`);
-    assert.ok(negativeTerminal, `${terminalNegative} must be analysed`);
+    const positiveTerminal = analysis.terminals[`${mpptId}:pv_pos`];
+    const negativeTerminal = analysis.terminals[`${mpptId}:pv_neg`];
+    assert.ok(positiveTerminal, `${mpptId} PV positive must be analysed`);
+    assert.ok(negativeTerminal, `${mpptId} PV negative must be analysed`);
     assert.equal(positiveTerminal.designCurrentA, positiveAnalysis.designCurrentA);
     assert.equal(negativeTerminal.designCurrentA, positiveAnalysis.designCurrentA);
     assert.equal(positiveTerminal.overCurrent, false);
@@ -1119,6 +1123,44 @@ function directBatteryInverter(withMppt = false): SystemDesign {
     ],
   };
 }
+
+test('Regression: persisted voltage-drop and warning fields do not drive analysis warnings', () => {
+  const stale = directBatteryInverter();
+  stale.connections = stale.connections.map((connection) => ({
+    ...connection,
+    calculatedCurrentA: 999,
+    recommendedCableAwg: '18',
+    voltageDropPercent: 99,
+    warnings: ['legacy persisted sizing warning should be ignored'],
+  }));
+
+  const analysis = analyzeSystemDesign(stale, PRODUCT_MAP);
+  assert.equal(
+    analysis.warnings.some((warning) => warning.code === 'HIGH_VOLTAGE_DROP'),
+    false,
+    'computed analysis, not stale persisted voltageDropPercent, should drive voltage-drop warnings'
+  );
+  assert.equal(
+    analysis.warnings.some((warning) => warning.message.includes('legacy persisted sizing warning')),
+    false,
+    'computed analysis, not stale persisted connection warnings, should drive sizing warnings'
+  );
+});
+
+test('Regression: protection recommendations use circuit output, not persisted connection recommendations', () => {
+  const stale = directBatteryInverter();
+  stale.connections = stale.connections.map((connection) => (
+    connection.id === 'inv-pos'
+      ? { ...connection, recommendedFuseA: 1, recommendedCableAwg: '18' }
+      : connection
+  ));
+
+  const analysis = analyzeSystemDesign(stale, PRODUCT_MAP);
+  const recommendation = analysis.legacy.protectionRecommendations.find((item) => item.connectionId === 'inv-pos');
+  assert.ok(recommendation, 'expected missing-protection recommendation for direct battery inverter positive lead');
+  assert.notEqual(recommendation.recommendedFuseA, 1);
+  assert.notEqual(recommendation.recommendedCableAwg, '18');
+});
 
 test('Regression: direct battery to inverter/charger gets inverter DC demand without MPPT', () => {
   const analysis = analyzeSystemDesign(directBatteryInverter(), PRODUCT_MAP);

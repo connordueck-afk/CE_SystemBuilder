@@ -138,7 +138,6 @@ function connectionTerminalId(componentId: string, connection: SystemConnection)
 function connectionDesignCurrentA(connection: SystemConnection, analysis?: SystemDesignAnalysis): number {
   return analysis?.connections[connection.id]?.designCurrentA ??
     connection.designCurrentOverrideA ??
-    connection.calculatedCurrentA ??
     0;
 }
 
@@ -215,6 +214,54 @@ function PortSummarySection({
   const connectionCountLabel = `${portConnections.length} connection${portConnections.length === 1 ? '' : 's'}`;
   const terminalLabels = effectiveTerminals.map((terminal) => terminal.label).join(', ');
 
+  // PV ports get a simplified, customer-facing card: attached array size and
+  // basic port ratings only. No connection/terminal/design-current engineering detail.
+  if (port.kind === 'pv') {
+    return (
+      <div className="port-summary-card">
+        <div className="port-summary-heading">
+          <div>
+            <div className="port-summary-title">{port.label ?? port.id}</div>
+            <div className="port-summary-meta">Solar Input</div>
+          </div>
+          {portIssues.length > 0 && (
+            <span className="port-summary-badge">{portIssues.length}</span>
+          )}
+        </div>
+
+        <div className="port-summary-subsection">
+          <div className="port-summary-subtitle">Attached Array</div>
+          {pvStats ? (
+            <>
+              <SpecRow label="Array Size" value={fmtUnit(pvStats.powerW, 'W')} />
+              <SpecRow label="Panels" value={`${pvStats.panelCount}`} />
+              <SpecRow label="Strings" value={`${pvArray?.strings.length ?? 0}`} />
+              <SpecRow label="Voc" value={fmtUnit(pvStats.vocV, 'V', 1)} />
+              {pvStats.coldVocV != null && <SpecRow label="Cold Voc" value={fmtUnit(pvStats.coldVocV, 'V', 1)} />}
+              {pvStats.vmpV != null && <SpecRow label="Vmp" value={fmtUnit(pvStats.vmpV, 'V', 1)} />}
+              {pvStats.iscA != null && <SpecRow label="Isc" value={fmtUnit(pvStats.iscA, 'A', 1)} />}
+              {pvStats.impA != null && <SpecRow label="Imp" value={fmtUnit(pvStats.impA, 'A', 1)} />}
+              {(pvArray?.mismatches.length ?? 0) > 0 && (
+                <div className="port-summary-warning">Parallel strings have mismatched open-circuit voltage.</div>
+              )}
+            </>
+          ) : (
+            <div className="port-summary-empty">No PV array detected on this port.</div>
+          )}
+        </div>
+
+        <div className="port-summary-subsection">
+          <div className="port-summary-subtitle">Port Ratings</div>
+          {port.nominalVoltageV != null && <SpecRow label="Nominal Voltage" value={fmtUnit(port.nominalVoltageV, 'V')} />}
+          {port.voltageMinV != null && <SpecRow label="Min Voltage" value={fmtUnit(port.voltageMinV, 'V')} />}
+          {port.voltageMaxV != null && <SpecRow label="Max Voltage" value={fmtUnit(port.voltageMaxV, 'V')} />}
+          {currentLimitA != null && <SpecRow label="Current Limit" value={fmtUnit(currentLimitA, 'A')} />}
+          {maxPowerW != null && <SpecRow label="Power Limit" value={fmtUnit(maxPowerW, 'W')} />}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="port-summary-card">
       <div className="port-summary-heading">
@@ -239,37 +286,7 @@ function PortSummarySection({
         </div>
       )}
 
-      {port.kind === 'pv' && (
-        <div className="port-summary-subsection">
-          <div className="port-summary-subtitle">Attached Array</div>
-          {pvStats ? (
-            <>
-              <SpecRow label="Array Size" value={fmtUnit(pvStats.powerW, 'W')} />
-              <SpecRow label="Strings" value={`${pvArray?.strings.length ?? 0}`} />
-              <SpecRow label="Panels" value={`${pvStats.panelCount}`} />
-              <SpecRow label="Voc" value={fmtUnit(pvStats.vocV, 'V', 1)} />
-              {pvStats.coldVocV != null && <SpecRow label="Cold Voc" value={fmtUnit(pvStats.coldVocV, 'V', 1)} />}
-              {pvStats.vmpV != null && <SpecRow label="Vmp" value={fmtUnit(pvStats.vmpV, 'V', 1)} />}
-              {pvStats.iscA != null && <SpecRow label="Isc" value={fmtUnit(pvStats.iscA, 'A', 1)} />}
-              {pvStats.impA != null && <SpecRow label="Imp" value={fmtUnit(pvStats.impA, 'A', 1)} />}
-              {(pvArray?.strings.length ?? 0) > 0 && (
-                <div className="port-connected-list">
-                  {pvArray!.strings.map((string) => (
-                    <span key={string.componentId} className="port-connected-chip">{string.label}</span>
-                  ))}
-                </div>
-              )}
-              {(pvArray?.mismatches.length ?? 0) > 0 && (
-                <div className="port-summary-warning">Parallel strings have mismatched open-circuit voltage.</div>
-              )}
-            </>
-          ) : (
-            <div className="port-summary-empty">No PV array detected on this port.</div>
-          )}
-        </div>
-      )}
-
-      {(port.kind === 'dc' || port.kind === 'ac' || port.kind === 'pv') && (
+      {(port.kind === 'dc' || port.kind === 'ac') && (
         <div className="port-summary-subsection">
           <div className="port-summary-subtitle">Port Ratings</div>
           {port.nominalVoltageV != null && <SpecRow label="Nominal Voltage" value={fmtUnit(port.nominalVoltageV, 'V')} />}

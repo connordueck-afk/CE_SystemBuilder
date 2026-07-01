@@ -5,6 +5,7 @@ import type { ProtectionRecommendation } from '../../utils/protectionRecommendat
 import { busTypeFromTerminal } from '../../utils/electricalNetlist';
 import { deriveConnectionProtocol } from '../../utils/communicationNetworks';
 import type { BusColorMap } from '../../utils/busColors';
+import type { ConnectionCircuitAnalysis } from '../../utils/circuitAnalysis';
 import {
   connectionPoints,
   getConnectionTerminalPos,
@@ -150,8 +151,8 @@ function connectionColor(conn: SystemConnection, fromComp: SystemComponent, from
   return terminal ? busColors[busTypeFromTerminal(terminal)] : busColors.unknown;
 }
 
-function connectionStrokeWidth(conn: SystemConnection): number {
-  switch (conn.recommendedCableAwg) {
+function connectionStrokeWidth(awg: string | undefined): number {
+  switch (awg) {
     case '4/0':
       return 6;
     case '2/0':
@@ -185,6 +186,7 @@ interface Props {
   products: Map<string, Product>;
   selectedConnectionId: string | null;
   protectionRecommendations: ProtectionRecommendation[];
+  connectionAnalysis?: Record<string, ConnectionCircuitAnalysis | undefined>;
   busColors: BusColorMap;
   onSelectConnection: (id: string) => void;
   onShowProtectionPrompt: (connectionId: string, recommendation: ProtectionRecommendation, marker: PathMarker) => void;
@@ -207,6 +209,7 @@ export const ConnectionLayer = memo(function ConnectionLayer({
   products,
   selectedConnectionId,
   protectionRecommendations,
+  connectionAnalysis,
   busColors,
   onSelectConnection,
   onShowProtectionPrompt,
@@ -396,10 +399,12 @@ export const ConnectionLayer = memo(function ConnectionLayer({
         const marker = pathMidpointWithAngle(points);
         const markerPoint = marker.point;
         const isCommWire = conn.wireKind === 'communication';
+        const analysis = connectionAnalysis?.[conn.id];
+        const cableAwg = analysis?.selectedCableAwg ?? analysis?.recommendedCableAwg;
         const commProtocolLabel = isCommWire
           ? deriveConnectionProtocol(conn, products, components)
           : undefined;
-        const strokeWidth = isCommWire ? 1.5 : connectionStrokeWidth(conn);
+        const strokeWidth = isCommWire ? 1.5 : connectionStrokeWidth(cableAwg);
         const protectionRecommendation = recommendationByConnection.get(conn.id);
         const hasProtectionRecommendation = Boolean(protectionRecommendation) && !isCommWire;
 
@@ -498,7 +503,7 @@ export const ConnectionLayer = memo(function ConnectionLayer({
               </text>
             )}
             {/* AWG label near midpoint (power wires only) */}
-            {renderVisual && !isCommWire && conn.recommendedCableAwg && (
+            {renderVisual && !isCommWire && cableAwg && (
               <text
                 x={markerPoint.x}
                 y={markerPoint.y - (hasProtectionRecommendation ? 18 : 8)}
@@ -508,7 +513,7 @@ export const ConnectionLayer = memo(function ConnectionLayer({
                 fontWeight={600}
                 style={{ pointerEvents: 'none' }}
               >
-                {conn.recommendedCableAwg} AWG
+                {cableAwg} AWG
               </text>
             )}
             {renderInteractive && protectionRecommendation && (
