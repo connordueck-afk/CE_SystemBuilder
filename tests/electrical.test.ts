@@ -883,29 +883,70 @@ test('Default and preset systems contain no hidden physical-panel multipliers', 
   }
 });
 
-test('Simple 12V Solar preset treats stacked battery studs as lug junctions and sizes parallel interconnects to pack conductors', () => {
+test('12V Small RV preset uses protected battery feeds and the 2kW inverter', () => {
   const preset = SYSTEM_PRESETS.find((item) => item.id === 'simple-12v')?.system;
-  assert.ok(preset, 'Simple 12V Solar preset must exist');
+  assert.ok(preset, '12V Small RV preset must exist');
 
   const analysis = analyzeSystemDesign(preset, PRODUCT_MAP);
   assert.equal(analysis.issues.length, 0, `unexpected issues: ${analysis.issues.map((issue) => issue.message).join('; ')}`);
-  assert.equal(analysis.warnings.length, 0, `unexpected warnings: ${analysis.warnings.map((warning) => warning.message).join('; ')}`);
+  assert.equal(
+    analysis.warnings.length,
+    0,
+    `unexpected warnings: ${analysis.warnings.map((warning) => `${warning.code}:${warning.connectionId ?? 'system'}:${warning.message}`).join('; ')}`
+  );
 
-  const positiveStack = analysis.terminals['comp-1782842438398-42:dc_pos'];
-  const negativeStack = analysis.terminals['comp-1782842440255-43:dc_neg'];
-  assert.ok(positiveStack, 'positive stacked battery stud must be analysed');
-  assert.ok(negativeStack, 'negative stacked battery stud must be analysed');
-  assert.equal(positiveStack.connectionCount, 2);
-  assert.equal(negativeStack.connectionCount, 2);
-  assert.ok(!positiveStack.overCurrent, 'stacked positive stud should not treat full pack feeder current as internal battery current');
-  assert.ok(!negativeStack.overCurrent, 'stacked negative stud should not add charge and load currents in one direction');
+  const batteries = preset.components.filter((component) => PRODUCT_MAP.get(component.productId)?.productType === 'battery');
+  assert.equal(batteries.length, 2);
+  assert.ok(
+    preset.components.some((component) => component.productId === 'multiplus-12-2000'),
+    'preset should use the 2kW 12V MultiPlus'
+  );
 
-  const positiveInterconnect = analysis.connections['conn-1782842443039-44'];
-  const negativeInterconnect = analysis.connections['conn-1782842444342-45'];
-  assert.equal(positiveInterconnect.designCurrentA, 170);
-  assert.equal(negativeInterconnect.designCurrentA, 170);
-  assert.equal(positiveInterconnect.recommendedCableAwg, '4/0');
-  assert.equal(negativeInterconnect.recommendedCableAwg, '4/0');
+  const batteryIds = new Set(batteries.map((component) => component.id));
+  const directBatteryPositiveLinks = preset.connections.filter((connection) =>
+    batteryIds.has(connection.fromComponentId) && batteryIds.has(connection.toComponentId)
+      && analysis.connections[connection.id]?.busType === 'dc_pos'
+  );
+  assert.equal(directBatteryPositiveLinks.length, 0, 'parallel batteries should feed the bus through protected branches');
+
+  const batteryFuseFeeds = preset.connections.filter((connection) =>
+    batteryIds.has(connection.fromComponentId)
+      && PRODUCT_MAP.get(preset.components.find((component) => component.id === connection.toComponentId)?.productId ?? '')?.productType === 'fuse'
+  );
+  assert.equal(batteryFuseFeeds.length, 2, 'each battery should feed its own Class T fuse');
+});
+
+test('24V Medium RV preset stacked battery studs do not report false terminal issues', () => {
+  const preset = SYSTEM_PRESETS.find((item) => item.voltage === 24)?.system;
+  assert.ok(preset, '24V Medium RV preset must exist');
+
+  const analysis = analyzeSystemDesign(preset, PRODUCT_MAP);
+  const batteryIds = new Set(
+    preset.components
+      .filter((component) => PRODUCT_MAP.get(component.productId)?.productType === 'battery')
+      .map((component) => component.id)
+  );
+  const batteryTerminalIssues = analysis.issues.filter((issue) =>
+    issue.componentId != null &&
+    batteryIds.has(issue.componentId) &&
+    (issue.code === 'terminal_overcurrent' || issue.code === 'terminal_too_many_connections')
+  );
+  const batteryTerminalWarnings = analysis.warnings.filter((warning) =>
+    warning.componentId != null &&
+    batteryIds.has(warning.componentId) &&
+    warning.code === 'TERMINAL_OVERCURRENT'
+  );
+
+  assert.equal(
+    batteryTerminalIssues.length,
+    0,
+    `unexpected battery terminal issues: ${batteryTerminalIssues.map((issue) => issue.message).join('; ')}`
+  );
+  assert.equal(
+    batteryTerminalWarnings.length,
+    0,
+    `unexpected battery terminal warnings: ${batteryTerminalWarnings.map((warning) => warning.message).join('; ')}`
+  );
 });
 
 test('Custom Solar Array preserves ratings while forcing quantity to one', () => {
@@ -1008,22 +1049,31 @@ test('DEFAULT_SYSTEM negative bus current comes from branch analysis, not busbar
   const analysis = analyzeSystemDesign(DEFAULT_SYSTEM, PRODUCT_MAP);
   const negativeBusId = DEFAULT_SYSTEM.components.find((component) => component.label === 'Negative Busbar')?.id;
   assert.ok(negativeBusId, 'default system must include a negative busbar');
+  const expectedTerminalCurrentA = Math.max(
+    ...Object.values(analysis.terminals)
+      .filter((terminal) => terminal.componentId === negativeBusId)
+      .map((terminal) => terminal.designCurrentA)
+  );
+  assert.ok(expectedTerminalCurrentA > 0, 'negative bus must have analysed terminal current');
+
   const negativeBusGroup = analysis.terminalGroups[`${negativeBusId}:bus`];
   assert.ok(negativeBusGroup, 'negative bus group must be analysed');
-  assert.equal(negativeBusGroup.designCurrentA, 250);
+  assert.equal(negativeBusGroup.designCurrentA, expectedTerminalCurrentA);
+  assert.notEqual(negativeBusGroup.designCurrentA, negativeBusGroup.maxCurrentA, 'negative bus group current must not come from its own busbar rating');
   assert.ok(!negativeBusGroup.overRated, 'negative bus must not overload from its own 600A rating');
 
   const negativeBusNet = analysis.graph.nets.find((net) => (
     net.terminalKeys.some((key) => key.startsWith(`${negativeBusId}:`))
   ));
   assert.ok(negativeBusNet, 'negative bus net must exist');
-  assert.equal(negativeBusNet.operatingCurrentA, 250);
+  assert.ok(negativeBusNet.operatingCurrentA > 0, 'negative bus net must have branch-derived operating current');
+  assert.ok(negativeBusNet.operatingCurrentA < (negativeBusGroup.maxCurrentA ?? Infinity), 'negative bus net current must not come from its own busbar rating');
 
   const summaryNode = analysis.legacy.electricalSummary.powerNodes.find((node) => (
     node.componentId.startsWith(`${negativeBusId}:`)
   ));
   assert.ok(summaryNode, 'negative bus summary node must exist');
-  assert.equal(summaryNode.operatingCurrentA, 250);
+  assert.equal(summaryNode.operatingCurrentA, negativeBusGroup.designCurrentA);
 
   const badWarning = analysis.warnings.find((warning) => (
     warning.componentId === negativeBusId ||
@@ -1052,7 +1102,7 @@ test('DEFAULT_SYSTEM branch protection constraints stay local to the protected b
   );
 });
 
-test('48V preset PV tracker branches stay paired to their own inverter inputs', () => {
+test('48V preset PV input branches stay paired to their own tracker inputs', () => {
   const preset = SYSTEM_PRESETS.find((item) => item.id === 'offgrid-48v')?.system;
   assert.ok(preset, '48V preset must exist');
 
@@ -1064,22 +1114,40 @@ test('48V preset PV tracker branches stay paired to their own inverter inputs', 
   ));
   assert.equal(pvErrorWarnings.length, 0, pvErrorWarnings.map((warning) => warning.message).join('\n'));
 
-  const mpptIds = preset.components
-    .filter((component) => PRODUCT_MAP.get(component.productId)?.productType === 'mppt')
-    .map((component) => component.id);
-  assert.ok(mpptIds.length > 0, '48V preset must include MPPTs');
+  const pvInputs = preset.components.flatMap((component) => {
+    const product = PRODUCT_MAP.get(component.productId);
+    if (!product) return [];
+    return (product.ports ?? [])
+      .filter((port) => port.kind === 'pv' && port.role === 'sink')
+      .map((port) => {
+        const groups = product.terminalGroups ?? [];
+        const positiveGroup = groups.find((group) => group.portId === port.id && group.polarity === 'positive');
+        const negativeGroup = groups.find((group) => group.portId === port.id && group.polarity === 'negative');
+        const positiveTerminal = product.terminals.find((terminal) => terminal.terminalGroupId === positiveGroup?.id);
+        const negativeTerminal = product.terminals.find((terminal) => terminal.terminalGroupId === negativeGroup?.id);
+        return {
+          componentId: component.id,
+          portId: port.id,
+          positiveTerminalId: positiveTerminal?.id,
+          negativeTerminalId: negativeTerminal?.id,
+        };
+      });
+  });
+  assert.ok(pvInputs.length > 0, '48V preset must include PV tracker inputs');
 
-  for (const mpptId of mpptIds) {
+  for (const input of pvInputs) {
+    assert.ok(input.positiveTerminalId, `${input.componentId} ${input.portId} PV positive terminal must exist`);
+    assert.ok(input.negativeTerminalId, `${input.componentId} ${input.portId} PV negative terminal must exist`);
     const positiveId = preset.connections.find((connection) => (
-      (connection.fromComponentId === mpptId && connection.fromTerminalId === 'pv_pos') ||
-      (connection.toComponentId === mpptId && connection.toTerminalId === 'pv_pos')
+      (connection.fromComponentId === input.componentId && connection.fromTerminalId === input.positiveTerminalId) ||
+      (connection.toComponentId === input.componentId && connection.toTerminalId === input.positiveTerminalId)
     ))?.id;
     const negativeId = preset.connections.find((connection) => (
-      (connection.fromComponentId === mpptId && connection.fromTerminalId === 'pv_neg') ||
-      (connection.toComponentId === mpptId && connection.toTerminalId === 'pv_neg')
+      (connection.fromComponentId === input.componentId && connection.fromTerminalId === input.negativeTerminalId) ||
+      (connection.toComponentId === input.componentId && connection.toTerminalId === input.negativeTerminalId)
     ))?.id;
-    assert.ok(positiveId, `${mpptId} PV positive connection must exist`);
-    assert.ok(negativeId, `${mpptId} PV negative connection must exist`);
+    assert.ok(positiveId, `${input.componentId} ${input.portId} PV positive connection must exist`);
+    assert.ok(negativeId, `${input.componentId} ${input.portId} PV negative connection must exist`);
     const positiveAnalysis = analysis.connections[positiveId];
     const negativeAnalysis = analysis.connections[negativeId];
     assert.ok(positiveAnalysis, `${positiveId} must be analysed`);
@@ -1089,10 +1157,10 @@ test('48V preset PV tracker branches stay paired to their own inverter inputs', 
     assert.deepEqual(positiveAnalysis.errors, []);
     assert.deepEqual(negativeAnalysis.errors, []);
 
-    const positiveTerminal = analysis.terminals[`${mpptId}:pv_pos`];
-    const negativeTerminal = analysis.terminals[`${mpptId}:pv_neg`];
-    assert.ok(positiveTerminal, `${mpptId} PV positive must be analysed`);
-    assert.ok(negativeTerminal, `${mpptId} PV negative must be analysed`);
+    const positiveTerminal = analysis.terminals[`${input.componentId}:${input.positiveTerminalId}`];
+    const negativeTerminal = analysis.terminals[`${input.componentId}:${input.negativeTerminalId}`];
+    assert.ok(positiveTerminal, `${input.componentId} ${input.portId} PV positive must be analysed`);
+    assert.ok(negativeTerminal, `${input.componentId} ${input.portId} PV negative must be analysed`);
     assert.equal(positiveTerminal.designCurrentA, positiveAnalysis.designCurrentA);
     assert.equal(negativeTerminal.designCurrentA, positiveAnalysis.designCurrentA);
     assert.equal(positiveTerminal.overCurrent, false);

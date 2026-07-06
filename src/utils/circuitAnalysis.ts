@@ -1899,6 +1899,111 @@ function buildBatteryInterconnectSizingFloors(
   return floors;
 }
 
+function buildBatteryInterconnectDesignCurrents(
+  system: SystemDesign,
+  batteryTopology: ReturnType<typeof analyzeBatteryTopology>,
+  analyses: Map<string, ConnectionCircuitAnalysis>
+): Map<string, number> {
+  const connectionById = new Map(system.connections.map((connection) => [connection.id, connection]));
+  const inferred = new Map<string, number>();
+
+  for (const pack of batteryTopology.packs) {
+    if (pack.parallelCount <= 1) continue;
+
+    const packBatteryIds = new Set(pack.batteryComponentIds);
+    const internalIds = new Set(pack.internalConnectionIds);
+    const outputCurrentByBus = new Map<BusType, number>();
+    const outputBatteryIdsByBus = new Map<BusType, Set<string>>();
+
+    for (const connectionId of pack.outputConnectionIds) {
+      const connection = connectionById.get(connectionId);
+      const analysis = analyses.get(connectionId);
+      if (!connection || !analysis) continue;
+      if (analysis.busType !== 'dc_pos' && analysis.busType !== 'dc_neg') continue;
+
+      outputCurrentByBus.set(
+        analysis.busType,
+        Math.max(outputCurrentByBus.get(analysis.busType) ?? 0, analysis.designCurrentA)
+      );
+
+      const batteryId = packBatteryIds.has(connection.fromComponentId)
+        ? connection.fromComponentId
+        : packBatteryIds.has(connection.toComponentId)
+          ? connection.toComponentId
+          : undefined;
+      if (batteryId) {
+        const outputBatteryIds = outputBatteryIdsByBus.get(analysis.busType) ?? new Set<string>();
+        outputBatteryIds.add(batteryId);
+        outputBatteryIdsByBus.set(analysis.busType, outputBatteryIds);
+      }
+    }
+
+    for (const busType of ['dc_pos', 'dc_neg'] as const) {
+      const outputCurrentA = outputCurrentByBus.get(busType) ?? 0;
+      if (outputCurrentA <= 0) continue;
+
+      const busInternalConnections = pack.internalConnectionIds
+        .map((connectionId) => connectionById.get(connectionId))
+        .filter((connection): connection is SystemConnection => Boolean(
+          connection &&
+          analyses.get(connection.id)?.busType === busType &&
+          packBatteryIds.has(connection.fromComponentId) &&
+          packBatteryIds.has(connection.toComponentId)
+        ));
+      if (busInternalConnections.length === 0) continue;
+
+      const adjacency = new Map<string, SystemConnection[]>();
+      for (const connection of busInternalConnections) {
+        adjacency.set(connection.fromComponentId, [...(adjacency.get(connection.fromComponentId) ?? []), connection]);
+        adjacency.set(connection.toComponentId, [...(adjacency.get(connection.toComponentId) ?? []), connection]);
+      }
+
+      const outputBatteryIds = outputBatteryIdsByBus.get(busType) ?? new Set<string>();
+      const sideFor = (startId: string, blockedConnectionId: string): Set<string> => {
+        const visited = new Set<string>();
+        const pending = [startId];
+        while (pending.length > 0) {
+          const batteryId = pending.pop()!;
+          if (visited.has(batteryId)) continue;
+          visited.add(batteryId);
+          for (const connection of adjacency.get(batteryId) ?? []) {
+            if (connection.id === blockedConnectionId) continue;
+            const nextId = connection.fromComponentId === batteryId
+              ? connection.toComponentId
+              : connection.fromComponentId;
+            if (packBatteryIds.has(nextId)) pending.push(nextId);
+          }
+        }
+        return visited;
+      };
+      const hasOutput = (side: Set<string>): boolean => {
+        for (const batteryId of side) {
+          if (outputBatteryIds.has(batteryId)) return true;
+        }
+        return false;
+      };
+
+      for (const connection of busInternalConnections) {
+        if (!internalIds.has(connection.id)) continue;
+        const fromSide = sideFor(connection.fromComponentId, connection.id);
+        const toSide = sideFor(connection.toComponentId, connection.id);
+        const fromHasOutput = hasOutput(fromSide);
+        const toHasOutput = hasOutput(toSide);
+        const currentShare =
+          fromHasOutput && !toHasOutput
+            ? toSide.size / pack.parallelCount
+            : toHasOutput && !fromHasOutput
+              ? fromSide.size / pack.parallelCount
+              : Math.min(fromSide.size, toSide.size) / pack.parallelCount;
+
+        if (currentShare > 0) inferred.set(connection.id, outputCurrentA * currentShare);
+      }
+    }
+  }
+
+  return inferred;
+}
+
 interface PairedLead {
   connectionId: string;
   busType: BusType;
@@ -2128,6 +2233,29 @@ export function analyzeSystemCircuits(system: SystemDesign, products: Map<string
         componentsById,
         inferredDesignCurrents.get(connection.id),
         inferredVoltages.get(connection.id)
+      )
+    );
+  }
+
+  for (const [connectionId, currentA] of buildBatteryInterconnectDesignCurrents(system, batteryTopology, connections)) {
+    inferredDesignCurrents.set(connectionId, currentA);
+  }
+
+  for (const [connectionId, currentA] of inferredDesignCurrents) {
+    const connection = connectionById.get(connectionId);
+    if (!connection || !batteryTopology.internalConnectionIds.has(connectionId)) continue;
+    connections.set(
+      connectionId,
+      analyzeConnection(
+        connection,
+        edgesByConnectionId.get(connectionId),
+        nodes,
+        adjacency,
+        system,
+        productsByComponent,
+        componentsById,
+        currentA,
+        inferredVoltages.get(connectionId)
       )
     );
   }

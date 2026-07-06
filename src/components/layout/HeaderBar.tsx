@@ -247,9 +247,9 @@ export function HeaderBar({
                 <div className="header-dropdown-divider" />
                 <div className="header-dropdown-section-label">Dev: Set Default</div>
                 {([
-                  { target: 'simple-12v', label: 'Simple 12V Solar' },
-                  { target: 'full-12v', label: 'Full 12V Mobile' },
-                  { target: 'offgrid-48v', label: '48V Off-Grid Cabin' },
+                  { target: 'simple-12v', label: '12V Small RV' },
+                  { target: 'full-12v', label: '24V Medium RV' },
+                  { target: 'offgrid-48v', label: '48V Stationary' },
                 ] as const).map(({ target, label }) => (
                   <button
                     key={target}

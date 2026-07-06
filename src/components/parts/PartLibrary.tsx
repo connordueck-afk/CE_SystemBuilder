@@ -222,7 +222,7 @@ const SELECTOR_CATEGORIES: SelectorCategory[] = [
   {
     id: 'distribution',
     label: 'Distribution',
-    icon: 'dc',
+    icon: 'dist',
     types: [
       {
         id: 'distribution-busbars',
@@ -247,7 +247,7 @@ const SELECTOR_CATEGORIES: SelectorCategory[] = [
   {
     id: 'protection',
     label: 'Protection',
-    icon: 'dc',
+    icon: 'protect',
     types: [
       {
         id: 'protection-fuses',
@@ -312,7 +312,7 @@ const SELECTOR_CATEGORIES: SelectorCategory[] = [
   {
     id: 'connection-points',
     label: 'Grounding',
-    icon: 'dc',
+    icon: 'ground',
     types: [
       {
         id: 'connection-point-earth',
@@ -333,7 +333,7 @@ const SELECTOR_CATEGORIES: SelectorCategory[] = [
   {
     id: 'communication',
     label: 'Communication',
-    icon: 'dc',
+    icon: 'comm',
     types: [
       {
         id: 'comm-passive',

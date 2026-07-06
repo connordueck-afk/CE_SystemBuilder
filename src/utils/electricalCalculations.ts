@@ -484,8 +484,19 @@ export function generateWarnings(
           const otherId = connection.fromComponentId === comp.id ? connection.toComponentId : connection.fromComponentId;
           const otherProduct = productByComponent.get(otherId);
           if (product.productType === 'battery' && otherProduct?.productType === 'battery') continue;
-          const groupKey = linkKeyOf(terminal) ?? terminal.id;
-          currentByLinkGroup.set(groupKey, (currentByLinkGroup.get(groupKey) ?? 0) + connectionDesignCurrentA(connection));
+          // For bus topology ports (combiners, junction buses), each terminal is a
+          // separate KCL node — inputs and outputs both appear on the same port, so
+          // summing them double-counts the through-current. Track per terminal and
+          // take the max; for link-group ports (parallel jacks on the same pole),
+          // sum as before so the shared internal bus current accumulates correctly.
+          const groupKey = port.topology === 'bus' ? terminal.id : (linkKeyOf(terminal) ?? terminal.id);
+          const connA = connectionDesignCurrentA(connection);
+          currentByLinkGroup.set(
+            groupKey,
+            port.topology === 'bus'
+              ? Math.max(currentByLinkGroup.get(groupKey) ?? 0, connA)
+              : (currentByLinkGroup.get(groupKey) ?? 0) + connA
+          );
         }
 
         const externalBusCurrentA = currentByLinkGroup.size > 0 ? Math.max(...currentByLinkGroup.values()) : 0;

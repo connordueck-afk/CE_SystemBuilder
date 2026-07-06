@@ -3,24 +3,112 @@
     <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
       <feDropShadow dx="0" dy="5" stdDeviation="5" flood-color="#000" flood-opacity="0.2"/>
     </filter>
+    <linearGradient id="bodyGrad" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#0088C7"/>
+      <stop offset="100%" stop-color="#0096D6"/>
+    </linearGradient>
   </defs>
   <g id="product" filter="url(#shadow)">
-    <rect x="161" y="92" width="190" height="300" rx="20" fill="#0096D6"/>
-    <path d="M161 114 Q161 92 183 92 H219 V392 H183 Q161 392 161 370 Z" fill="#007DB7" opacity="0.48"/>
-    <path d="M333 100 Q351 100 351 118 V367 Q351 385 333 385 Z" fill="#007DB7" opacity="0.35"/>
-    <rect x="199" y="150" width="114" height="14" rx="7" fill="#F0F4F5" opacity="0.9"/>
-    <rect x="199" y="188" width="134" height="18" rx="8" fill="#F0F4F5" opacity="0.88"/>
-    <rect x="199" y="237" width="135" height="18" fill="#F28C28"/>
-    <rect x="205" y="277" width="85" height="6" rx="3.0" fill="#F0F4F5" opacity="0.82"/>
-<rect x="205" y="295" width="110" height="6" rx="3.0" fill="#F0F4F5" opacity="0.82"/>
-<rect x="205" y="313" width="70" height="6" rx="3.0" fill="#F0F4F5" opacity="0.82"/>
-    <rect x="179" y="314" width="154" height="60" rx="12" fill="#007DB7"/>
-    <rect x="197" y="332" width="118" height="36" rx="10" fill="#1D2428"/>
-    <circle cx="189.0" cy="355" r="10" fill="#222" stroke="#050607" stroke-width="2"/><line x1="183.0" y1="355" x2="195.0" y2="355" stroke="#4B4B4B" stroke-width="3"/>
-<circle cx="233.66666666666666" cy="355" r="10" fill="#222" stroke="#050607" stroke-width="2"/><line x1="227.66666666666666" y1="355" x2="239.66666666666666" y2="355" stroke="#4B4B4B" stroke-width="3"/>
-<circle cx="278.3333333333333" cy="355" r="10" fill="#222" stroke="#050607" stroke-width="2"/><line x1="272.3333333333333" y1="355" x2="284.3333333333333" y2="355" stroke="#4B4B4B" stroke-width="3"/>
-<circle cx="323.0" cy="355" r="10" fill="#222" stroke="#050607" stroke-width="2"/><line x1="317.0" y1="355" x2="329.0" y2="355" stroke="#4B4B4B" stroke-width="3"/>
-    <text x="202.0" y="374" font-size="16" fill="#F0F4F5" font-family="Arial">+</text><text x="302.0" y="374" font-size="18" fill="#F0F4F5" font-family="Arial">-</text>
-    <rect x="189" y="357" width="42" height="18" rx="5" fill="#1D2428"/><circle cx="203" cy="366" r="5" fill="#050607"/><circle cx="218" cy="366" r="5" fill="#050607"/>
+    <!-- main body -->
+    <rect x="161" y="92" width="190" height="300" rx="4" fill="url(#bodyGrad)"/>
+    <!-- left highlight -->
+    <path d="M161 96 Q161 92 165 92 H173 V392 H165 Q161 392 161 388 Z" fill="#00A8E8" opacity="0.6"/>
+    <!-- right shadow -->
+    <path d="M339 96 Q351 96 351 100 V384 Q351 388 339 388 Z" fill="#005A8C" opacity="0.4"/>
+    <!-- cooling fin ridges - left side -->
+    <rect x="171" y="102" width="2" height="280" rx="1" fill="#007DB7" opacity="0.5"/>
+    <rect x="176" y="102" width="2" height="280" rx="1" fill="#007DB7" opacity="0.5"/>
+    <!-- cooling fin ridges - right side -->
+    <rect x="334" y="102" width="2" height="280" rx="1" fill="#006699" opacity="0.4"/>
+    <rect x="339" y="102" width="2" height="280" rx="1" fill="#006699" opacity="0.4"/>
+    <!-- top bezel -->
+    <rect x="189" y="102" width="134" height="3" rx="1.5" fill="#F0F4F5" opacity="0.15"/>
+    <!-- logo area -->
+    <rect x="205" y="114" width="102" height="18" rx="4" fill="#F0F4F5" opacity="0.12"/>
+    <path d="M220 124 L226 116 L232 124 L226 132 Z" fill="none" stroke="#F0F4F5" stroke-width="1.2" opacity="0.7"/>
+    <line x1="238" y1="120" x2="275" y2="120" stroke="#F0F4F5" stroke-width="1.2" opacity="0.55"/>
+    <line x1="238" y1="124" x2="265" y2="124" stroke="#F0F4F5" stroke-width="1.2" opacity="0.55"/>
+    <line x1="238" y1="128" x2="280" y2="128" stroke="#F0F4F5" stroke-width="1.2" opacity="0.55"/>
+    <!-- model label area -->
+    <rect x="199" y="140" width="114" height="8" rx="4" fill="#F0F4F5" opacity="0.22"/>
+    <line x1="206" y1="144" x2="255" y2="144" stroke="#F0F4F5" stroke-width="1" opacity="0.6"/>
+    <!-- secondary label -->
+    <rect x="199" y="156" width="134" height="6" rx="3" fill="#F0F4F5" opacity="0.14"/>
+    <line x1="206" y1="159" x2="285" y2="159" stroke="#F0F4F5" stroke-width="0.8" opacity="0.45"/>
+    <!-- divider -->
+    <line x1="189" y1="170" x2="323" y2="170" stroke="#007DB7" stroke-width="0.6" opacity="0.6"/>
+    <!-- rating label area -->
+    <rect x="199" y="178" width="134" height="6" rx="3" fill="#F0F4F5" opacity="0.14"/>
+    <line x1="206" y1="181" x2="270" y2="181" stroke="#F0F4F5" stroke-width="0.8" opacity="0.45"/>
+    <!-- second rating line -->
+    <rect x="199" y="190" width="114" height="6" rx="3" fill="#F0F4F5" opacity="0.12"/>
+    <line x1="206" y1="193" x2="240" y2="193" stroke="#F0F4F5" stroke-width="0.8" opacity="0.4"/>
+    <!-- orange status band -->
+    <rect x="189" y="206" width="134" height="3" rx="1.5" fill="#F28C28" opacity="0.9"/>
+    <rect x="199" y="213" width="114" height="9" rx="4.5" fill="#F28C28" opacity="0.85"/>
+    <line x1="210" y1="217" x2="255" y2="217" stroke="#FFF" stroke-width="0.6" opacity="0.3"/>
+    <line x1="210" y1="220" x2="265" y2="220" stroke="#FFF" stroke-width="0.6" opacity="0.2"/>
+    <!-- divider -->
+    <line x1="189" y1="230" x2="323" y2="230" stroke="#007DB7" stroke-width="0.6" opacity="0.6"/>
+    <!-- LED indicator area -->
+    <rect x="199" y="238" width="114" height="16" rx="4" fill="#F0F4F5" opacity="0.08"/>
+    <!-- LED 1 -->
+    <circle cx="215" cy="246" r="4" fill="#1D2428" stroke="#3B4348" stroke-width="0.7"/>
+    <circle cx="215" cy="246" r="2" fill="#22C55E" opacity="0.9"/>
+    <line x1="207" y1="246" x2="210" y2="246" stroke="#F0F4F5" stroke-width="0.8" opacity="0.35"/>
+    <!-- LED 2 -->
+    <circle cx="244" cy="246" r="4" fill="#1D2428" stroke="#3B4348" stroke-width="0.7"/>
+    <circle cx="244" cy="246" r="2" fill="#EAB308" opacity="0.9"/>
+    <line x1="223" y1="246" x2="239" y2="246" stroke="#F0F4F5" stroke-width="0.8" opacity="0.35"/>
+    <!-- LED 3 -->
+    <circle cx="273" cy="246" r="4" fill="#1D2428" stroke="#3B4348" stroke-width="0.7"/>
+    <circle cx="273" cy="246" r="2" fill="#3B82F6" opacity="0.9"/>
+    <line x1="252" y1="246" x2="268" y2="246" stroke="#F0F4F5" stroke-width="0.8" opacity="0.35"/>
+    <!-- LED 4 -->
+    <circle cx="302" cy="246" r="4" fill="#1D2428" stroke="#3B4348" stroke-width="0.7"/>
+    <circle cx="302" cy="246" r="2" fill="#22C55E" opacity="0.9"/>
+    <line x1="281" y1="246" x2="297" y2="246" stroke="#F0F4F5" stroke-width="0.8" opacity="0.35"/>
+    <!-- spec lines -->
+    <rect x="205" y="265" width="85" height="4" rx="2" fill="#F0F4F5" opacity="0.14"/>
+    <line x1="210" y1="267" x2="255" y2="267" stroke="#F0F4F5" stroke-width="0.6" opacity="0.35"/>
+    <rect x="205" y="276" width="110" height="4" rx="2" fill="#F0F4F5" opacity="0.12"/>
+    <line x1="210" y1="278" x2="275" y2="278" stroke="#F0F4F5" stroke-width="0.6" opacity="0.3"/>
+    <rect x="205" y="287" width="70" height="4" rx="2" fill="#F0F4F5" opacity="0.10"/>
+    <line x1="210" y1="289" x2="240" y2="289" stroke="#F0F4F5" stroke-width="0.6" opacity="0.25"/>
+    <!-- terminal block housing -->
+    <rect x="179" y="314" width="154" height="60" rx="5" fill="#005A8C"/>
+    <rect x="179" y="314" width="154" height="60" rx="5" fill="#007DB7" opacity="0.5"/>
+    <!-- terminal block dark recess -->
+    <rect x="197" y="326" width="118" height="42" rx="4" fill="#1D2428"/>
+    <rect x="197" y="326" width="118" height="42" rx="4" fill="#0D1114" opacity="0.5"/>
+    <!-- 4 screw terminals -->
+    <circle cx="207" cy="347" r="9" fill="#1A1F23" stroke="#3B4348" stroke-width="1.2"/>
+    <circle cx="207" cy="347" r="4.5" fill="#2A3238"/>
+    <line x1="202" y1="347" x2="212" y2="347" stroke="#5A6368" stroke-width="1.2"/>
+    <circle cx="248" cy="347" r="9" fill="#1A1F23" stroke="#3B4348" stroke-width="1.2"/>
+    <circle cx="248" cy="347" r="4.5" fill="#2A3238"/>
+    <line x1="243" y1="347" x2="253" y2="347" stroke="#5A6368" stroke-width="1.2"/>
+    <circle cx="289" cy="347" r="9" fill="#1A1F23" stroke="#3B4348" stroke-width="1.2"/>
+    <circle cx="289" cy="347" r="4.5" fill="#2A3238"/>
+    <line x1="284" y1="347" x2="294" y2="347" stroke="#5A6368" stroke-width="1.2"/>
+    <circle cx="330" cy="347" r="9" fill="#1A1F23" stroke="#3B4348" stroke-width="1.2"/>
+    <circle cx="330" cy="347" r="4.5" fill="#2A3238"/>
+    <line x1="325" y1="347" x2="335" y2="347" stroke="#5A6368" stroke-width="1.2"/>
+    <!-- PV input - line-cross (no text) -->
+    <rect x="189" y="364" width="54" height="12" rx="3" fill="#1D2428" opacity="0.8"/>
+    <rect x="222" y="366" width="4" height="8" fill="#22C55E" opacity="0.8"/>
+    <line x1="224" y1="368" x2="224" y2="372" stroke="#1D2428" stroke-width="1.2"/>
+    <line x1="189" y1="378" x2="197" y2="378" stroke="#F0F4F5" stroke-width="0.8" opacity="0.5"/>
+    <!-- BAT output - line-cross (no text) -->
+    <rect x="253" y="364" width="54" height="12" rx="3" fill="#1D2428" opacity="0.8"/>
+    <rect x="286" y="366" width="4" height="8" fill="#F28C28" opacity="0.8"/>
+    <line x1="288" y1="368" x2="288" y2="372" stroke="#1D2428" stroke-width="1.2"/>
+    <line x1="253" y1="378" x2="261" y2="378" stroke="#F0F4F5" stroke-width="0.8" opacity="0.5"/>
+    <!-- VE.Direct port -->
+    <rect x="193" y="362" width="30" height="14" rx="3" fill="#0B0E10" stroke="#3B4348" stroke-width="0.7"/>
+    <rect x="197" y="366" width="8" height="6" rx="1" fill="#1D2428"/>
+    <line x1="201" y1="368" x2="201" y2="370" stroke="#5A6368" stroke-width="0.7"/>
+    <line x1="197" y1="369" x2="205" y2="369" stroke="#5A6368" stroke-width="0.6"/>
+    <circle cx="212" cy="369" r="1.5" fill="#22C55E" opacity="0.6"/>
   </g>
 </svg>
