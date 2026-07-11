@@ -1,11 +1,11 @@
-# SystemBuilder Project Notes
+# DES System Builder Project Notes
 
 Read this first in new sessions. This is the single active context file for the
 repo; keep it compact and update it when architecture or workflows change.
 
 ## What This Is
 
-Nomadeus System Builder is a React/Vite/TypeScript app for early-stage mobile and
+DES System Builder is a React/Vite/TypeScript app for early-stage mobile and
 off-grid electrical system design. Users place products on a schematic canvas,
 connect terminals, review validation issues, size cables/fuses, and generate BOM
 and price summaries.

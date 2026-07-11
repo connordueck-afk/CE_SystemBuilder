@@ -1,4 +1,4 @@
-import type { Product } from '../../../../types/system';
+﻿import type { Product } from '../../../../types/system';
 
 const product: Product = {
   id: "megarevo-12kw-hybrid-inverter",
@@ -475,7 +475,6 @@ const product: Product = {
       label: "Communication",
       role: "bidirectional",
       direction: "bidirectional",
-      connectorType: "RJ45",
       supportedProtocols: [
         "Pylon LV",
         "BMS-Can",

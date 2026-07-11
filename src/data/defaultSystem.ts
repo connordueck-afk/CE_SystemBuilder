@@ -34,14 +34,12 @@ export const DEFAULT_SYSTEM: SystemDesign = {
     },
     {
       id: "p3-fuse-pack",
-      productId: "fuse-anl-250a",
+      productId: "holder-anl-1pos-inline",
       label: "Pack Fuse",
       quantity: 1,
       x: -40,
       y: 340,
-      inferredConnectionKind: "dc_power",
-      inferredPolarity: "positive",
-      inferredVoltageClass: "dc_low_voltage"
+      fuseSlots: { slot_1: { installed: true, ratingA: 250 } }
     },
     {
       id: "p3-bus-pos",
@@ -84,25 +82,21 @@ export const DEFAULT_SYSTEM: SystemDesign = {
     },
     {
       id: "p3-fuse-mppt",
-      productId: "fuse-midi-125a",
+      productId: "holder-midi-1pos-inline",
       label: "MPPT Fuse",
       quantity: 1,
       x: 190,
       y: 130,
-      inferredConnectionKind: "dc_power",
-      inferredPolarity: "positive",
-      inferredVoltageClass: "dc_low_voltage"
+      fuseSlots: { slot_1: { installed: true, ratingA: 125 } }
     },
     {
       id: "p3-fuse-inv",
-      productId: "fuse-anl-150a",
+      productId: "holder-anl-1pos-inline",
       label: "Inverter Fuse",
       quantity: 1,
       x: 300,
       y: 320,
-      inferredConnectionKind: "dc_power",
-      inferredPolarity: "positive",
-      inferredVoltageClass: "dc_low_voltage"
+      fuseSlots: { slot_1: { installed: true, ratingA: 150 } }
     },
     {
       id: "p3-inverter",
@@ -150,7 +144,7 @@ export const DEFAULT_SYSTEM: SystemDesign = {
       fromComponentId: "p3-bat-1",
       fromTerminalId: "dc_pos_2",
       toComponentId: "p3-fuse-pack",
-      toTerminalId: "in",
+      toTerminalId: "in_pos",
       cableLengthFt: 2,
       busType: "dc_pos",
       calculatedCurrentA: 110,
@@ -163,7 +157,7 @@ export const DEFAULT_SYSTEM: SystemDesign = {
     {
       id: "p3-fuse-to-bus",
       fromComponentId: "p3-fuse-pack",
-      fromTerminalId: "out",
+      fromTerminalId: "out_pos",
       toComponentId: "p3-bus-pos",
       toTerminalId: "terminal_1",
       cableLengthFt: 2,
@@ -236,7 +230,7 @@ export const DEFAULT_SYSTEM: SystemDesign = {
       fromComponentId: "p3-mppt",
       fromTerminalId: "bat_pos",
       toComponentId: "p3-fuse-mppt",
-      toTerminalId: "in",
+      toTerminalId: "in_pos",
       cableLengthFt: 2,
       busType: "dc_pos",
       calculatedCurrentA: 30.208333333333332,
@@ -249,7 +243,7 @@ export const DEFAULT_SYSTEM: SystemDesign = {
     {
       id: "p3-mppt-fuse-to-bus",
       fromComponentId: "p3-fuse-mppt",
-      fromTerminalId: "out",
+      fromTerminalId: "out_pos",
       toComponentId: "p3-bus-pos",
       toTerminalId: "terminal_3",
       cableLengthFt: 3,
@@ -280,7 +274,7 @@ export const DEFAULT_SYSTEM: SystemDesign = {
       fromComponentId: "p3-bus-pos",
       fromTerminalId: "terminal_4",
       toComponentId: "p3-fuse-inv",
-      toTerminalId: "in",
+      toTerminalId: "in_pos",
       cableLengthFt: 3,
       busType: "dc_pos",
       calculatedCurrentA: 110,
@@ -293,7 +287,7 @@ export const DEFAULT_SYSTEM: SystemDesign = {
     {
       id: "p3-fuse-inv-to-inv",
       fromComponentId: "p3-fuse-inv",
-      fromTerminalId: "out",
+      fromTerminalId: "out_pos",
       toComponentId: "p3-inverter",
       toTerminalId: "dc_pos",
       cableLengthFt: 3,

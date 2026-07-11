@@ -252,7 +252,7 @@ export function validateConnectionPair(
   }
 
   if (existingConnections) {
-    const fromMax = effectiveMaxConnections(from.terminal, commPortFor(from));
+    const fromMax = effectiveMaxConnections(from.terminal);
     if (fromMax != null) {
       const count = countTerminalConnections(existingConnections, from.component.id, from.terminal.id);
       if (count >= fromMax) {
@@ -260,7 +260,7 @@ export function validateConnectionPair(
       }
     }
 
-    const toMax = effectiveMaxConnections(to.terminal, commPortFor(to));
+    const toMax = effectiveMaxConnections(to.terminal);
     if (toMax != null) {
       const count = countTerminalConnections(existingConnections, to.component.id, to.terminal.id);
       if (count >= toMax) {

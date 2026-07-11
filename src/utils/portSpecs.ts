@@ -215,13 +215,13 @@ export function isCommPort(product: Product, port: ProductPort): boolean {
   return portKindOf(product, port) === 'comm';
 }
 
-/** Connector type for a comm port (port-first, legacy commPort fallback by shared id). */
+/** Connector type for a terminal (terminal-first, legacy commPort fallback by terminal id). */
 export function commConnectorType(
   product: Product,
-  port: ProductPort
+  terminal: TerminalDefinition
 ): CommunicationConnectorType | undefined {
-  if (port.connectorType) return port.connectorType;
-  return product.communicationPorts?.find((p) => p.id === port.id)?.connectorType;
+  if (terminal.connectorType) return terminal.connectorType;
+  return product.communicationPorts?.find((p) => p.id === terminal.id)?.connectorType;
 }
 
 /** Supported protocols for a comm port (port-first, legacy commPort fallback by shared id). */

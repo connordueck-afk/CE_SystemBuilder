@@ -117,14 +117,14 @@ export function HeaderBar({
       {/* Logo */}
       <a
         className="header-logo"
-        href="https://www.cdnrg.com/"
+        href="https://discoverenergysys.com/"
         target="_blank"
         rel="noreferrer"
-        title="Open Canadian Energy website"
+        title="Discover Energy Systems website"
       >
-        <img className="header-logo-mark" src={`${import.meta.env.BASE_URL}brand/canadian-energy-logo.png`} alt="" aria-hidden="true" />
+        <img className="header-logo-mark" src={`${import.meta.env.BASE_URL}brand/des-logo.png`} alt="" aria-hidden="true" />
         <span className="header-logo-copy">
-          <span className="header-logo-text">Canadian Energy</span>
+          <span className="header-logo-text">Discover Energy</span>
           <span className="header-logo-sub">System Builder</span>
         </span>
       </a>

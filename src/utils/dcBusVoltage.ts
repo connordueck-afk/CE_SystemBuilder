@@ -1,8 +1,13 @@
 import type { Product, SystemComponent, TerminalDefinition } from '../types/system';
 import { terminalKind, terminalRole } from './portSpecs';
+import { hasDistributionTopology } from './distributionTopology';
 
 export function isDcBusProduct(product: Product): boolean {
   if (product.productType === 'busbar' || product.productType === 'dc_distribution') return true;
+  // Products with explicit distribution topology (fuse holders, Lynx modules)
+  // model their internal bus behavior through that topology — they derive bus
+  // voltage from what they're connected to, not from a user-set field.
+  if (hasDistributionTopology(product)) return false;
   return product.terminals.some((terminal) =>
     terminalKind(product, terminal) === 'dc_power' &&
     terminalRole(product, terminal) === 'bus'

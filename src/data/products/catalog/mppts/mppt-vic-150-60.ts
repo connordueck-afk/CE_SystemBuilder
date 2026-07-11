@@ -218,7 +218,11 @@ const product: Product = {
       label: "VE.Can",
       topology: "two_pole",
       role: "bidirectional",
-      direction: "bidirectional"
+      direction: "bidirectional",
+      supportedProtocols: [
+        "VE.Can"
+      ],
+      configuredProtocol: "VE.Can"
     },
     {
       id: "ve_direct",
@@ -226,7 +230,11 @@ const product: Product = {
       label: "VE.Direct",
       topology: "two_pole",
       role: "bidirectional",
-      direction: "bidirectional"
+      direction: "bidirectional",
+      supportedProtocols: [
+        "VE.Direct"
+      ],
+      configuredProtocol: "VE.Direct"
     }
   ]
 };

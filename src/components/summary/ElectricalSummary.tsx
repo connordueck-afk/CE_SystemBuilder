@@ -72,8 +72,18 @@ export function ElectricalSummaryPanel({ summary }: Props) {
               <div style={{ color: 'var(--ink)', fontSize: 13, fontWeight: 700, marginBottom: 4 }}>
                 {node.label}
               </div>
+              {node.hasBusTypeConflict ? (
+                <div className="issue-card issue-card-error" style={{ marginBottom: 6 }}>
+                  <span className="issue-icon">!</span>
+                  <span className="issue-message">
+                    Conflicting wiring: this bus has terminals wired to more than one
+                    electrical type. Bus/current/protection readings below are unreliable
+                    until the conflicting connection is fixed.
+                  </span>
+                </div>
+              ) : null}
               <Row label="Net" value={node.netId} />
-              <Row label="Bus" value={busLabel(node.busType)} />
+              <Row label="Bus" value={node.hasBusTypeConflict ? `${busLabel(node.busType)} (conflicted)` : busLabel(node.busType)} />
               <Row label="Terminals" value={`${node.terminalCount}`} />
               <Row label="Current" value={`${fmtNumber(node.operatingCurrentA)} A`} />
               {node.protectedBy && <Row label="Protected By" value={node.protectedBy} />}

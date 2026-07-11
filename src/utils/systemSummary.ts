@@ -45,6 +45,10 @@ export interface PowerNodeElectricalSummary {
   operatingCurrentA: number;
   totalPowerW: number;
   protectedBy?: string;
+  /** True when the underlying net has terminals wired to conflicting bus types —
+   * busType/protectedBy reflect only the dominant type and must not be trusted
+   * as a safe "no fuse needed" reading until the conflict is resolved. */
+  hasBusTypeConflict: boolean;
 }
 
 export interface ElectricalSummaryInputs {
@@ -139,6 +143,7 @@ export function buildElectricalSummary(
         operatingCurrentA,
         totalPowerW: operatingCurrentA * system.nominalVoltage,
         protectedBy: net.protectedBy?.map((boundary) => `${boundary.label}${boundary.ratingA ? ` ${boundary.ratingA}A` : ''}`).join(', '),
+        hasBusTypeConflict: net.hasBusTypeConflict,
       };
     });
   });

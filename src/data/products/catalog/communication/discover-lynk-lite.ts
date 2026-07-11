@@ -1,4 +1,4 @@
-import type { Product } from '../../../../types/system';
+﻿import type { Product } from '../../../../types/system';
 
 const product: Product = {
   id: "discover-lynk-lite",
@@ -24,7 +24,12 @@ const product: Product = {
       id: "port-can",
       name: "CAN",
       connectorType: "M12",
-      supportedProtocols: ["VE.Can", "CANopen", "AEbus", "J1939"],
+      supportedProtocols: [
+        "VE.Can",
+        "CANopen",
+        "AEbus",
+        "J1939"
+      ],
       configuredProtocol: "CANopen",
       isConfigurable: true
     },
@@ -32,7 +37,9 @@ const product: Product = {
       id: "port-lynk",
       name: "RS485 Port",
       connectorType: "M12",
-      supportedProtocols: ["AEbus"],
+      supportedProtocols: [
+        "AEbus"
+      ],
       configuredProtocol: "AEbus",
       isConfigurable: true
     }
@@ -45,8 +52,12 @@ const product: Product = {
       label: "CAN",
       role: "bidirectional",
       direction: "bidirectional",
-      connectorType: "M12",
-      supportedProtocols: ["VE.Can", "CANopen", "AEbus", "J1939"],
+      supportedProtocols: [
+        "VE.Can",
+        "CANopen",
+        "AEbus",
+        "J1939"
+      ],
       configuredProtocol: "CANopen",
       isConfigurable: true
     },
@@ -57,10 +68,10 @@ const product: Product = {
       label: "RS485 Port",
       role: "bidirectional",
       direction: "bidirectional",
-      connectorType: "M12",
-      supportedProtocols: ["AEbus"],
-      configuredProtocol: "AEbus",
-      isConfigurable: true
+      supportedProtocols: [
+        "AEbus"
+      ],
+      configuredProtocol: "AEbus"
     }
   ],
   terminalGroups: [

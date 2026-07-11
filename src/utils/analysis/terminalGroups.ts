@@ -82,6 +82,7 @@ export function resolveTerminalGroups(
         internallyCommon,
         maxCurrentA: positiveRating(explicit?.maxCurrentA) ?? positiveRating(port?.maxCurrentA),
         maxVoltageV: explicit?.maxVoltageV ?? port?.voltageMaxV,
+        integratedProtection: explicit?.integratedProtection,
         terminalIds: [],
         derived: !explicit,
       };

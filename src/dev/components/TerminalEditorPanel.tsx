@@ -2,8 +2,8 @@ import { useState, useEffect, useCallback } from 'react';
 import type {
   TerminalDefinition, ConnectionPointKind,
   TerminalSide, ConnectorKind,
-  ProductCommunicationPort, CommunicationProtocol, CommunicationConnectorType,
   ProductPort, TerminalGroupDefinition,
+  CommunicationConnectorType,
 } from '../../types/system';
 import { CollapsibleSection } from './CollapsibleSection';
 
@@ -14,10 +14,6 @@ interface Props {
   onChange: (changes: Partial<TerminalDefinition>) => void;
   onDelete: () => void;
   onClose: () => void;
-  /** Communication port (matched to this terminal by shared id), if one exists. */
-  port?: ProductCommunicationPort;
-  /** Upsert (changes) or remove (null) the matching communication port. */
-  onPortChange?: (changes: Partial<ProductCommunicationPort> | null) => void;
   /** Internal circuit ports used to resolve the terminal group's port. */
   availablePorts?: ProductPort[];
   /** Terminal groups the terminal can be assigned to via `terminalGroupId`. */
@@ -27,9 +23,8 @@ interface Props {
 const SIDES: TerminalSide[] = ['top', 'bottom', 'left', 'right'];
 const CONNECTOR_KINDS: ConnectorKind[] = ['stud', 'screw_terminal', 'mc4', 'lug', 'helios_orng', 'helios_blk', 'ferrule'];
 const GENDERED_CONNECTOR_KINDS: ConnectorKind[] = ['mc4'];
-const GENDERED_COMM_CONNECTORS: CommunicationConnectorType[] = ['RJ45', 'M12', 'Deutsch', 'JST'];
-const PROTOCOLS: CommunicationProtocol[] = ['CANopen', 'J1939', 'VE.Bus', 'VE.Direct', 'VE.Can', 'BMS-Can', 'AEbus', 'RS485', 'Ethernet', 'Pylon LV', 'Other'];
 const COMM_CONNECTORS: CommunicationConnectorType[] = ['RJ45', 'M12', 'Deutsch', 'TerminalBlock', 'JST', 'VE.Direct', 'Other'];
+const GENDERED_COMM_CONNECTORS: CommunicationConnectorType[] = ['RJ45', 'M12', 'Deutsch', 'JST'];
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -47,7 +42,7 @@ function directionFromRole(role: ProductPort['role'] | undefined): ProductPort['
   return undefined;
 }
 
-export function TerminalEditorPanel({ terminal: t, resolvedKind, onChange, onDelete, onClose, port, onPortChange, availablePorts = [], availableGroups = [] }: Props) {
+export function TerminalEditorPanel({ terminal: t, resolvedKind, onChange, onDelete, onClose, availablePorts = [], availableGroups = [] }: Props) {
   // Kind is owned by the terminal's port; polarity by its group — both shown read-only here.
   const assignedGroup = availableGroups.find((g) => g.id === t.terminalGroupId);
   const resolvedPortId = assignedGroup?.portId;
@@ -56,7 +51,6 @@ export function TerminalEditorPanel({ terminal: t, resolvedKind, onChange, onDel
   const resolvedRole = assignedPort?.role;
   const resolvedDirection = assignedPort?.direction ?? directionFromRole(assignedPort?.role);
   const isCommNode = assignedPort?.kind === 'comm';
-  const supported = port?.supportedProtocols ?? [];
 
   // Buffer the ID locally so intermediate keystrokes don't get committed to state.
   // Committing on every keystroke lets an in-progress rename temporarily collide
@@ -72,24 +66,6 @@ export function TerminalEditorPanel({ terminal: t, resolvedKind, onChange, onDel
       onChange({ id: trimmed });
     }
   }, [draftId, t.id, onChange]);
-
-  const toggleProtocol = (proto: CommunicationProtocol) => {
-    if (!onPortChange) return;
-    const nextList = supported.includes(proto)
-      ? supported.filter(p => p !== proto)
-      : [...supported, proto];
-    if (nextList.length === 0) {
-      // No protocols left → drop the port entirely.
-      onPortChange(null);
-      return;
-    }
-    const changes: Partial<ProductCommunicationPort> = { supportedProtocols: nextList };
-    // Keep the default protocol valid against the new list.
-    if (port?.configuredProtocol && !nextList.includes(port.configuredProtocol)) {
-      changes.configuredProtocol = nextList[0];
-    }
-    onPortChange(changes);
-  };
 
   function s<K extends keyof TerminalDefinition>(key: K) {
     return (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -221,19 +197,20 @@ export function TerminalEditorPanel({ terminal: t, resolvedKind, onChange, onDel
             <>
               <Field label="Connector">
                 <select
-                  value={port?.connectorType ?? 'RJ45'}
-                  onChange={e => onPortChange?.({ connectorType: e.target.value as CommunicationConnectorType })}
+                  value={t.connectorType ?? 'RJ45'}
+                  onChange={e => onChange({ connectorType: (e.target.value || undefined) as CommunicationConnectorType | undefined })}
                 >
+                  <option value="">—</option>
                   {COMM_CONNECTORS.map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
               </Field>
-              {GENDERED_COMM_CONNECTORS.includes(port?.connectorType ?? 'RJ45' as CommunicationConnectorType) && (
+              {GENDERED_COMM_CONNECTORS.includes((t.connectorType ?? 'RJ45') as CommunicationConnectorType) && (
                 <Field label="Gender">
                   <select
-                  value={port?.gender ?? ''}
-                  onChange={e => onPortChange?.({ gender: (e.target.value || undefined) as 'male' | 'female' | undefined })}
-                >
-                    <option value="">-</option>
+                    value={t.gender ?? ''}
+                    onChange={e => onChange({ gender: (e.target.value || undefined) as 'male' | 'female' | undefined })}
+                  >
+                    <option value="">—</option>
                     <option value="male">Male</option>
                     <option value="female">Female</option>
                   </select>
@@ -312,64 +289,6 @@ export function TerminalEditorPanel({ terminal: t, resolvedKind, onChange, onDel
             placeholder="Optional notes about this terminal"
           />
         </Field>
-
-        {isCommNode && onPortChange && (
-          <>
-            <hr />
-            <div className="pb-field">
-              <label>Supported Protocols</label>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2px 12px' }}>
-                {PROTOCOLS.map(proto => (
-                  <div key={proto} className="pb-checkbox-row">
-                    <input
-                      id={`proto_${proto}`}
-                      type="checkbox"
-                      checked={supported.includes(proto)}
-                      onChange={() => toggleProtocol(proto)}
-                    />
-                    <label htmlFor={`proto_${proto}`}>{proto}</label>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {supported.length > 0 && (
-              <>
-                <div className="pb-field-row">
-                  <Field label="Port Name">
-                    <input
-                      type="text"
-                      value={port?.name ?? ''}
-                      onChange={e => onPortChange({ name: e.target.value || undefined })}
-                      placeholder={t.label || t.id}
-                    />
-                  </Field>
-                </div>
-
-                <div className="pb-field-row">
-                  <div className="pb-checkbox-row">
-                    <input
-                      id="port_configurable"
-                      type="checkbox"
-                      checked={port?.isConfigurable ?? false}
-                      onChange={e => onPortChange({ isConfigurable: e.target.checked || undefined })}
-                    />
-                    <label htmlFor="port_configurable">User-configurable</label>
-                  </div>
-                  <Field label="Default Protocol">
-                    <select
-                      value={port?.configuredProtocol ?? ''}
-                      onChange={e => onPortChange({ configuredProtocol: (e.target.value || undefined) as CommunicationProtocol | undefined })}
-                    >
-                      <option value="">-</option>
-                      {supported.map(p => <option key={p} value={p}>{p}</option>)}
-                    </select>
-                  </Field>
-                </div>
-              </>
-            )}
-          </>
-        )}
 
     </CollapsibleSection>
   );

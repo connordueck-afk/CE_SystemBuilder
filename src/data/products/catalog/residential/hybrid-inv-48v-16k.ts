@@ -1,4 +1,4 @@
-import type { Product } from '../../../../types/system';
+﻿import type { Product } from '../../../../types/system';
 
 const product: Product = {
   id: "hybrid-inv-48v-16k",
@@ -437,7 +437,6 @@ const product: Product = {
       label: "Communication",
       role: "bidirectional",
       direction: "bidirectional",
-      connectorType: "RJ45",
       supportedProtocols: ["BMS-Can", "RS485", "Other"],
       configuredProtocol: "Other",
       isConfigurable: true

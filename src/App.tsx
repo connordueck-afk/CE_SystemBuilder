@@ -48,6 +48,7 @@ import { NewSystemModal } from './components/layout/NewSystemModal';
 import { StartupModal } from './components/layout/StartupModal';
 import { SchematicCanvas } from './components/schematic/SchematicCanvas';
 import { InlineFuseInsertModal } from './components/parts/InlineFuseInsertModal';
+import { FusePickerModal } from './components/parts/FusePickerModal';
 import { PrintView } from './export/PrintView';
 import {
   connectionPoints,
@@ -267,6 +268,7 @@ function enrichConnections(system: SystemDesign): SystemDesign {
           voltageDropV: undefined,
           voltageDropPercent: undefined,
           warnings: connectionAnalysis.warnings,
+          errors: connectionAnalysis.errors,
         };
       }
 
@@ -279,6 +281,7 @@ function enrichConnections(system: SystemDesign): SystemDesign {
         voltageDropV: connectionAnalysis.voltageDropV,
         voltageDropPercent: connectionAnalysis.voltageDropPercent,
         warnings: connectionAnalysis.warnings,
+        errors: connectionAnalysis.errors,
       };
     }),
   };
@@ -312,6 +315,7 @@ export function App() {
   const [leftCollapsed, setLeftCollapsed] = useState(false);
   const [rightCollapsed, setRightCollapsed] = useState(false);
   const [pendingProtectionInsert, setPendingProtectionInsert] = useState<PendingProtectionInsert | null>(null);
+  const [fusePickerSlot, setFusePickerSlot] = useState<{ componentId: string; slotId: string } | null>(null);
   const [showLoadModal, setShowLoadModal] = useState(false);
   const [savedSystems, setSavedSystems] = useState(() => loadSavedSystems());
   const [themeMode, setThemeMode] = useState<ThemeMode>(loadThemeMode);
@@ -458,6 +462,12 @@ export function App() {
     setSelectedComponentId(comp.id);
     setSelectedConnectionId(null);
     setSelectedAnnotationId(null);
+
+    // Auto-open fuse picker if the product is a fuse holder with slots
+    const slots = product.distributionTopology?.fuseSlots;
+    if (slots && slots.length > 0) {
+      setFusePickerSlot({ componentId: comp.id, slotId: slots[0].id });
+    }
   }, [canvasViewportCenter.x, canvasViewportCenter.y, system.components, system.nominalVoltage, updateSystem]);
 
   const handleAddTextAnnotation = useCallback(() => {
@@ -537,6 +547,19 @@ export function App() {
     }));
   }, [updateSystem]);
 
+  const handleSetComponentRotation = useCallback((id: string, rotationDeg: number) => {
+    updateSystem((s) => ({
+      ...s,
+      components: s.components.map((c) => {
+        if (c.id !== id) return c;
+        const product = getProduct(c.productId);
+        if (!product) return { ...c, rotationDeg };
+        const bounded = clampComponentPosition(c.x, c.y, product, rotationDeg, componentScale(c));
+        return { ...c, rotationDeg, x: bounded.x, y: bounded.y };
+      }),
+    }));
+  }, [updateSystem]);
+
   const handleToggleComponentLock = useCallback((id: string) => {
     updateSystem((s) => ({
       ...s,
@@ -567,19 +590,6 @@ export function App() {
       ...s,
       components: s.components.map((c) =>
         c.id === id ? { ...c, includeInBom } : c
-      ),
-    }));
-  }, [updateSystem]);
-
-  const handleUpdateFuseHolder = useCallback((
-    id: string,
-    includeFuseHolder: boolean,
-    fuseHolderProductId?: string
-  ) => {
-    updateSystem((s) => ({
-      ...s,
-      components: s.components.map((c) =>
-        c.id === id ? { ...c, includeFuseHolder, fuseHolderProductId } : c
       ),
     }));
   }, [updateSystem]);
@@ -659,6 +669,63 @@ export function App() {
         };
       }),
     }));
+  }, [updateSystem]);
+
+  const handleOpenFusePicker = useCallback((componentId: string, slotId: string) => {
+    setFusePickerSlot({ componentId, slotId });
+  }, []);
+
+  const handleFusePickerConfirm = useCallback((fuseProductId: string) => {
+    if (!fusePickerSlot) return;
+    const fuseProduct = getProduct(fuseProductId);
+    updateSystem((s) => ({
+      ...s,
+      components: s.components.map((c) => {
+        if (c.id !== fusePickerSlot.componentId) return c;
+        const current = c.fuseSlots?.[fusePickerSlot.slotId] ?? {};
+        return {
+          ...c,
+          fuseSlots: {
+            ...(c.fuseSlots ?? {}),
+            [fusePickerSlot.slotId]: {
+              ...current,
+              installed: true,
+              ratingA: fuseProduct ? (fuseProduct.protectionRatings?.currentRatingA ?? fuseProduct.maxCurrentA) : undefined,
+              fuseProductId,
+            },
+          },
+        };
+      }),
+    }));
+    setFusePickerSlot(null);
+  }, [fusePickerSlot, updateSystem]);
+
+  const handleFusePickerSkip = useCallback(() => {
+    setFusePickerSlot(null);
+  }, []);
+
+  const handleRemoveFuseSlot = useCallback((componentId: string, slotId: string) => {
+    updateSystem((s) => ({
+      ...s,
+      components: s.components.map((c) => {
+        if (c.id !== componentId) return c;
+        const current = c.fuseSlots?.[slotId] ?? {};
+        return {
+          ...c,
+          fuseSlots: {
+            ...(c.fuseSlots ?? {}),
+            [slotId]: {
+              ...current,
+              installed: false,
+              ratingA: undefined,
+              fuseProductId: undefined,
+            },
+          },
+        };
+      }),
+    }));
+    // If the remove came from the fuse picker, close it
+    setFusePickerSlot(null);
   }, [updateSystem]);
 
   const handleUpdateCustomSolarArrayRatings = useCallback((id: string, ratings: CustomSolarArrayRatings) => {
@@ -920,10 +987,10 @@ export function App() {
     setPendingProtectionInsert({ recommendation, marker });
   }, []);
 
-  const handleConfirmInlineProtection = useCallback((productId: string) => {
+  const handleConfirmInlineProtection = useCallback((productId: string, slotRatingA?: number) => {
     const pending = pendingProtectionInsert;
     const product = getProduct(productId);
-    if (!pending || !product || !['fuse', 'breaker'].includes(product.productType)) return;
+    if (!pending || !product || !['fuse_holder', 'breaker'].includes(product.productType)) return;
     const terminalIds = inlineProtectionTerminalIds(product, pending.recommendation.busType);
     if (!terminalIds) return;
 
@@ -956,6 +1023,11 @@ export function App() {
       ? splitPointsAtMarker(connectionPoints(original, originalFromPos, originalToPos), pending.marker)
       : null;
 
+    const slotId = product.distributionTopology?.fuseSlots?.[0]?.id;
+    const fuseSlots = product.productType === 'fuse_holder' && slotId && slotRatingA != null
+      ? { [slotId]: { installed: true, ratingA: slotRatingA } }
+      : undefined;
+
     const buildCandidate = (mapping: 'forward' | 'reverse') => {
       const rotationDeg = normalizeCardinalRotation(
         pending.marker.angleDeg + (mapping === 'reverse' ? 180 : 0)
@@ -969,12 +1041,13 @@ export function App() {
       const protectionComponent: SystemComponent = {
         id: insertedComponentId,
         productId: product.id,
-        label: defaultComponentLabel(product, system.components),
+        label: pending.recommendation.defaultComponentLabel ?? defaultComponentLabel(product, system.components),
         quantity: 1,
         x: bounded.x,
         y: bounded.y,
         rotationDeg,
         includeInBom: true,
+        ...(fuseSlots && { fuseSlots }),
       };
       const routeBefore = original.routePoints && split ? routePointsFromSplit(split.before) : undefined;
       const routeAfter = original.routePoints && split ? routePointsFromSplit(split.after) : undefined;
@@ -1556,6 +1629,7 @@ export function App() {
           onCopyComponent={handleCopyComponent}
           onCutComponent={handleCutComponent}
           onRotateComponent={handleRotateComponent}
+          onSetComponentRotation={handleSetComponentRotation}
           onToggleComponentLock={handleToggleComponentLock}
           onRemoveComponent={handleRemoveComponent}
           onRemoveConnection={handleRemoveConnection}
@@ -1594,7 +1668,6 @@ export function App() {
         onUpdateLabel={handleUpdateLabel}
         onUpdatePrice={handleUpdatePrice}
         onUpdateIncludeInBom={handleUpdateIncludeInBom}
-        onUpdateFuseHolder={handleUpdateFuseHolder}
         onUpdateInstanceVoltage={handleUpdateInstanceVoltage}
         onUpdateDcBusNominalVoltage={handleUpdateDcBusNominalVoltage}
         onUpdateInstanceMaxCurrent={handleUpdateInstanceMaxCurrent}
@@ -1602,6 +1675,8 @@ export function App() {
         onUpdateComponentImageScale={handleUpdateComponentImageScale}
         onUpdateBusPolarity={handleUpdateBusPolarity}
         onUpdateFuseSlot={handleUpdateFuseSlot}
+        onOpenFusePicker={handleOpenFusePicker}
+        onRemoveFuseSlot={handleRemoveFuseSlot}
         onChangeComponentProduct={handleChangeComponentProduct}
         onUpdateCustomSolarArrayRatings={handleUpdateCustomSolarArrayRatings}
         onUpdateConnectionLength={handleUpdateConnectionLength}
@@ -1678,6 +1753,30 @@ export function App() {
           onConfirm={handleConfirmInlineProtection}
         />
       )}
+
+      {fusePickerSlot && (() => {
+        const holderComp = system.components.find((c) => c.id === fusePickerSlot.componentId);
+        const holderProduct = holderComp ? PRODUCT_MAP.get(holderComp.productId) : undefined;
+        const slot = holderProduct?.distributionTopology?.fuseSlots?.find((s) => s.id === fusePickerSlot.slotId);
+        if (!holderComp || !holderProduct || !slot) {
+          setFusePickerSlot(null);
+          return null;
+        }
+        const fuseStyle = slot.fuseStyle ?? 'Fuse';
+        const currentState = holderComp.fuseSlots?.[slot.id];
+        return (
+          <FusePickerModal
+            fuseStyle={fuseStyle}
+            maxFuseA={slot.maxFuseA}
+            currentFuseProductId={currentState?.fuseProductId}
+            products={PRODUCT_MAP}
+            onConfirm={handleFusePickerConfirm}
+            onCancel={() => setFusePickerSlot(null)}
+            onSkip={handleFusePickerSkip}
+            onRemove={() => handleRemoveFuseSlot(fusePickerSlot.componentId, fusePickerSlot.slotId)}
+          />
+        );
+      })()}
 
       {/* Load System Modal */}
       {showLoadModal && (

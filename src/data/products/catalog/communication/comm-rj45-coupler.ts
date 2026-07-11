@@ -1,4 +1,4 @@
-import type { Product } from '../../../../types/system';
+﻿import type { Product } from '../../../../types/system';
 
 const product: Product = {
   id: "comm-rj45-coupler",
@@ -36,7 +36,6 @@ const product: Product = {
       label: "Port A",
       role: "bidirectional",
       direction: "bidirectional",
-      connectorType: "RJ45",
       supportedProtocols: ["VE.Can", "BMS-Can", "VE.Bus", "AEbus", "CANopen", "J1939", "Ethernet"],
       isConfigurable: false
     },
@@ -47,7 +46,6 @@ const product: Product = {
       label: "Port B",
       role: "bidirectional",
       direction: "bidirectional",
-      connectorType: "RJ45",
       supportedProtocols: ["VE.Can", "BMS-Can", "VE.Bus", "AEbus", "CANopen", "J1939", "Ethernet"],
       isConfigurable: false
     }

@@ -3,6 +3,7 @@ import type {
   CommunicationConnectorType,
   CommunicationProtocol,
   DataQuality,
+  IntegratedProtectionDefinition,
   NominalVoltage,
   Product,
   ProductCommunicationPort,
@@ -51,6 +52,7 @@ interface CatalogBatteryInput {
   height: number;
   positiveTerminal: DcTerminalInput;
   negativeTerminal: DcTerminalInput;
+  positiveIntegratedProtection?: IntegratedProtectionDefinition;
   communicationTerminals?: BatteryCommunicationTerminalInput[];
   batteryRatings: BatteryRatings;
 }
@@ -155,6 +157,7 @@ export function defineCatalogBattery(input: CatalogBatteryInput): Product {
         internallyCommon: true,
         maxCurrentA: input.positiveTerminal.maxCurrentA,
         requiresOvercurrentProtection: true,
+        ...(input.positiveIntegratedProtection ? { integratedProtection: input.positiveIntegratedProtection } : {}),
         notes: 'Battery positive conductor group.',
       },
       {

@@ -158,13 +158,21 @@ export const PRODUCT_TYPE_DEFINITIONS: ProductTypeDefinition[] = [
 
   // --- Protection ---
   {
-    id: 'fuse',
-    label: 'Fuse',
-    description: 'Single-use overcurrent protection device.',
-    defaultCategory: 'Protection',
+    id: 'fuse_holder',
+    label: 'Fuse Holder',
+    description: 'Inline or block fuse holder. Fuse element is configured per placed instance via fuse slots.',
+    defaultCategory: 'Fuse Holders',
     bomSection: 'Protection',
     requiresTerminals: true,
-    isPassThrough: true,
+  },
+  {
+    id: 'fuse',
+    label: 'Fuse',
+    description: 'Single-use overcurrent protection element. Used as catalog data for BOM and fuse slot picker; not a placeable canvas component.',
+    defaultCategory: 'Protection',
+    bomSection: 'Protection',
+    requiresTerminals: false,
+    isPassThrough: false,
   },
   {
     id: 'breaker',

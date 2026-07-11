@@ -189,7 +189,13 @@ const product: Product = {
       polarity: "positive",
       internallyCommon: true,
       maxCurrentA: 400,
-      notes: "Four DC+ posts share one internal busbar rated 400A; each post is rated 250A."
+      integratedProtection: {
+        protectionType: "breaker",
+        currentRatingA: 200,
+        label: "Integrated 200A DC breaker",
+        notes: "One internal breaker feeds the shared DC+ terminal group."
+      },
+      notes: "Four DC+ posts share one internal busbar rated 400A and are fed by one integrated 200A breaker; each post is rated 250A."
     },
     {
       id: "main_neg",

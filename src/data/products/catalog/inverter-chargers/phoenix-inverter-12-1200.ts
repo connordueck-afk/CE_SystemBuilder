@@ -1,4 +1,4 @@
-import type { Product } from '../../../../types/system';
+﻿import type { Product } from '../../../../types/system';
 
 const product: Product = {
   id: "phoenix-inverter-12-1200",
@@ -213,7 +213,6 @@ const product: Product = {
       topology: "two_pole",
       role: "bidirectional",
       direction: "bidirectional",
-      connectorType: "RJ45",
       supportedProtocols: ["VE.Bus"],
       configuredProtocol: "VE.Bus"
     }

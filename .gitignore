@@ -17,6 +17,7 @@ Thumbs.db
 .claude/
 
 # Source/working asset directories (not deployed)
+ProductManuals/
 accessory_rebuild_pngs/
 accessory_rebuild_pngs.zip
 pure_svg_accessories/

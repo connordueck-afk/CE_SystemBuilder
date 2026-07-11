@@ -235,6 +235,7 @@ const SELECTOR_CATEGORIES: SelectorCategory[] = [
         label: 'DC Distribution',
         description: 'DC distribution panels, Lynx modules, and fused DC distribution hardware.',
         productTypes: ['dc_distribution'],
+        match: (product) => product.category !== 'Fuse Holders',
       },
       {
         id: 'distribution-ac',
@@ -250,10 +251,10 @@ const SELECTOR_CATEGORIES: SelectorCategory[] = [
     icon: 'protect',
     types: [
       {
-        id: 'protection-fuses',
-        label: 'Fuses',
-        description: 'ANL, MIDI, MEGA, Class T, MRBF, and other DC fuse protection.',
-        productTypes: ['fuse'],
+        id: 'protection-fuse-holders',
+        label: 'Fuse Holders',
+        description: 'Inline fuse holders for MEGA, MIDI, ANL, and Class T fuses. Fuses are selected in the inspector.',
+        productTypes: ['fuse_holder'],
       },
       {
         id: 'protection-ac-breakers',
@@ -422,6 +423,14 @@ function getFuseRating(product: Product): number {
   return product.protectionRatings?.currentRatingA ?? product.maxCurrentA ?? 0;
 }
 
+function getHolderFuseStyle(product: Product): string {
+  return product.distributionTopology?.fuseSlots?.[0]?.fuseStyle ?? product.category ?? 'Unknown';
+}
+
+function getHolderSlotCount(product: Product): number {
+  return product.distributionTopology?.fuseSlots?.length ?? 0;
+}
+
 function getProductIconClass(selectorId: string): string {
   if (selectorId.includes('panel')) return 'product-preview-solar';
   if (selectorId.includes('battery')) return 'product-preview-battery';
@@ -500,6 +509,42 @@ export function PartLibrary({
     return ALL_PRODUCTS.filter((product) => productMatchesPrimarySelector(product, activeSelector, systemVoltage));
   }, [activeSelector, systemVoltage]);
 
+  const isHolderSelector = activeSelector?.id === 'protection-fuse-holders';
+
+  const [holderFuseType, setHolderFuseType] = useState('');
+  const [holderSlotCount, setHolderSlotCount] = useState<number | 'All'>('All');
+
+  const holderFuseTypes = useMemo(() => {
+    if (!isHolderSelector) return [];
+    return [...new Set(catalogForSelector.map(getHolderFuseStyle))].sort();
+  }, [catalogForSelector, isHolderSelector]);
+
+  const holderSlotCounts = useMemo(() => {
+    if (!isHolderSelector) return [];
+    return [...new Set(catalogForSelector.map(getHolderSlotCount))].sort((a, b) => a - b);
+  }, [catalogForSelector, isHolderSelector]);
+
+  const holderManufacturers = useMemo(() => {
+    if (!isHolderSelector) return [];
+    return ['All', ...new Set(
+      catalogForSelector
+        .filter((p) => !holderFuseType || getHolderFuseStyle(p) === holderFuseType)
+        .map((p) => p.manufacturer)
+    )].sort((a, b) => {
+      if (a === 'All') return -1;
+      if (b === 'All') return 1;
+      return a.localeCompare(b);
+    });
+  }, [catalogForSelector, isHolderSelector, holderFuseType]);
+
+  const visibleHolderProducts = useMemo(() => {
+    if (!isHolderSelector) return [];
+    return catalogForSelector
+      .filter((p) => !holderFuseType || getHolderFuseStyle(p) === holderFuseType)
+      .filter((p) => selectedManufacturer === 'All' || p.manufacturer === selectedManufacturer)
+      .filter((p) => holderSlotCount === 'All' || getHolderSlotCount(p) === holderSlotCount);
+  }, [catalogForSelector, isHolderSelector, holderFuseType, selectedManufacturer, holderSlotCount]);
+
   const manufacturers = useMemo(() => {
     return ['All', ...new Set(catalogForSelector.map((product) => product.manufacturer))].sort((a, b) => {
       if (a === 'All') return -1;
@@ -509,10 +554,11 @@ export function PartLibrary({
   }, [catalogForSelector]);
 
   const visibleProducts = useMemo(() => {
+    if (isHolderSelector) return visibleHolderProducts;
     return catalogForSelector.filter((product) => (
       selectedManufacturer === 'All' || product.manufacturer === selectedManufacturer
     ));
-  }, [catalogForSelector, selectedManufacturer]);
+  }, [catalogForSelector, selectedManufacturer, isHolderSelector, visibleHolderProducts]);
 
   const selectedProduct = products.get(selectedProductId) ?? visibleProducts[0];
   const selectedProductImageUrl = resolveProductImageUrl(
@@ -579,6 +625,14 @@ export function PartLibrary({
       : ''
     );
 
+    if (selector.id === 'protection-fuse-holders' && firstProduct) {
+      setHolderFuseType(getHolderFuseStyle(firstProduct));
+      setHolderSlotCount('All');
+    } else {
+      setHolderFuseType('');
+      setHolderSlotCount('All');
+    }
+
     if (SOURCE_LOAD_SELECTOR_IDS.has(selector.id)) {
       const defaultV = isAcSelector(selector.id) ? 120 : (systemVoltage === 'all' ? 12 : systemVoltage);
       const defaultA = firstProduct?.maxCurrentA
@@ -598,6 +652,8 @@ export function PartLibrary({
     setSelectedStyle('');
     setInstanceVoltageV(undefined);
     setInstanceMaxCurrentA(undefined);
+    setHolderFuseType('');
+    setHolderSlotCount('All');
   }
 
   function selectStyle(style: string) {
@@ -817,6 +873,88 @@ export function PartLibrary({
                       >
                         {breakerProductsForStyle.map((product) => (
                           <option key={product.id} value={product.id}>{getFuseRating(product)}A</option>
+                        ))}
+                      </select>
+                    </label>
+                  </>
+                ) : isHolderSelector ? (
+                  <>
+                    <label className="selector-field">
+                      <span>Fuse type</span>
+                      <select
+                        className="category-select"
+                        value={holderFuseType}
+                        onChange={(event) => {
+                          const style = event.target.value;
+                          setHolderFuseType(style);
+                          const next = catalogForSelector
+                            .filter((p) => getHolderFuseStyle(p) === style)
+                            .filter((p) => selectedManufacturer === 'All' || p.manufacturer === selectedManufacturer)
+                            .filter((p) => holderSlotCount === 'All' || getHolderSlotCount(p) === holderSlotCount);
+                          setSelectedProductId(next[0]?.id ?? '');
+                        }}
+                        disabled={holderFuseTypes.length === 0}
+                      >
+                        {holderFuseTypes.map((style) => (
+                          <option key={style} value={style}>{style}</option>
+                        ))}
+                      </select>
+                    </label>
+
+                    <label className="selector-field">
+                      <span>Manufacturer</span>
+                      <select
+                        className="category-select"
+                        value={selectedManufacturer}
+                        onChange={(event) => {
+                          const mfr = event.target.value;
+                          setSelectedManufacturer(mfr);
+                          const next = catalogForSelector
+                            .filter((p) => !holderFuseType || getHolderFuseStyle(p) === holderFuseType)
+                            .filter((p) => mfr === 'All' || p.manufacturer === mfr)
+                            .filter((p) => holderSlotCount === 'All' || getHolderSlotCount(p) === holderSlotCount);
+                          setSelectedProductId(next[0]?.id ?? '');
+                        }}
+                      >
+                        {holderManufacturers.map((mfr) => (
+                          <option key={mfr} value={mfr}>{mfr}</option>
+                        ))}
+                      </select>
+                    </label>
+
+                    <label className="selector-field">
+                      <span>Slots</span>
+                      <select
+                        className="category-select"
+                        value={String(holderSlotCount)}
+                        onChange={(event) => {
+                          const val = event.target.value;
+                          const count = val === 'All' ? 'All' as const : Number(val);
+                          setHolderSlotCount(count);
+                          const next = catalogForSelector
+                            .filter((p) => !holderFuseType || getHolderFuseStyle(p) === holderFuseType)
+                            .filter((p) => selectedManufacturer === 'All' || p.manufacturer === selectedManufacturer)
+                            .filter((p) => count === 'All' || getHolderSlotCount(p) === count);
+                          setSelectedProductId(next[0]?.id ?? '');
+                        }}
+                      >
+                        <option value="All">All</option>
+                        {holderSlotCounts.map((c) => (
+                          <option key={c} value={c}>{c}</option>
+                        ))}
+                      </select>
+                    </label>
+
+                    <label className="selector-field">
+                      <span>Model</span>
+                      <select
+                        className="category-select"
+                        value={selectedProduct?.id ?? ''}
+                        onChange={(event) => setSelectedProductId(event.target.value)}
+                        disabled={visibleProducts.length === 0}
+                      >
+                        {visibleProducts.map((product) => (
+                          <option key={product.id} value={product.id}>{product.name}</option>
                         ))}
                       </select>
                     </label>

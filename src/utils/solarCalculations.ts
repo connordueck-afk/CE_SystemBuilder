@@ -1,18 +1,10 @@
 import type {
   Product,
   SolarPanelRatings,
-  SolarWiringMode,
   SystemComponent,
   SystemConnection,
 } from '../types/system';
 import { terminalKind } from './portSpecs';
-
-export interface SolarArrayConfiguration {
-  panelCount: number;
-  seriesCount: number;
-  parallelCount: number;
-  wiringMode: SolarWiringMode;
-}
 
 export interface SolarArrayStats extends SolarPanelRatings {
   panelCount: number;
@@ -43,28 +35,6 @@ export interface SolarArrayAggregation {
 function positiveInteger(value: number | undefined): number | null {
   if (value == null || !Number.isFinite(value)) return null;
   return Math.max(1, Math.floor(value));
-}
-
-export function getSolarWiringMode(component: SystemComponent): SolarWiringMode {
-  void component;
-  return 'series';
-}
-
-export function getSolarPanelCount(product: Product): number {
-  return product.productType === 'solar_array' ? 1 : 0;
-}
-
-export function getSolarArrayConfiguration(
-  component: SystemComponent,
-  product: Product
-): SolarArrayConfiguration {
-  const panelCount = getSolarPanelCount(product);
-  return {
-    panelCount,
-    seriesCount: product.productType === 'solar_array' ? 1 : 0,
-    parallelCount: product.productType === 'solar_array' ? 1 : 0,
-    wiringMode: getSolarWiringMode(component),
-  };
 }
 
 export function getSolarPanelUnitRatings(product: Product): SolarPanelRatings | undefined {
@@ -150,13 +120,7 @@ export function calculateSolarStringStats(
   };
 }
 
-export function getEffectiveSolarRatings(
-  product: Product,
-  wiringMode: SolarWiringMode
-): SolarPanelRatings | undefined {
-  void wiringMode;
-  return product.productType === 'solar_array' ? product.solarPanelRatings : undefined;
-}
+
 
 export function getEffectiveProductForComponent(
   component: SystemComponent,

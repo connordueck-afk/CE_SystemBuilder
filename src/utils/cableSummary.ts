@@ -166,11 +166,22 @@ function resolveTermination(
 ): CableEndTermination {
   if (!product || !component) return { label: '—' };
 
-  // Communication/network terminals: use the port's physical connector type (RJ45, M12, etc.)
-  const commPort = product.communicationPorts?.find(p => p.id === terminalId);
-  if (commPort) {
+  // Communication/network terminals: use the terminal's physical connector type (RJ45, M12, etc.)
+  const terminal = product.terminals?.find(t => t.id === terminalId);
+  const commConnectorType = terminal?.connectorType;
+  if (commConnectorType) {
     // holeSize carries the connector type string so the connector summary can label it correctly.
     // Gender is inverted: the cable-end connector must mate with the port (female port → male cable end).
+    const matingGender: 'male' | 'female' | undefined = terminal.gender === 'female' ? 'male'
+                       : terminal.gender === 'male' ? 'female'
+                       : undefined;
+    const connector = { kind: 'comm' as const, holeSize: commConnectorType, gender: matingGender };
+    return { connector, label: connectorLabel(connector) };
+  }
+
+  // Fallback: check legacy communicationPorts for connector type
+  const commPort = product.communicationPorts?.find(p => p.id === terminalId);
+  if (commPort?.connectorType) {
     const matingGender: 'male' | 'female' | undefined = commPort.gender === 'female' ? 'male'
                        : commPort.gender === 'male' ? 'female'
                        : undefined;

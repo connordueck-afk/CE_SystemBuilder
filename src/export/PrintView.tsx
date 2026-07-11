@@ -103,7 +103,7 @@ export function PrintView({ system, products, busColors, bomRows, electricalSumm
       {/* ── PAGE 1: Cover + Summary ── */}
       <div className="print-page print-cover">
         <div className="cover-logo-row">
-          <img src={`${import.meta.env.BASE_URL}brand/canadian-energy-logo.png`} alt="Canadian Energy" className="cover-logo" />
+          <img src={`${import.meta.env.BASE_URL}brand/des-logo.png`} alt="Discover Energy Systems" className="cover-logo" />
           <span className="cover-doc-type">System Design Document</span>
         </div>
         <div className="cover-title">{system.name}</div>
@@ -239,19 +239,36 @@ export function PrintView({ system, products, busColors, bomRows, electricalSumm
                   </tr>
                 </thead>
                 <tbody>
-                  {conns.map((conn, i) => (
-                    <tr key={conn.id}>
-                      <td className="td-num">{i + 1}</td>
-                      <td>{componentLabel(conn.fromComponentId)}</td>
-                      <td>{componentLabel(conn.toComponentId)}</td>
-                      <td className="td-center">{conn.manualCableAwg ?? conn.recommendedCableAwg ?? '—'}</td>
-                      <td className="td-center">{conn.cableLengthFt ? `${conn.cableLengthFt.toFixed(1)} ft` : '—'}</td>
-                      <td className="td-center">{conn.cableColor ?? '—'}</td>
-                      <td className="td-center">{conn.recommendedFuseA ? `${conn.recommendedFuseA}A` : '—'}</td>
-                    </tr>
-                  ))}
+                  {conns.map((conn, i) => {
+                    const flagged = (conn.errors?.length ?? 0) > 0;
+                    return (
+                      <tr key={conn.id}>
+                        <td className="td-num">{i + 1}</td>
+                        <td>{componentLabel(conn.fromComponentId)}</td>
+                        <td>{componentLabel(conn.toComponentId)}</td>
+                        <td className={flagged ? 'td-center td-flagged' : 'td-center'}>
+                          {conn.manualCableAwg ?? conn.recommendedCableAwg ?? '—'}{flagged ? ' *' : ''}
+                        </td>
+                        <td className="td-center">{conn.cableLengthFt ? `${conn.cableLengthFt.toFixed(1)} ft` : '—'}</td>
+                        <td className="td-center">{conn.cableColor ?? '—'}</td>
+                        <td className={flagged ? 'td-center td-flagged' : 'td-center'}>
+                          {conn.recommendedFuseA ? `${conn.recommendedFuseA}A` : '—'}{flagged ? ' *' : ''}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
+              {conns.some((conn) => (conn.errors?.length ?? 0) > 0) && (
+                <div className="cable-schedule-note">
+                  {conns
+                    .map((conn, i) => ({ i, errors: conn.errors ?? [] }))
+                    .filter((row) => row.errors.length > 0)
+                    .map((row) => (
+                      <div key={row.i}>* Run #{row.i + 1}: {row.errors.map((e) => e.message).join('; ')}</div>
+                    ))}
+                </div>
+              )}
             </div>
           );
         })}

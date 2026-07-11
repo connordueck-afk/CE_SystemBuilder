@@ -170,7 +170,7 @@ export function analyzeSystemDesign(
       const key = terminalKey(component.id, terminal.id);
       const connectionCount = terminalConnectionCount.get(key) ?? 0;
       const maxCurrentA = terminal.maxCurrentA;
-      const maxConnections = effectiveMaxConnections(terminal, terminalPort(product, terminal.portId));
+      const maxConnections = effectiveMaxConnections(terminal);
       const isStackableStud =
         terminal.connector?.kind === 'stud' &&
         supportsStackedLugs(maxConnections, connectionCount);
@@ -265,13 +265,22 @@ export function analyzeSystemDesign(
   }
 
   // --- Stage 5: compatibility conflicts surfaced by the graph builder ---
-  netlist.conflicts.forEach((message, index) => {
-    issues.push({
-      id: `conflict-${index}`,
-      severity: 'error',
-      category: 'compatibility',
-      code: 'domain_conflict',
-      message,
+  netlist.conflicts.forEach((conflict, index) => {
+    // One issue per component on the conflicted net: each is independently
+    // clickable in the warnings list, so a mixed-polarity busbar/connector can
+    // actually be located instead of only reporting the bus types involved.
+    const labels = conflict.componentIds
+      .map((componentId) => system.components.find((c) => c.id === componentId)?.label ?? componentId)
+      .join(', ');
+    conflict.componentIds.forEach((componentId, componentIndex) => {
+      issues.push({
+        id: `conflict-${index}-${componentIndex}`,
+        severity: 'error',
+        category: 'compatibility',
+        code: 'domain_conflict',
+        message: `${conflict.message} Involves: ${labels}.`,
+        componentId,
+      });
     });
   });
 

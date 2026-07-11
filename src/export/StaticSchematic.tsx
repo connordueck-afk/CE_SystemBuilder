@@ -95,8 +95,7 @@ function fullTerminalSet(system: SystemDesign, products: Map<string, Product>): 
     if (!product) continue;
     const terminals = getEffectiveTerminals(product, comp);
     for (const term of terminals) {
-      const commPort = product.communicationPorts?.find((p) => p.id === term.id);
-      if (isTerminalFull(term, commPort, system.connections, comp.id)) {
+      if (isTerminalFull(term, system.connections, comp.id)) {
         full.add(`${comp.id}:${term.id}`);
       }
     }
@@ -174,10 +173,12 @@ export function StaticSchematic({ system, products, busColors, filter }: Props) 
               component={comp}
               product={product}
               selected={false}
+              isRotateDragging={false}
               onSelect={NOOP}
               onDragStart={NOOP}
               onContextMenu={NOOP}
               onScaleHandleMouseDown={NOOP}
+              onRotateHandleMouseDown={NOOP}
             />
           </g>
         );

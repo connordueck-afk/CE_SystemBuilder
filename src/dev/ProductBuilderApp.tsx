@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import type {
-  Product, ProductType, TerminalDefinition, ProductCommunicationPort, ProductPort,
+  Product, ProductType, TerminalDefinition, ProductPort, ProductCommunicationPort,
   PortKind, PortTopology, TerminalGroupDefinition, TerminalGroupType,
   ConnectionPointKind, ConnectionPolarity, ConnectionRole, TerminalDirection, VoltageClass,
+  CommunicationProtocol, CommunicationTopologyType,
 } from '../types/system';
 import { getProductDisplayImageUrl } from '../utils/productImages';
 import { terminalKind, portKindToTerminalKind } from '../utils/portSpecs';
@@ -81,6 +82,30 @@ function newProduct(): Partial<Product> {
   };
 }
 
+type ProductPortWithLegacyConnector = ProductPort & {
+  connectorType?: unknown;
+  gender?: unknown;
+};
+
+function stripPortConnectorFields(port: ProductPort): ProductPort {
+  const {
+    connectorType,
+    gender,
+    ...cleanPort
+  } = port as ProductPortWithLegacyConnector;
+  void connectorType;
+  void gender;
+  return cleanPort;
+}
+
+function stripProductPortConnectorFields<T extends Partial<Product>>(value: T): T {
+  if (!value.ports) return value;
+  return {
+    ...value,
+    ports: value.ports.map(stripPortConnectorFields),
+  };
+}
+
 // ---- Default new terminal ----
 
 function newTerminal(offsetX: number, offsetY: number): TerminalDefinition {
@@ -103,6 +128,8 @@ const PORT_ROLES: ConnectionRole[] = ['source', 'sink', 'bidirectional', 'pass_t
 const PORT_DIRECTIONS: TerminalDirection[] = ['input', 'output', 'bidirectional'];
 const VOLTAGE_CLASSES: VoltageClass[] = ['dc_low_voltage', 'pv_high_voltage', 'ac_120v', 'ac_240v', 'signal_low_voltage'];
 const POLARITIES: ConnectionPolarity[] = ['positive', 'negative', 'line', 'line2', 'neutral', 'ground'];
+const COMM_PROTOCOLS: CommunicationProtocol[] = ['CANopen', 'J1939', 'VE.Bus', 'VE.Direct', 'VE.Can', 'BMS-Can', 'AEbus', 'RS485', 'Ethernet', 'Pylon LV', 'Other'];
+const COMM_TOPOLOGIES: CommunicationTopologyType[] = ['bus', 'point-to-point', 'daisy-chain', 'star', 'configurable'];
 
 function PortEditor({ port, onChange, onRemove }: {
   port: ProductPort;
@@ -240,10 +267,72 @@ function PortEditor({ port, onChange, onRemove }: {
         <div className="pb-field-row">{num('nominalVoltageV', 'Nominal V')}{currentField}</div>
       )}
       {isComm && (
-        <div className="pb-empty">
-          A comm port is a logical interface — protocols live here, but the physical connector
-          (RJ45/M12/…) is set per jack on the Terminal, not on the port.
-        </div>
+        <>
+          <div className="pb-field-row">
+            <div className="pb-field" style={{ flex: 1 }}>
+              <label>Comm Topology</label>
+              <select
+                value={port.commTopology ?? ''}
+                onChange={e => onChange({ commTopology: (e.target.value || undefined) as CommunicationTopologyType | undefined })}
+              >
+                <option value="">—</option>
+                {COMM_TOPOLOGIES.map(t => <option key={t} value={t}>{t}</option>)}
+              </select>
+            </div>
+          </div>
+
+          <div className="pb-field">
+            <label>Supported Protocols</label>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2px 12px' }}>
+              {COMM_PROTOCOLS.map(proto => {
+                const checked = (port.supportedProtocols ?? []).includes(proto);
+                return (
+                  <div key={proto} className="pb-checkbox-row">
+                    <input
+                      id={`port_proto_${port.id}_${proto}`}
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() => {
+                        const cur = port.supportedProtocols ?? [];
+                        const next = checked ? cur.filter(p => p !== proto) : [...cur, proto];
+                        const updates: Partial<ProductPort> = { supportedProtocols: next.length ? next : undefined };
+                        if (port.configuredProtocol && !next.includes(port.configuredProtocol)) {
+                          updates.configuredProtocol = next[0] ?? undefined;
+                        }
+                        onChange(updates);
+                      }}
+                    />
+                    <label htmlFor={`port_proto_${port.id}_${proto}`}>{proto}</label>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {(port.supportedProtocols ?? []).length > 0 && (
+            <div className="pb-field-row" style={{ alignItems: 'flex-end' }}>
+              <div className="pb-field" style={{ flex: 1 }}>
+                <label>Default Protocol</label>
+                <select
+                  value={port.configuredProtocol ?? ''}
+                  onChange={e => onChange({ configuredProtocol: (e.target.value || undefined) as CommunicationProtocol | undefined })}
+                >
+                  <option value="">—</option>
+                  {(port.supportedProtocols ?? []).map(p => <option key={p} value={p}>{p}</option>)}
+                </select>
+              </div>
+              <div className="pb-checkbox-row" style={{ flex: 1, paddingTop: 20 }}>
+                <input
+                  id={`port_config_${port.id}`}
+                  type="checkbox"
+                  checked={port.isConfigurable ?? false}
+                  onChange={e => onChange({ isConfigurable: e.target.checked || undefined })}
+                />
+                <label htmlFor={`port_config_${port.id}`}>User-configurable</label>
+              </div>
+            </div>
+          )}
+        </>
       )}
     </CollapsibleSection>
   );
@@ -281,6 +370,25 @@ function TerminalGroupEditor({ group, ports, onChange, onRemove }: {
         min={0}
         onChange={e => onChange({ [key]: e.target.value === '' ? undefined : Number(e.target.value) } as Partial<TerminalGroupDefinition>)}
         placeholder="—"
+      />
+    </div>
+  );
+  const updateIntegratedProtection = (changes: Partial<NonNullable<TerminalGroupDefinition['integratedProtection']>>) => {
+    const current = group.integratedProtection ?? { protectionType: 'fuse' as const };
+    onChange({ integratedProtection: { ...current, ...changes } });
+  };
+  const integratedNum = (
+    key: 'currentRatingA' | 'voltageRatingV' | 'interruptRatingA',
+    label: string
+  ) => (
+    <div className="pb-field" style={{ flex: 1 }}>
+      <label>{label}</label>
+      <input
+        type="number"
+        value={group.integratedProtection?.[key] ?? ''}
+        min={0}
+        onChange={e => updateIntegratedProtection({ [key]: e.target.value === '' ? undefined : Number(e.target.value) })}
+        placeholder="-"
       />
     </div>
   );
@@ -378,6 +486,58 @@ function TerminalGroupEditor({ group, ports, onChange, onRemove }: {
             {num('recommendedFuseA', 'Rec. Fuse (A)')}
             {num('maxFuseA', 'Max Fuse (A)')}
           </div>
+          <div className="pb-field-row" style={{ alignItems: 'flex-end' }}>
+            <div className="pb-field" style={{ flex: 1 }}>
+              <label>Built-in Protection</label>
+              <select
+                value={group.integratedProtection?.protectionType ?? ''}
+                onChange={e => {
+                  const protectionType = e.target.value as 'fuse' | 'breaker' | '';
+                  onChange({
+                    integratedProtection: protectionType
+                      ? { ...(group.integratedProtection ?? {}), protectionType }
+                      : undefined,
+                  });
+                }}
+              >
+                <option value="">None</option>
+                <option value="fuse">Fuse</option>
+                <option value="breaker">Breaker</option>
+              </select>
+            </div>
+            {group.integratedProtection && integratedNum('currentRatingA', 'Rating (A)')}
+            {group.integratedProtection && integratedNum('voltageRatingV', 'Voltage (V)')}
+            {group.integratedProtection && integratedNum('interruptRatingA', 'Interrupt (A)')}
+          </div>
+          {group.integratedProtection && (
+            <div className="pb-field-row" style={{ alignItems: 'flex-end' }}>
+              <div className="pb-field" style={{ flex: 2 }}>
+                <label>Protection Label</label>
+                <input
+                  value={group.integratedProtection.label ?? ''}
+                  onChange={e => updateIntegratedProtection({ label: e.target.value || undefined })}
+                  placeholder="Integrated DC+ fuse"
+                />
+              </div>
+              <div className="pb-field" style={{ flex: 1 }}>
+                <label>{group.integratedProtection.protectionType === 'breaker' ? 'Breaker Style' : 'Fuse Style'}</label>
+                <input
+                  value={group.integratedProtection.protectionType === 'breaker'
+                    ? group.integratedProtection.breakerStyle ?? ''
+                    : group.integratedProtection.fuseStyle ?? ''}
+                  onChange={e => {
+                    const value = e.target.value || undefined;
+                    if (group.integratedProtection?.protectionType === 'breaker') {
+                      updateIntegratedProtection({ breakerStyle: value });
+                    } else {
+                      updateIntegratedProtection({ fuseStyle: value });
+                    }
+                  }}
+                  placeholder={group.integratedProtection.protectionType === 'breaker' ? 'DC breaker' : 'Class T'}
+                />
+              </div>
+            </div>
+          )}
         </>
       )}
 
@@ -521,52 +681,20 @@ export function ProductBuilderApp() {
       const terminals = (prev.terminals ?? []).map((t: TerminalDefinition) =>
         t.id === id ? { ...t, ...changes } : t
       );
-      // Keep a matching communication port's id in sync when the terminal is renamed.
-      const communicationPorts = renamedTo && prev.communicationPorts
-        ? prev.communicationPorts.map(p => (p.id === id ? { ...p, id: renamedTo } : p))
-        : prev.communicationPorts;
-      return { ...prev, terminals, communicationPorts };
+      return { ...prev, terminals };
     });
     if (renamedTo && selectedTerminalId === id) setSelectedTerminalId(renamedTo);
     setIsDirty(true);
   }, [selectedTerminalId]);
 
   const removeTerminal = useCallback((id: string) => {
-    setProduct(prev => {
-      const communicationPorts = prev.communicationPorts?.filter(p => p.id !== id);
-      return {
-        ...prev,
-        terminals: (prev.terminals ?? []).filter((t: TerminalDefinition) => t.id !== id),
-        communicationPorts: communicationPorts?.length ? communicationPorts : undefined,
-      };
-    });
+    setProduct(prev => ({
+      ...prev,
+      terminals: (prev.terminals ?? []).filter((t: TerminalDefinition) => t.id !== id),
+    }));
     if (selectedTerminalId === id) setSelectedTerminalId(null);
     setIsDirty(true);
   }, [selectedTerminalId]);
-
-  // Upsert (changes) or remove (null) the communication port matched to a terminal by id.
-  const upsertCommPort = useCallback((portId: string, changes: Partial<ProductCommunicationPort> | null) => {
-    setProduct(prev => {
-      const ports = (prev.communicationPorts ?? []) as ProductCommunicationPort[];
-      let next: ProductCommunicationPort[];
-      if (changes === null) {
-        next = ports.filter(p => p.id !== portId);
-      } else if (ports.some(p => p.id === portId)) {
-        next = ports.map(p => (p.id === portId ? { ...p, ...changes } : p));
-      } else {
-        const term = (prev.terminals ?? []).find((t: TerminalDefinition) => t.id === portId);
-        next = [...ports, {
-          id: portId,
-          name: term?.label || portId,
-          connectorType: 'RJ45',
-          supportedProtocols: [],
-          ...changes,
-        } as ProductCommunicationPort];
-      }
-      return { ...prev, communicationPorts: next.length ? next : undefined };
-    });
-    setIsDirty(true);
-  }, []);
 
   // ---- Port (internal circuit) helpers ----
 
@@ -767,10 +895,48 @@ export function ProductBuilderApp() {
         return true;
       });
       const p: Product = {
-        ...raw,
+        ...stripProductPortConnectorFields(raw),
         terminals: dedupedTerminals,
         ...(raw.communicationPorts ? { communicationPorts: dedupedPorts } : {}),
       };
+      // Backfill comm port data from legacy communicationPorts into ports[kind:'comm'],
+      // mirroring what withCompletedCatalogFields does at runtime catalog load.
+      if (raw.communicationPorts?.length) {
+        // Build terminal-id → communicationPort map for connectorType/gender backfill.
+        const commByTermId = new Map((raw.communicationPorts ?? []).map((cp: ProductCommunicationPort) => [cp.id, cp]));
+        if (p.ports?.length) {
+          const byTerminalId = commByTermId;
+          const groups = new Map((p.terminalGroups ?? []).map((g: TerminalGroupDefinition) => [g.id, g]));
+          const commByPortId = new Map<string, ProductCommunicationPort>();
+          for (const cp of raw.communicationPorts ?? []) {
+            commByPortId.set(cp.id, cp);
+          }
+          for (const t of p.terminals) {
+            const cp = byTerminalId.get(t.id);
+            const portId = t.terminalGroupId ? groups.get(t.terminalGroupId)?.portId : undefined;
+            if (cp && portId) commByPortId.set(portId, cp);
+          }
+          p.ports = p.ports.map(port => {
+            const comm = commByPortId.get(port.id);
+            if (port.kind !== 'comm' || !comm) return port;
+            return {
+              ...port,
+              ...(comm.supportedProtocols != null && port.supportedProtocols == null ? { supportedProtocols: comm.supportedProtocols } : {}),
+              ...(comm.configuredProtocol != null && port.configuredProtocol == null ? { configuredProtocol: comm.configuredProtocol } : {}),
+              ...(comm.isConfigurable != null && port.isConfigurable == null ? { isConfigurable: comm.isConfigurable } : {}),
+            };
+          });
+        }
+        // Backfill connectorType/gender onto terminals.
+        p.terminals = p.terminals.map(t => {
+          const leg = commByTermId.get(t.id);
+          if (!leg) return t;
+          const updates: Partial<TerminalDefinition> = {};
+          if (leg.connectorType != null && t.connectorType == null) updates.connectorType = leg.connectorType;
+          if (leg.gender != null && t.gender == null) updates.gender = leg.gender;
+          return Object.keys(updates).length ? { ...t, ...updates } : t;
+        });
+      }
       setProduct(p);
       setCurrentId(id);
       setCurrentSubdir(subdir);
@@ -844,7 +1010,7 @@ export function ProductBuilderApp() {
 
     setSaveStatus('saving');
     try {
-      await saveProduct(id, subdir, product);
+      await saveProduct(id, subdir, stripProductPortConnectorFields(product));
       setCurrentId(id);
       setIsDirty(false);
       setSaveStatus('saved');
@@ -880,9 +1046,6 @@ export function ProductBuilderApp() {
   // ---- Derived state ----
 
   const selectedTerminal = terminals.find(t => t.id === selectedTerminalId) ?? null;
-  const selectedPort = selectedTerminal
-    ? (product.communicationPorts ?? []).find(p => p.id === selectedTerminal.id)
-    : undefined;
 
   // Resolve display image: an explicitly chosen imageUrl always wins in the
   // builder; otherwise fall back to manufacturer/type auto-detection.
@@ -1090,11 +1253,9 @@ export function ProductBuilderApp() {
                   <TerminalEditorPanel
                     terminal={selectedTerminal}
                     resolvedKind={kindOf(selectedTerminal)}
-                    port={selectedPort}
                     availablePorts={ports}
                     availableGroups={terminalGroups}
                     onChange={changes => updateTerminal(selectedTerminal.id, changes)}
-                    onPortChange={changes => upsertCommPort(selectedTerminal.id, changes)}
                     onDelete={() => removeTerminal(selectedTerminal.id)}
                     onClose={() => setSelectedTerminalId(null)}
                   />

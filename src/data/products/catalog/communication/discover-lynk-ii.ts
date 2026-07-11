@@ -1,4 +1,4 @@
-import type { Product } from '../../../../types/system';
+﻿import type { Product } from '../../../../types/system';
 
 const product: Product = {
   id: "discover-lynk-ii",
@@ -28,7 +28,12 @@ const product: Product = {
       id: "port-can",
       name: "CAN",
       connectorType: "RJ45",
-      supportedProtocols: ["CANopen", "VE.Can", "AEbus", "J1939"],
+      supportedProtocols: [
+        "CANopen",
+        "VE.Can",
+        "AEbus",
+        "J1939"
+      ],
       configuredProtocol: "CANopen",
       isConfigurable: true
     },
@@ -36,7 +41,9 @@ const product: Product = {
       id: "port_lynk_rj45",
       name: "LYNK RJ45",
       connectorType: "RJ45",
-      supportedProtocols: ["AEbus"],
+      supportedProtocols: [
+        "AEbus"
+      ],
       configuredProtocol: "AEbus",
       isConfigurable: true
     },
@@ -44,7 +51,9 @@ const product: Product = {
       id: "port_lynk_m12",
       name: "LYNK M12",
       connectorType: "M12",
-      supportedProtocols: ["AEbus"],
+      supportedProtocols: [
+        "AEbus"
+      ],
       configuredProtocol: "AEbus",
       isConfigurable: true
     }
@@ -57,34 +66,26 @@ const product: Product = {
       label: "CAN",
       role: "bidirectional",
       direction: "bidirectional",
-      connectorType: "RJ45",
-      supportedProtocols: ["CANopen", "VE.Can", "AEbus", "J1939"],
+      supportedProtocols: [
+        "CANopen",
+        "VE.Can",
+        "AEbus",
+        "J1939"
+      ],
       configuredProtocol: "CANopen",
       isConfigurable: true
     },
     {
-      id: "port_lynk_rj45",
+      id: "port_lynk",
       kind: "comm",
       topology: "two_pole",
-      label: "LYNK RJ45",
+      label: "LYNK",
       role: "bidirectional",
       direction: "bidirectional",
-      connectorType: "RJ45",
-      supportedProtocols: ["AEbus"],
-      configuredProtocol: "AEbus",
-      isConfigurable: true
-    },
-    {
-      id: "port_lynk_m12",
-      kind: "comm",
-      topology: "two_pole",
-      label: "LYNK M12",
-      role: "bidirectional",
-      direction: "bidirectional",
-      connectorType: "M12",
-      supportedProtocols: ["AEbus"],
-      configuredProtocol: "AEbus",
-      isConfigurable: true
+      supportedProtocols: [
+        "AEbus"
+      ],
+      configuredProtocol: "AEbus"
     }
   ],
   terminalGroups: [
@@ -96,16 +97,9 @@ const product: Product = {
       internallyCommon: false
     },
     {
-      id: "port_lynk_rj45_iface",
-      portId: "port_lynk_rj45",
+      id: "port_lynk_iface",
+      portId: "port_lynk",
       label: "LYNK RJ45 Interface",
-      groupType: "communication_interface",
-      internallyCommon: false
-    },
-    {
-      id: "port_lynk_m12_iface",
-      portId: "port_lynk_m12",
-      label: "LYNK M12 Interface",
       groupType: "communication_interface",
       internallyCommon: false
     }
@@ -124,7 +118,7 @@ const product: Product = {
     },
     {
       id: "port_lynk_rj45",
-      terminalGroupId: "port_lynk_rj45_iface",
+      terminalGroupId: "port_lynk_iface",
       label: "LYNK RJ45",
       side: "left",
       offsetX: -49,
@@ -135,7 +129,7 @@ const product: Product = {
     },
     {
       id: "port_lynk_m12",
-      terminalGroupId: "port_lynk_m12_iface",
+      terminalGroupId: "port_lynk_iface",
       label: "LYNK M12",
       side: "left",
       offsetX: -49,

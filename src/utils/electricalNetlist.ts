@@ -55,6 +55,11 @@ export interface ElectricalNet {
   operatingCurrentA: number;
   protectedBy?: ProtectionBoundary[];
   requiresFuse: boolean;
+  /** True when this net's terminals disagree on bus type (e.g. a dynamic busbar
+   * with one post wired to dc_neg and another to pv_pos) — an unresolved wiring
+   * conflict. `busType` reflects only the first/dominant type, so consumers must
+   * check this flag rather than trust `busType`/`requiresFuse` at face value. */
+  hasBusTypeConflict: boolean;
 }
 
 export interface ConnectionElectricalContext {
@@ -66,12 +71,20 @@ export interface ConnectionElectricalContext {
   recommendedFuseRequired: boolean;
 }
 
+export interface BusTypeConflict {
+  message: string;
+  busTypes: BusType[];
+  /** Every component with a terminal in the conflicted net, for locating/selecting it in the UI. */
+  componentIds: string[];
+  terminalKeys: string[];
+}
+
 export interface ElectricalNetlist {
   terminals: Map<string, TerminalNodeRef>;
   terminalNetIds: Map<string, string>;
   nets: ElectricalNet[];
   connectionContexts: Map<string, ConnectionElectricalContext>;
-  conflicts: string[];
+  conflicts: BusTypeConflict[];
 }
 
 const PROTECTION_TYPES = new Set(['fuse', 'breaker']);
@@ -86,11 +99,16 @@ const PASS_THROUGH_TYPES = new Set([
   'transferSwitch',
 ]);
 
+// Note: batteries are deliberately absent here even though they accept an
+// instance current override elsewhere (circuitAnalysis.ts) — estimateProductCurrentA
+// below always zeroes battery current before this function is ever consulted for
+// one (battery branch current is load-driven, not the pack's rated max), so a
+// battery case here would be dead code.
 function instanceCurrentOverrideA(product: Product, component: SystemComponent): number | undefined {
   const currentA = component.instanceMaxCurrentA;
   if (currentA == null || !Number.isFinite(currentA) || currentA <= 0) return undefined;
   if (product.productType === 'dc_load' || product.productType === 'ac_load') return currentA;
-  if (product.productType === 'shorePowerInlet' || product.productType === 'battery') return currentA;
+  if (product.productType === 'shorePowerInlet') return currentA;
   if (product.productType === 'accessory' && product.dataQuality === 'placeholder') return currentA;
   return undefined;
 }
@@ -130,7 +148,10 @@ export function busTypeFromTerminal(terminal: EffectiveTerminal): BusType {
 }
 
 export function busTypeRequiresFuse(busType: BusType): boolean {
-  return busType === 'dc_pos' || busType === 'ac_line' || busType === 'ac_line2';
+  // pv_pos included alongside dc_pos/ac_line: PV source-circuit positive conductors
+  // require overcurrent protection under NEC 690.9 when strings are paralleled, the
+  // same "positive lead needs a fuse" posture already applied to DC and AC lines.
+  return busType === 'dc_pos' || busType === 'pv_pos' || busType === 'ac_line' || busType === 'ac_line2';
 }
 
 export function isReturnOrGroundBus(busType: BusType): boolean {
@@ -219,6 +240,40 @@ function protectionBoundaryFor(component: SystemComponent, product: Product): Pr
   };
 }
 
+function integratedProtectionBoundaryFor(
+  component: SystemComponent,
+  product: Product,
+  terminal: EffectiveTerminal,
+  effectiveTerminals: EffectiveTerminal[]
+): ProtectionBoundary | undefined {
+  const protection = terminal.integratedProtection;
+  if (!protection) return undefined;
+
+  const typeLabel = protection.protectionType === 'breaker' ? 'breaker' : 'fuse';
+  const groupId = terminal.terminalGroupId;
+  const protectedTerminals = groupId
+    ? effectiveTerminals.filter((item) => item.terminalGroupId === groupId)
+    : [terminal];
+
+  return {
+    componentId: component.id,
+    productId: product.id,
+    label: protection.label ?? `${component.label ?? product.name} integrated ${typeLabel}`,
+    ratingA: protection.currentRatingA,
+    protectionType: protection.protectionType,
+    terminalKeys: protectedTerminals.map((item) => terminalKey(component.id, item.id)),
+  };
+}
+
+function appendProtectionBoundary(net: ElectricalNet, boundary: ProtectionBoundary): void {
+  const existing = net.protectedBy ?? [];
+  const key = `${boundary.componentId}:${boundary.label}:${boundary.ratingA ?? ''}:${boundary.protectionType}`;
+  if (existing.some((item) => `${item.componentId}:${item.label}:${item.ratingA ?? ''}:${item.protectionType}` === key)) {
+    return;
+  }
+  net.protectedBy = [...existing, boundary];
+}
+
 function isSolarSeriesConnection(from: TerminalNodeRef, to: TerminalNodeRef): boolean {
   return from.product.productType === 'solar_array' &&
     to.product.productType === 'solar_array' &&
@@ -270,7 +325,7 @@ export function buildElectricalNetlist(system: SystemDesign, products: Map<strin
   const terminals = new Map<string, TerminalNodeRef>();
   const dsu = new DisjointSet();
   const linkSizeByKey = new Map<string, number>();
-  const conflicts: string[] = [];
+  const conflicts: BusTypeConflict[] = [];
   const protectionBoundaries = new Map<string, ProtectionBoundary>();
   const terminalProtectionBoundaries = new Map<string, ProtectionBoundary[]>();
   const solarSeriesConnectionIds = new Set<string>();
@@ -298,6 +353,23 @@ export function buildElectricalNetlist(system: SystemDesign, products: Map<strin
 
     const boundary = protectionBoundaryFor(component, product);
     if (boundary) protectionBoundaries.set(component.id, boundary);
+
+    const integratedBoundaryGroups = new Set<string>();
+    for (const terminal of effectiveTerminals) {
+      if (!terminal.integratedProtection) continue;
+      const boundaryGroupKey = terminal.terminalGroupId ?? terminal.id;
+      if (integratedBoundaryGroups.has(boundaryGroupKey)) continue;
+      integratedBoundaryGroups.add(boundaryGroupKey);
+
+      const integratedBoundary = integratedProtectionBoundaryFor(component, product, terminal, effectiveTerminals);
+      if (!integratedBoundary) continue;
+      for (const key of integratedBoundary.terminalKeys) {
+        terminalProtectionBoundaries.set(key, [
+          ...(terminalProtectionBoundaries.get(key) ?? []),
+          integratedBoundary,
+        ]);
+      }
+    }
 
     if (hasDistributionTopology(product)) {
       const edges = buildInternalDistributionEdges(component, product);
@@ -394,16 +466,20 @@ export function buildElectricalNetlist(system: SystemDesign, products: Map<strin
   for (const group of sortedGroups) {
     const knownBusTypes = [...new Set(group.map((ref) => ref.busType).filter((type) => type !== 'unknown'))].sort(sortBusType);
     const busType = knownBusTypes[0] ?? 'unknown';
+    const componentIds = [...new Set(group.map((ref) => ref.componentId))].sort();
+    const terminalKeys = group.map((ref) => ref.key).sort();
     if (knownBusTypes.length > 1) {
-      conflicts.push(`Net has conflicting bus types: ${knownBusTypes.join(', ')}.`);
+      conflicts.push({
+        message: `Net has conflicting bus types: ${knownBusTypes.join(', ')}.`,
+        busTypes: knownBusTypes,
+        componentIds,
+        terminalKeys,
+      });
     }
 
     const count = (busTypeCounts.get(busType) ?? 0) + 1;
     busTypeCounts.set(busType, count);
     const netId = `net-${busType.replace(/_/g, '-')}-${count}`;
-
-    const componentIds = [...new Set(group.map((ref) => ref.componentId))].sort();
-    const terminalKeys = group.map((ref) => ref.key).sort();
 
     let sourceCurrentA = 0;
     let loadCurrentA = 0;
@@ -427,6 +503,7 @@ export function buildElectricalNetlist(system: SystemDesign, products: Map<strin
       loadCurrentA,
       operatingCurrentA: Math.max(sourceCurrentA, loadCurrentA),
       requiresFuse: busTypeRequiresFuse(busType),
+      hasBusTypeConflict: knownBusTypes.length > 1,
     };
 
     nets.push(net);
@@ -442,7 +519,7 @@ export function buildElectricalNetlist(system: SystemDesign, products: Map<strin
     if (!net) continue;
 
     for (const boundary of boundaries) {
-      net.protectedBy = [...(net.protectedBy ?? []), boundary];
+      appendProtectionBoundary(net, boundary);
     }
   }
 
@@ -477,7 +554,7 @@ export function buildElectricalNetlist(system: SystemDesign, products: Map<strin
       for (const netId of [fromNetId, toNetId]) {
         const net = netId ? netsById.get(netId) : undefined;
         if (!net) continue;
-        net.protectedBy = [...(net.protectedBy ?? []), boundary];
+        appendProtectionBoundary(net, boundary);
       }
     }
 
@@ -485,7 +562,7 @@ export function buildElectricalNetlist(system: SystemDesign, products: Map<strin
       for (const netId of [fromNetId, toNetId]) {
         const net = netId ? netsById.get(netId) : undefined;
         if (!net) continue;
-        net.protectedBy = [...(net.protectedBy ?? []), slotBoundary];
+        appendProtectionBoundary(net, slotBoundary);
       }
     }
 

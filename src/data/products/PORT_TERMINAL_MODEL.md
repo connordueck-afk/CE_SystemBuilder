@@ -39,8 +39,9 @@ Put these on the port:
 - Voltage specs: `voltageClass`, `nominalVoltageV`, `voltageMinV`, `voltageMaxV`
 - Current/power specs: `maxCurrentA`, `maxPowerW`, `maxPowerByVoltageW`
 - AC specs: `phases`
-- Communication specs: `connectorType`, `supportedProtocols`, `configuredProtocol`,
-  `isConfigurable`, `commTopology`, `gender`
+- Communication specs: `supportedProtocols`, `configuredProtocol`, `isConfigurable`,
+  `commTopology`
+- Physical communication connector specs live on terminals: `connectorType`, `gender`
 
 Topology meaning:
 
@@ -319,7 +320,6 @@ ports: [
     topology: 'two_pole',
     role: 'bidirectional',
     direction: 'bidirectional',
-    connectorType: 'RJ45',
     supportedProtocols: ['VE.Can'],
     configuredProtocol: 'VE.Can',
   },
@@ -341,6 +341,7 @@ terminals: [
     side: 'top',
     offsetX: 0,
     offsetY: -60,
+    connectorType: 'RJ45',
   },
 ],
 communicationPorts: [

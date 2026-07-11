@@ -51,6 +51,12 @@ interface ScaleDragState {
   startScale: number;
 }
 
+interface RotateDragState {
+  componentId: string;
+  startAngle: number;
+  startRotation: number;
+}
+
 interface ComponentMovePreview {
   id: string;
   x: number;
@@ -60,6 +66,11 @@ interface ComponentMovePreview {
 interface ComponentScalePreview {
   id: string;
   imageScale: number;
+}
+
+interface ComponentRotationPreview {
+  id: string;
+  rotationDeg: number;
 }
 
 interface ConnectionRoutePreview {
@@ -103,10 +114,12 @@ interface ComponentLayerProps {
   products: Map<string, Product>;
   selectedComponentId: string | null;
   selectedComponentIds: string[];
+  rotateDraggingComponentId: string | null;
   onSelect: (id: string) => void;
   onDragStart: (id: string, e: React.MouseEvent) => void;
   onContextMenu: (id: string, e: React.MouseEvent) => void;
   onScaleHandleMouseDown: (id: string, e: React.MouseEvent) => void;
+  onRotateHandleMouseDown: (id: string, e: React.MouseEvent) => void;
 }
 
 interface Props {
@@ -135,6 +148,7 @@ interface Props {
   onCopyComponent: (id: string) => void;
   onCutComponent: (id: string) => void;
   onRotateComponent: (id: string) => void;
+  onSetComponentRotation: (id: string, rotationDeg: number) => void;
   onToggleComponentLock: (id: string) => void;
   onRemoveComponent: (id: string) => void;
   onRemoveConnection: (id: string) => void;
@@ -247,6 +261,12 @@ function sameComponentScalePreview(a: ComponentScalePreview | null, b: Component
   if (a === b) return true;
   if (!a || !b) return false;
   return a.id === b.id && a.imageScale === b.imageScale;
+}
+
+function sameComponentRotationPreview(a: ComponentRotationPreview | null, b: ComponentRotationPreview | null): boolean {
+  if (a === b) return true;
+  if (!a || !b) return false;
+  return a.id === b.id && a.rotationDeg === b.rotationDeg;
 }
 
 function diagramBounds(system: SystemDesign, products: Map<string, Product>) {
@@ -374,10 +394,12 @@ const ComponentLayer = memo(function ComponentLayer({
   products,
   selectedComponentId,
   selectedComponentIds,
+  rotateDraggingComponentId,
   onSelect,
   onDragStart,
   onContextMenu,
   onScaleHandleMouseDown,
+  onRotateHandleMouseDown,
 }: ComponentLayerProps) {
   return (
     <>
@@ -390,10 +412,12 @@ const ComponentLayer = memo(function ComponentLayer({
             component={comp}
             product={product}
             selected={comp.id === selectedComponentId || selectedComponentIds.includes(comp.id)}
+            isRotateDragging={comp.id === rotateDraggingComponentId}
             onSelect={onSelect}
             onDragStart={onDragStart}
             onContextMenu={onContextMenu}
             onScaleHandleMouseDown={onScaleHandleMouseDown}
+            onRotateHandleMouseDown={onRotateHandleMouseDown}
           />
         );
       })}
@@ -427,6 +451,7 @@ export function SchematicCanvas({
   onCopyComponent,
   onCutComponent,
   onRotateComponent,
+  onSetComponentRotation,
   onToggleComponentLock,
   onRemoveComponent,
   onRemoveConnection,
@@ -449,6 +474,7 @@ export function SchematicCanvas({
   const svgRef = useRef<SVGSVGElement>(null);
   const [dragging, setDragging] = useState<DragState | null>(null);
   const [scaleDragging, setScaleDragging] = useState<ScaleDragState | null>(null);
+  const [rotateDragging, setRotateDragging] = useState<RotateDragState | null>(null);
   const [pendingConn, setPendingConn] = useState<PendingConn | null>(null);
   const [panning, setPanning] = useState<PanState | null>(null);
   const [scrollDragging, setScrollDragging] = useState<ScrollDragState | null>(null);
@@ -463,6 +489,7 @@ export function SchematicCanvas({
   const [showAutoRouteDialog, setShowAutoRouteDialog] = useState(false);
   const [componentMovePreview, setComponentMovePreview] = useState<ComponentMovePreview[] | null>(null);
   const [componentScalePreview, setComponentScalePreview] = useState<ComponentScalePreview | null>(null);
+  const [componentRotationPreview, setComponentRotationPreview] = useState<ComponentRotationPreview | null>(null);
   const [connectionRoutePreview, setConnectionRoutePreview] = useState<ConnectionRoutePreview | null>(null);
   const isBoxSelectRef = useRef(false);
   const didPanRef = useRef(false);
@@ -479,6 +506,9 @@ export function SchematicCanvas({
   const componentScalePreviewRef = useRef<ComponentScalePreview | null>(null);
   const componentScalePreviewRafRef = useRef<number | null>(null);
   const pendingComponentScalePreviewRef = useRef<ComponentScalePreview | null>(null);
+  const componentRotationPreviewRef = useRef<ComponentRotationPreview | null>(null);
+  const componentRotationPreviewRafRef = useRef<number | null>(null);
+  const pendingComponentRotationPreviewRef = useRef<ComponentRotationPreview | null>(null);
   const connectionRoutePreviewRef = useRef<ConnectionRoutePreview | null>(null);
   const zoomRef = useRef(zoom);
   const canvasSizeRef = useRef(canvasSize);
@@ -543,6 +573,34 @@ export function SchematicCanvas({
     applyComponentScalePreview(null);
   }, [applyComponentScalePreview]);
 
+  const applyComponentRotationPreview = useCallback((preview: ComponentRotationPreview | null) => {
+    componentRotationPreviewRef.current = preview;
+    setComponentRotationPreview(preview);
+  }, []);
+
+  const scheduleComponentRotationPreview = useCallback((preview: ComponentRotationPreview | null) => {
+    const current = pendingComponentRotationPreviewRef.current ?? componentRotationPreviewRef.current;
+    if (sameComponentRotationPreview(current, preview)) return;
+    pendingComponentRotationPreviewRef.current = preview;
+    componentRotationPreviewRef.current = preview;
+    if (componentRotationPreviewRafRef.current !== null) return;
+    componentRotationPreviewRafRef.current = requestAnimationFrame(() => {
+      componentRotationPreviewRafRef.current = null;
+      const next = pendingComponentRotationPreviewRef.current;
+      pendingComponentRotationPreviewRef.current = null;
+      setComponentRotationPreview(next);
+    });
+  }, []);
+
+  const clearComponentRotationPreview = useCallback(() => {
+    pendingComponentRotationPreviewRef.current = null;
+    if (componentRotationPreviewRafRef.current !== null) {
+      cancelAnimationFrame(componentRotationPreviewRafRef.current);
+      componentRotationPreviewRafRef.current = null;
+    }
+    applyComponentRotationPreview(null);
+  }, [applyComponentRotationPreview]);
+
   const handlePreviewConnectionRoute = useCallback((connectionId: string, routePoints: Array<{ x: number; y: number }>) => {
     const current = connectionRoutePreviewRef.current;
     if (
@@ -573,7 +631,7 @@ export function SchematicCanvas({
   }, []);
 
   const displayComponents = useMemo(() => {
-    if (!componentMovePreview && !componentScalePreview) return system.components;
+    if (!componentMovePreview && !componentScalePreview && !componentRotationPreview) return system.components;
     const moveMap = componentMovePreview
       ? new Map(componentMovePreview.map((preview) => [preview.id, preview]))
       : null;
@@ -581,14 +639,16 @@ export function SchematicCanvas({
     return system.components.map((component) => {
       const move = moveMap?.get(component.id);
       const scale = componentScalePreview?.id === component.id ? componentScalePreview.imageScale : undefined;
-      if (!move && scale == null) return component;
+      const rot = componentRotationPreview?.id === component.id ? componentRotationPreview.rotationDeg : undefined;
+      if (!move && scale == null && rot == null) return component;
       return {
         ...component,
         ...(move ? { x: move.x, y: move.y } : {}),
         ...(scale != null ? { imageScale: scale } : {}),
+        ...(rot != null ? { rotationDeg: rot } : {}),
       };
     });
-  }, [componentMovePreview, componentScalePreview, system.components]);
+  }, [componentMovePreview, componentRotationPreview, componentScalePreview, system.components]);
 
   const displayConnections = useMemo(() => {
     if (!connectionRoutePreview) return system.connections;
@@ -674,11 +734,13 @@ export function SchematicCanvas({
     setFusePrompt(null);
     setDragging(null);
     setScaleDragging(null);
+    setRotateDragging(null);
     setPanning(null);
     setScrollDragging(null);
     setSelectionBox(null);
     clearComponentMovePreview();
     clearComponentScalePreview();
+    clearComponentRotationPreview();
     handleCancelConnectionRoutePreview();
     setComponentContextMenu(null);
     setCanvasContextMenu(null);
@@ -686,7 +748,7 @@ export function SchematicCanvas({
     didPanRef.current = false;
     didBoxSelectRef.current = false;
     didDragConnectRef.current = false;
-  }, [cancelInteractionRequestId, clearComponentMovePreview, clearComponentScalePreview, handleCancelConnectionRoutePreview]);
+  }, [cancelInteractionRequestId, clearComponentMovePreview, clearComponentRotationPreview, clearComponentScalePreview, handleCancelConnectionRoutePreview]);
 
   useEffect(() => {
     return () => {
@@ -695,6 +757,9 @@ export function SchematicCanvas({
       }
       if (componentScalePreviewRafRef.current !== null) {
         cancelAnimationFrame(componentScalePreviewRafRef.current);
+      }
+      if (componentRotationPreviewRafRef.current !== null) {
+        cancelAnimationFrame(componentRotationPreviewRafRef.current);
       }
     };
   }, []);
@@ -1000,6 +1065,23 @@ export function SchematicCanvas({
     clearComponentMovePreview();
   }, [clearComponentMovePreview, system.components]);
 
+  const handleRotateDragStart = useCallback((componentId: string, e: React.MouseEvent) => {
+    if (!svgRef.current) return;
+    const pos = svgCoords(e, svgRef.current);
+    const comp = system.components.find((c) => c.id === componentId);
+    if (!comp) return;
+    const dx = pos.x - comp.x;
+    const dy = pos.y - comp.y;
+    const angle = Math.atan2(dy, dx) * 180 / Math.PI;
+    setRotateDragging({
+      componentId,
+      startAngle: angle,
+      startRotation: comp.rotationDeg ?? 0,
+    });
+    clearComponentMovePreview();
+    clearComponentRotationPreview();
+  }, [clearComponentMovePreview, clearComponentRotationPreview, system.components]);
+
   const handleComponentContextMenu = useCallback((componentId: string, e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -1009,6 +1091,7 @@ export function SchematicCanvas({
     setDragging(null);
     clearComponentMovePreview();
     clearComponentScalePreview();
+    clearComponentRotationPreview();
     setCanvasContextMenu(null);
     if (selectedComponentIds.length > 1 && selectedComponentIds.includes(componentId)) {
       // Keep multi-selection intact
@@ -1020,7 +1103,7 @@ export function SchematicCanvas({
       onSelectAnnotation(null);
       setComponentContextMenu({ componentId, x: e.clientX, y: e.clientY });
     }
-  }, [clearComponentMovePreview, clearComponentScalePreview, onSelectAnnotation, onSelectComponent, onSelectConnection, onClearMultiSelect, selectedComponentIds]);
+  }, [clearComponentMovePreview, clearComponentRotationPreview, clearComponentScalePreview, onSelectAnnotation, onSelectComponent, onSelectConnection, onClearMultiSelect, selectedComponentIds]);
 
   const runComponentMenuAction = useCallback((action: (componentId: string) => void) => {
     const componentId = componentContextMenu?.componentId;
@@ -1041,6 +1124,7 @@ export function SchematicCanvas({
     setDragging(null);
     clearComponentMovePreview();
     clearComponentScalePreview();
+    clearComponentRotationPreview();
     setComponentContextMenu(null);
     onSelectComponent(null);
     onSelectConnection(null);
@@ -1049,7 +1133,7 @@ export function SchematicCanvas({
       x: e.clientX,
       y: e.clientY,
     });
-  }, [clearComponentMovePreview, clearComponentScalePreview, onSelectAnnotation, onSelectComponent, onSelectConnection]);
+  }, [clearComponentMovePreview, clearComponentRotationPreview, clearComponentScalePreview, onSelectAnnotation, onSelectComponent, onSelectConnection]);
 
   const runCanvasMenuAction = useCallback((action: () => void) => {
     action();
@@ -1109,6 +1193,31 @@ export function SchematicCanvas({
       }
     }
 
+    if (rotateDragging) {
+      const comp = system.components.find((c) => c.id === rotateDragging.componentId);
+      const product = comp ? products.get(comp.productId) : undefined;
+      if (comp && product) {
+        const dx = pos.x - comp.x;
+        const dy = pos.y - comp.y;
+        const angle = Math.atan2(dy, dx) * 180 / Math.PI;
+        let delta = angle - rotateDragging.startAngle;
+        // Normalize to [-180, 180]
+        while (delta > 180) delta -= 360;
+        while (delta < -180) delta += 360;
+        // Snap to nearest 15°
+        const snap = 15;
+        const snappedDelta = Math.round(delta / snap) * snap;
+        const newRotation = ((rotateDragging.startRotation + snappedDelta) % 360 + 360) % 360;
+        const bounded = clampComponentToWorld({ x: comp.x, y: comp.y }, product, newRotation, componentScale(comp));
+        scheduleComponentRotationPreview({ id: rotateDragging.componentId, rotationDeg: newRotation });
+        if (bounded.x !== comp.x || bounded.y !== comp.y) {
+          scheduleComponentMovePreview([{ id: rotateDragging.componentId, x: bounded.x, y: bounded.y }]);
+        } else {
+          clearComponentMovePreview();
+        }
+      }
+    }
+
     if (panning) {
       const rect = svgRef.current.getBoundingClientRect();
       const dx = ((e.clientX - panning.startClientX) / rect.width) * panning.startViewportWidth;
@@ -1119,7 +1228,7 @@ export function SchematicCanvas({
         y: panning.startCenterY - dy,
       }, zoom, canvasSize));
     }
-  }, [canvasSize, clearComponentMovePreview, dragging, panning, pendingConn, products, scaleDragging, scheduleComponentMovePreview, scheduleComponentScalePreview, system.components, zoom]);
+  }, [canvasSize, clearComponentMovePreview, clearComponentRotationPreview, dragging, panning, pendingConn, products, rotateDragging, scaleDragging, scheduleComponentMovePreview, scheduleComponentRotationPreview, scheduleComponentScalePreview, system.components, zoom]);
 
   const handleMouseUp = useCallback(() => {
     if (selectionBox) {
@@ -1159,17 +1268,29 @@ export function SchematicCanvas({
       clearComponentScalePreview();
       clearComponentMovePreview();
     }
+    if (rotateDragging) {
+      const preview = componentRotationPreviewRef.current;
+      if (preview?.id === rotateDragging.componentId) {
+        onSetComponentRotation(preview.id, preview.rotationDeg);
+      }
+      clearComponentRotationPreview();
+      clearComponentMovePreview();
+    }
     setDragging(null);
     setScaleDragging(null);
+    setRotateDragging(null);
     setPanning(null);
     setScrollDragging(null);
   }, [
     clearComponentMovePreview,
+    clearComponentRotationPreview,
     clearComponentScalePreview,
     dragging,
     onMoveComponent,
     onMoveComponents,
     onScaleComponent,
+    onSetComponentRotation,
+    rotateDragging,
     scaleDragging,
     selectionBox,
     system.components,
@@ -1207,8 +1328,7 @@ export function SchematicCanvas({
       if (!effectiveProduct) continue;
       const terminals = getEffectiveTerminals(effectiveProduct, comp);
       for (const term of terminals) {
-        const commPort = effectiveProduct.communicationPorts?.find((p) => p.id === term.id);
-        if (isTerminalFull(term, commPort, system.connections, comp.id)) {
+        if (isTerminalFull(term, system.connections, comp.id)) {
           full.add(`${comp.id}:${term.id}`);
         }
       }
@@ -1430,7 +1550,7 @@ export function SchematicCanvas({
         width="100%"
         height="100%"
         preserveAspectRatio="none"
-        style={{ display: 'block', cursor: pendingConn || selectionBox ? 'crosshair' : scaleDragging ? 'nwse-resize' : dragging || panning ? 'grabbing' : 'grab' }}
+        style={{ display: 'block', cursor: pendingConn || selectionBox ? 'crosshair' : scaleDragging ? 'nwse-resize' : rotateDragging ? 'grabbing' : dragging || panning ? 'grabbing' : 'grab' }}
         onMouseDown={handleCanvasMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
@@ -1453,10 +1573,12 @@ export function SchematicCanvas({
           products={products}
           selectedComponentId={selectedComponentId}
           selectedComponentIds={selectedComponentIds}
+          rotateDraggingComponentId={rotateDragging?.componentId ?? null}
           onSelect={handleComponentNodeSelect}
           onDragStart={handleDragStart}
           onContextMenu={handleComponentContextMenu}
           onScaleHandleMouseDown={handleScaleDragStart}
+          onRotateHandleMouseDown={handleRotateDragStart}
         />
 
         {/* Visible connections above product images */}

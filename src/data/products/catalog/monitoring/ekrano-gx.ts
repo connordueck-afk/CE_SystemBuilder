@@ -53,9 +53,9 @@ const product: Product = {
   ],
   ports: [
     { id: "main", kind: "signal", topology: "two_pole", label: "Main Signal", voltageClass: "signal_low_voltage", role: "control", direction: "bidirectional" },
-    { id: "can_bus", kind: "comm", label: "BMS-Can / VE.Can", topology: "two_pole", role: "bidirectional", direction: "bidirectional", connectorType: "RJ45", supportedProtocols: ["BMS-Can", "VE.Can"], configuredProtocol: "BMS-Can", isConfigurable: true },
-    { id: "ve_bus", kind: "comm", label: "VE.Bus", topology: "two_pole", role: "bidirectional", direction: "bidirectional", connectorType: "RJ45", supportedProtocols: ["VE.Bus"], configuredProtocol: "VE.Bus" },
-    { id: "ethernet", kind: "comm", label: "Ethernet", topology: "two_pole", role: "bidirectional", direction: "bidirectional", connectorType: "RJ45", supportedProtocols: ["Ethernet"], configuredProtocol: "Ethernet" }
+    { id: "can_bus", kind: "comm", label: "BMS-Can / VE.Can", topology: "two_pole", role: "bidirectional", direction: "bidirectional", supportedProtocols: ["BMS-Can", "VE.Can"], configuredProtocol: "BMS-Can", isConfigurable: true },
+    { id: "ve_bus", kind: "comm", label: "VE.Bus", topology: "two_pole", role: "bidirectional", direction: "bidirectional", supportedProtocols: ["VE.Bus"], configuredProtocol: "VE.Bus" },
+    { id: "ethernet", kind: "comm", label: "Ethernet", topology: "two_pole", role: "bidirectional", direction: "bidirectional", supportedProtocols: ["Ethernet"], configuredProtocol: "Ethernet" }
   ]
 };
 

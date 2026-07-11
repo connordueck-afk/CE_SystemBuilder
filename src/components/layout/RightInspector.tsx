@@ -41,7 +41,6 @@ interface Props {
   onUpdateLabel: (id: string, label: string) => void;
   onUpdatePrice: (id: string, price: number | undefined) => void;
   onUpdateIncludeInBom: (id: string, includeInBom: boolean) => void;
-  onUpdateFuseHolder: (id: string, includeFuseHolder: boolean, fuseHolderProductId?: string) => void;
   onUpdateInstanceVoltage: (id: string, voltageV: number | undefined) => void;
   onUpdateDcBusNominalVoltage: (id: string, voltageV: number | undefined) => void;
   onUpdateInstanceMaxCurrent: (id: string, currentA: number | undefined) => void;
@@ -49,6 +48,8 @@ interface Props {
   onUpdateComponentImageScale: (id: string, scale: number) => void;
   onUpdateBusPolarity: (id: string, busPolarity: SystemComponent['busPolarity']) => void;
   onUpdateFuseSlot: (id: string, slotId: string, patch: FuseSlotState) => void;
+  onOpenFusePicker?: (componentId: string, slotId: string) => void;
+  onRemoveFuseSlot?: (componentId: string, slotId: string) => void;
   onChangeComponentProduct: (id: string, productId: string) => void;
   onUpdateCustomSolarArrayRatings: (id: string, ratings: CustomSolarArrayRatings) => void;
   onUpdateConnectionLength: (id: string, ft: number) => void;
@@ -90,7 +91,6 @@ export function RightInspector({
   onUpdateLabel,
   onUpdatePrice,
   onUpdateIncludeInBom,
-  onUpdateFuseHolder,
   onUpdateInstanceVoltage,
   onUpdateDcBusNominalVoltage,
   onUpdateInstanceMaxCurrent,
@@ -98,6 +98,8 @@ export function RightInspector({
   onUpdateComponentImageScale,
   onUpdateBusPolarity,
   onUpdateFuseSlot,
+  onOpenFusePicker,
+  onRemoveFuseSlot,
   onChangeComponentProduct,
   onUpdateCustomSolarArrayRatings,
   onUpdateConnectionLength,
@@ -307,7 +309,6 @@ export function RightInspector({
             onUpdateLabel={onUpdateLabel}
             onUpdatePrice={onUpdatePrice}
             onUpdateIncludeInBom={onUpdateIncludeInBom}
-            onUpdateFuseHolder={onUpdateFuseHolder}
             onUpdateInstanceVoltage={onUpdateInstanceVoltage}
             onUpdateDcBusNominalVoltage={onUpdateDcBusNominalVoltage}
             onUpdateInstanceMaxCurrent={onUpdateInstanceMaxCurrent}
@@ -315,6 +316,8 @@ export function RightInspector({
             onUpdateComponentImageScale={onUpdateComponentImageScale}
             onUpdateBusPolarity={onUpdateBusPolarity}
             onUpdateFuseSlot={onUpdateFuseSlot}
+            onOpenFusePicker={onOpenFusePicker}
+            onRemoveFuseSlot={onRemoveFuseSlot}
             onUpdateCustomSolarArrayRatings={onUpdateCustomSolarArrayRatings}
             onUpdateConfiguredProtocol={onUpdateConfiguredProtocol}
             onUpdateSourceType={onUpdateSourceType}

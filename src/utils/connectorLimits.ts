@@ -1,8 +1,6 @@
 import type {
   CommunicationConnectorType,
   ConnectorKind,
-  ProductCommunicationPort,
-  ProductPort,
   SystemConnection,
   TerminalDefinition,
 } from '../types/system';
@@ -16,11 +14,10 @@ const SINGLE_CONN_COMM: CommunicationConnectorType[] = ['RJ45', 'M12', 'Deutsch'
  * definition, then connector-type defaults.
  */
 export function effectiveMaxConnections(
-  terminal: TerminalDefinition,
-  commPort?: ProductCommunicationPort | ProductPort
+  terminal: TerminalDefinition
 ): number | undefined {
   if (terminal.maxConnections != null) return terminal.maxConnections;
-  if (commPort?.connectorType && SINGLE_CONN_COMM.includes(commPort.connectorType)) return 1;
+  if (terminal.connectorType && SINGLE_CONN_COMM.includes(terminal.connectorType)) return 1;
   if (terminal.connector && SINGLE_CONN_ELECTRICAL.includes(terminal.connector.kind)) return 1;
   return undefined;
 }
@@ -39,11 +36,10 @@ export function countTerminalConnections(
 
 export function isTerminalFull(
   terminal: TerminalDefinition,
-  commPort: ProductCommunicationPort | undefined,
   connections: Pick<SystemConnection, 'fromComponentId' | 'fromTerminalId' | 'toComponentId' | 'toTerminalId'>[],
   componentId: string
 ): boolean {
-  const max = effectiveMaxConnections(terminal, commPort);
+  const max = effectiveMaxConnections(terminal);
   if (max == null) return false;
   return countTerminalConnections(connections, componentId, terminal.id) >= max;
 }

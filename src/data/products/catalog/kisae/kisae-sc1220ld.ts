@@ -50,8 +50,8 @@ const product: Product = {
   ports: [
     { id: "pv", kind: "pv", topology: "two_pole", label: "PV", voltageClass: "pv_high_voltage", voltageMaxV: 100, maxCurrentA: 20, role: "sink", direction: "input" },
     { id: "dc_out", kind: "dc", topology: "two_pole", label: "DC Output", voltageClass: "dc_low_voltage", voltageMinV: 12, voltageMaxV: 24, maxCurrentA: 20, role: "source", direction: "output" },
-    { id: "ve_can", kind: "comm", label: "VE.Can", topology: "two_pole", role: "bidirectional", direction: "bidirectional", connectorType: "RJ45", supportedProtocols: ["VE.Can"], configuredProtocol: "VE.Can" },
-    { id: "ve_direct", kind: "comm", label: "VE.Direct", topology: "two_pole", role: "bidirectional", direction: "bidirectional", connectorType: "VE.Direct", supportedProtocols: ["VE.Direct"], configuredProtocol: "VE.Direct" }
+    { id: "ve_can", kind: "comm", label: "VE.Can", topology: "two_pole", role: "bidirectional", direction: "bidirectional", supportedProtocols: ["VE.Can"], configuredProtocol: "VE.Can" },
+    { id: "ve_direct", kind: "comm", label: "VE.Direct", topology: "two_pole", role: "bidirectional", direction: "bidirectional", supportedProtocols: ["VE.Direct"], configuredProtocol: "VE.Direct" }
   ]
 };
 

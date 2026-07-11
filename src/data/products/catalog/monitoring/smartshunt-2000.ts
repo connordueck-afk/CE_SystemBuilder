@@ -30,7 +30,7 @@ const product: Product = {
   ],
   ports: [
     { id: "main", kind: "dc", topology: "pass_through", label: "Main", voltageClass: "dc_low_voltage", maxCurrentA: 2000, role: "pass_through", direction: "bidirectional" },
-    { id: "ve_direct", kind: "comm", label: "VE.Direct", topology: "pass_through", role: "bidirectional", direction: "bidirectional", connectorType: "VE.Direct", supportedProtocols: ["VE.Direct"], configuredProtocol: "VE.Direct" }
+    { id: "ve_direct", kind: "comm", label: "VE.Direct", topology: "pass_through", role: "bidirectional", direction: "bidirectional", supportedProtocols: ["VE.Direct"], configuredProtocol: "VE.Direct" }
   ]
 };
 

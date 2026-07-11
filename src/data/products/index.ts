@@ -93,7 +93,7 @@ function defaultStudSizeForCurrent(currentA: number | undefined): string {
 
 function defaultConnector(product: Product, port: ProductPort | undefined, group: TerminalGroupDefinition | undefined, currentA: number | undefined): TerminalConnector | undefined {
   if (port?.kind === 'comm') {
-    return port.connectorType ? { kind: 'comm', holeSize: port.connectorType } : { kind: 'comm' };
+    return { kind: 'comm' };
   }
   if (group?.groupType !== 'power_conductor' && group?.groupType !== 'ground_reference') return undefined;
   if (port?.kind === 'pv' && (product.productType === 'solar_array' || product.productType === 'custom_solar_array')) {
@@ -139,7 +139,7 @@ function communicationByPortId(product: Product): Map<string, ProductCommunicati
   return byPortId;
 }
 
-function withCompletedCatalogFields(product: Product): Product {
+export function withCompletedCatalogFields(product: Product): Product {
   const portIds = new Map((product.ports ?? []).map((port) => [port.id, port]));
   const commByPort = communicationByPortId(product);
   const nominalVoltages = productNominalVoltages(product);
@@ -149,9 +149,6 @@ function withCompletedCatalogFields(product: Product): Product {
     const completed: ProductPort = {
       ...port,
       direction: port.direction ?? directionForRole(port.role),
-      ...(port.kind === 'comm' && comm?.connectorType != null && port.connectorType == null
-        ? { connectorType: comm.connectorType }
-        : {}),
       ...(port.kind === 'comm' && comm?.supportedProtocols != null && port.supportedProtocols == null
         ? { supportedProtocols: comm.supportedProtocols }
         : {}),
@@ -193,10 +190,21 @@ function withCompletedCatalogFields(product: Product): Product {
       ...(group.polarity === 'positive' && product.productType === 'battery' && group.requiresOvercurrentProtection == null
         ? { requiresOvercurrentProtection: true }
         : {}),
+      // PV positive conductors are NOT force-flagged here the way battery positives
+      // are. A battery terminal always needs its own fuse regardless of topology;
+      // a PV string only needs protection when it's paralleled with other strings
+      // (NEC 690.9 — the hazard is backfeed from the other strings into a faulted
+      // one). A single string run straight to an MPPT has no other source to
+      // backfeed it. That distinction isn't a per-product fact, it's a per-wiring
+      // fact, so it's left to circuitAnalysis.ts's dynamic source-capacity-vs-
+      // cable-ampacity check (reachable now that pv_pos is in busTypeRequiresFuse)
+      // rather than a static catalog default.
     };
   });
 
   const completedGroups = new Map((terminalGroups ?? product.terminalGroups ?? []).map((group) => [group.id, group]));
+  // Build a terminal-id → communicationPort map for connectorType/gender backfill.
+  const commByTerminalId = new Map((product.communicationPorts ?? []).map((cp) => [cp.id, cp]));
   const terminals = product.terminals.map((terminal): TerminalDefinition => {
     const group = terminal.terminalGroupId ? completedGroups.get(terminal.terminalGroupId) : undefined;
     const port = group ? completedPorts.get(group.portId) : undefined;
@@ -204,11 +212,16 @@ function withCompletedCatalogFields(product: Product): Product {
     const connector = terminal.connector ?? defaultConnector(product, port, group, currentA);
     const maxCableAwg = terminal.maxCableAwg ?? estimatedMaxCableAwg(connector, currentA);
 
+    // Backfill comm connectorType/gender from legacy communicationPorts onto the terminal.
+    const legComm = commByTerminalId.get(terminal.id);
+
     return {
       ...terminal,
       ...(currentA != null && (group?.groupType === 'power_conductor' || group?.groupType === 'ground_reference') ? { maxCurrentA: currentA } : {}),
       ...(connector != null ? { connector } : {}),
       ...(maxCableAwg != null ? { maxCableAwg } : {}),
+      ...(legComm?.connectorType != null && terminal.connectorType == null ? { connectorType: legComm.connectorType } : {}),
+      ...(legComm?.gender != null && terminal.gender == null ? { gender: legComm.gender } : {}),
     };
   });
 

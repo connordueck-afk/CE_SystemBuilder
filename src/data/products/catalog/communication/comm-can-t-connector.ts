@@ -1,4 +1,4 @@
-import type { Product } from '../../../../types/system';
+﻿import type { Product } from '../../../../types/system';
 
 const product: Product = {
   id: "comm-can-t-connector",
@@ -43,7 +43,6 @@ const product: Product = {
       label: "Port A",
       role: "bidirectional",
       direction: "bidirectional",
-      connectorType: "RJ45",
       supportedProtocols: ["VE.Can", "BMS-Can", "CANopen", "J1939"],
       isConfigurable: false
     },
@@ -54,7 +53,6 @@ const product: Product = {
       label: "Port B",
       role: "bidirectional",
       direction: "bidirectional",
-      connectorType: "RJ45",
       supportedProtocols: ["VE.Can", "BMS-Can", "CANopen", "J1939"],
       isConfigurable: false
     },
@@ -65,7 +63,6 @@ const product: Product = {
       label: "Port C",
       role: "bidirectional",
       direction: "bidirectional",
-      connectorType: "RJ45",
       supportedProtocols: ["VE.Can", "BMS-Can", "CANopen", "J1939"],
       isConfigurable: false
     }

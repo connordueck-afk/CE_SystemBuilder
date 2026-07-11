@@ -13,6 +13,7 @@ import type {
   CommunicationNetwork,
   ConnectionPointKind,
   ConnectionPolarity,
+  IntegratedProtectionDefinition,
   SystemWarning,
   TerminalGroupType,
 } from '../../types/system';
@@ -66,6 +67,7 @@ export interface ResolvedTerminalGroup {
   /** Internal bus / common-node current rating (A). */
   maxCurrentA?: number;
   maxVoltageV?: number;
+  integratedProtection?: IntegratedProtectionDefinition;
   /** Member terminal ids on this component. */
   terminalIds: string[];
   /** True when this group was derived (product had no explicit terminalGroupId). */

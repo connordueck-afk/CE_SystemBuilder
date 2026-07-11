@@ -23,6 +23,12 @@ const product = defineCatalogBattery({
     maxCurrentA: 100,
     connector: { kind: 'stud', holeSize: 'M8' },
   },
+  positiveIntegratedProtection: {
+    protectionType: 'fuse',
+    currentRatingA: 100,
+    label: 'Integrated DC+ fuse',
+    notes: 'Built into the battery positive post; no separate source fuse is required when the conductor is sized for this protection.',
+  },
   negativeTerminal: {
     side: 'top',
     offsetX: -44,

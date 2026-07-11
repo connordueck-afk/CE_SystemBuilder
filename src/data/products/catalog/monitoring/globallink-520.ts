@@ -30,7 +30,7 @@ const product: Product = {
     }
   ],
   ports: [
-    { id: "ve_direct", kind: "comm", topology: "two_pole", label: "VE.Direct", role: "bidirectional", direction: "bidirectional", connectorType: "VE.Direct", supportedProtocols: ["VE.Direct"], configuredProtocol: "VE.Direct" }
+    { id: "ve_direct", kind: "comm", topology: "two_pole", label: "VE.Direct", role: "bidirectional", direction: "bidirectional", supportedProtocols: ["VE.Direct"], configuredProtocol: "VE.Direct" }
   ]
 };
 

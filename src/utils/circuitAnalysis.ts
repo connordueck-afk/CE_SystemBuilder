@@ -15,6 +15,7 @@ import { canProvidePower, canReceivePower, inferTerminalDirection } from './term
 import { busTypeFromTerminal, busTypeRequiresFuse, type BusType } from './electricalNetlist';
 import { buildInternalDistributionEdges, hasDistributionTopology } from './distributionTopology';
 import { resolveTerminalCurrentA } from './terminalElectrics';
+import { getDcBusNominalVoltage } from './dcBusVoltage';
 import { formatFeetAndInches } from './cableSummary';
 import { analyzeBatteryTopology } from './batteryTopology';
 import { linkGroupSizes, portLinkPairs } from './portLinks';
@@ -37,7 +38,6 @@ const CONDUCTIVE_PASS_THROUGH_TYPES = new Set([
   'relay',
   'contactor',
   'transferSwitch',
-  'fuse',
   'breaker',
 ]);
 
@@ -84,6 +84,11 @@ export interface BranchProtectionDevice {
   componentId: string;
   label: string;
   ratingA?: number;
+  /** True for structural "this segment is pack wiring, protected by the main bank
+   * fuse elsewhere" exemptions, which by design name no rated device. Distinguishes
+   * that from an actual fuse/breaker slot that is installed but has no rating
+   * chosen yet — the latter must not count as protecting the branch. */
+  isPolicyExemption?: boolean;
 }
 
 export interface SourceProtectionStatus {
@@ -337,7 +342,10 @@ function defaultTerminalVoltage(product: Product, component: SystemComponent, te
       terminal.voltageMaxV ??
       system.nominalVoltage;
   }
-  return component.instanceVoltageV ?? product.batteryRatings?.nominalVoltageV ?? system.nominalVoltage;
+  return getDcBusNominalVoltage(component, product) ??
+    component.instanceVoltageV ??
+    product.batteryRatings?.nominalVoltageV ??
+    system.nominalVoltage;
 }
 
 function loadCurrentFromProduct(
@@ -546,7 +554,7 @@ function terminalCurrents(
         const inverterDrawA = positiveNumber(product.inverterChargerRatings?.maxDcCurrentA) ??
           estimatePowerCurrent(
             product.inverterChargerRatings?.continuousInverterW ?? product.continuousPowerW,
-            system.nominalVoltage * system.assumptions.inverterEfficiency
+            voltage * system.assumptions.inverterEfficiency
           ) ??
           positiveNumber(product.maxCurrentA) ??
           0;
@@ -753,6 +761,13 @@ function connectionBusType(from: TerminalNode | undefined, to: TerminalNode | un
   if (from.busType === to.busType) return from.busType;
   if (from.busType === 'unknown') return to.busType;
   if (to.busType === 'unknown') return from.busType;
+
+  // PV series string: pv_pos ↔ pv_neg is a valid PV conductor (e.g. panel-to-panel
+  // series jumper). Resolve to pv_pos so the conductor gets PV continuous-factor
+  // sizing (1.5625× per NEC 690.8) instead of falling through to 'unknown' (1.25×).
+  const pvTypes: ReadonlySet<BusType> = new Set(['pv_pos', 'pv_neg']);
+  if (pvTypes.has(from.busType) && pvTypes.has(to.busType)) return 'pv_pos';
+
   return 'unknown';
 }
 
@@ -1268,6 +1283,97 @@ function protectionDeviceFromNode(node: TerminalNode): BranchProtectionDevice | 
   };
 }
 
+function integratedProtectionDeviceFromNode(node: TerminalNode): BranchProtectionDevice | undefined {
+  const protection = node.terminal.integratedProtection;
+  if (!protection) return undefined;
+
+  const typeLabel = protection.protectionType === 'breaker' ? 'breaker' : 'fuse';
+  return {
+    componentId: node.component.id,
+    label: protection.label ?? `${node.component.label ?? node.product.name} integrated ${typeLabel}`,
+    ratingA: positiveNumber(protection.currentRatingA),
+  };
+}
+
+function batteryCountOnSide(keys: Set<string> | undefined, nodes: Map<string, TerminalNode>, busType: BusType): number {
+  if (!keys || busType !== 'dc_pos') return 0;
+  const batteryIds = new Set<string>();
+  for (const key of keys) {
+    const node = nodes.get(key);
+    if (node && node.busType === 'dc_pos' && isBatteryProduct(node.product)) {
+      batteryIds.add(node.component.id);
+    }
+  }
+  return batteryIds.size;
+}
+
+// A battery's integrated breaker sits between its own cells and its shared internal
+// busbar (e.g. "busbar... fed by one integrated breaker") — it is not in series with
+// the busbar's external posts. A post-to-post edge (this interconnect cable, or this
+// battery's own lead onward to the next device) only carries this battery's own cell
+// current when the battery has exactly one external lead on this bus. Once a second
+// external lead is present, current from other paralleled batteries transits the
+// shared busbar directly between posts without ever crossing this battery's breaker,
+// so that edge's current cannot be checked against the breaker rating.
+function batteryExternalEdgeCount(
+  node: TerminalNode,
+  busType: BusType,
+  nodes: Map<string, TerminalNode>,
+  adjacency: Map<string, GraphEdge[]>
+): number {
+  const edgeIds = new Set<string>();
+  for (const candidate of nodes.values()) {
+    if (candidate.component.id !== node.component.id || candidate.busType !== busType) continue;
+    for (const candidateEdge of adjacency.get(candidate.key) ?? []) {
+      if (candidateEdge.kind === 'connection') edgeIds.add(candidateEdge.id);
+    }
+  }
+  return edgeIds.size;
+}
+
+function isParallelBatteryAggregateEndpoint(
+  key: string,
+  edge: GraphEdge | undefined,
+  busType: BusType,
+  nodes: Map<string, TerminalNode>,
+  adjacency: Map<string, GraphEdge[]>
+): boolean {
+  const node = nodes.get(key);
+  if (!node || !isBatteryProduct(node.product) || node.busType !== 'dc_pos') return false;
+  if (!node.terminal.integratedProtection || !edge) return false;
+  const farSideAggregate = batteryCountOnSide(collectSide(key, edge.id, busType, adjacency, nodes), nodes, busType) > 1;
+  const isPassThroughNode = batteryExternalEdgeCount(node, busType, nodes, adjacency) > 1;
+  return farSideAggregate || isPassThroughNode;
+}
+
+// Proportional share of the pack's total demand attributable to this battery alone,
+// based on its share of the parallel group's combined discharge capacity — the
+// correct basis for checking this battery's own integrated breaker, as opposed to
+// the pass-through current on any one interconnect edge touching it.
+function batteryOwnShareCurrentA(
+  node: TerminalNode,
+  busType: BusType,
+  nodes: Map<string, TerminalNode>,
+  adjacency: Map<string, GraphEdge[]>
+): number | undefined {
+  if (!node.behavior.hasLoadFollowingSource) return undefined;
+  const wholeGroup = collectSide(node.key, '', busType, adjacency, nodes);
+  const summary = summarizeSide(wholeGroup, nodes);
+  const totalCapacityA = summary.loadFollowingSourceCapacityA;
+  if (!totalCapacityA) return undefined;
+
+  let ownCapacityA = 0;
+  for (const candidateKey of wholeGroup) {
+    const candidate = nodes.get(candidateKey);
+    if (candidate?.component.id === node.component.id) {
+      ownCapacityA += candidate.behavior.sourceCapabilityA ?? 0;
+    }
+  }
+  if (!ownCapacityA) return undefined;
+
+  return summary.normalLoadCurrentA * (ownCapacityA / totalCapacityA);
+}
+
 function isProtectionSourceTerminal(node: TerminalNode | undefined): boolean {
   if (!node || !isProtectionProduct(node.product)) return false;
   return node.terminal.id === 'in' || node.terminal.direction === 'input';
@@ -1282,9 +1388,44 @@ function dedupeProtectionDevices(devices: BranchProtectionDevice[]): BranchProte
 
 function slotProtectionAtTerminal(
   key: string,
+  adjacency: Map<string, GraphEdge[]>,
+  includeUpstreamKey = false
+): BranchProtectionDevice | undefined {
+  const edge = (adjacency.get(key) ?? []).find(
+    (item) => item.protectionLabel && (
+      item.protectedTerminalKey === key ||
+      (includeUpstreamKey && item.protectedTerminalKey !== undefined && item.fromKey === key)
+    )
+  );
+  if (!edge) return undefined;
+  return {
+    componentId: edge.componentId ?? '',
+    label: edge.protectionLabel!,
+    ratingA: edge.protectionRatingA,
+  };
+}
+
+/**
+ * Like slotProtectionAtTerminal, but for magnitude-sensitive callers (selected
+ * fuse rating for cable sizing, "protected by" reporting) rather than the
+ * boolean "is some protection present" check used for error detection. A cable
+ * landing on the upstream (fromKey) side of a fuse-slot edge is only
+ * unambiguously characterized by that slot's rating when it is the sole slot
+ * fed from this terminal (a single-slot inline holder). A shared bus feeding
+ * multiple independently-fused slots (e.g. a multi-slot distributor) has no
+ * single fuse whose rating governs this lead — picking one arbitrarily would
+ * report the wrong rating for cable sizing, even though (for the boolean
+ * existence check above) the branch is still validly protected in aggregate by
+ * whichever slot fuses are actually installed downstream.
+ */
+function selectedSlotProtectionAtTerminal(
+  key: string,
   adjacency: Map<string, GraphEdge[]>
 ): BranchProtectionDevice | undefined {
-  const edge = (adjacency.get(key) ?? []).find((item) => item.protectedTerminalKey === key && item.protectionLabel);
+  const edges = adjacency.get(key) ?? [];
+  const downstream = edges.find((item) => item.protectionLabel && item.protectedTerminalKey === key);
+  const upstreamCandidates = edges.filter((item) => item.protectionLabel && item.protectedTerminalKey !== undefined && item.fromKey === key);
+  const edge = downstream ?? (upstreamCandidates.length === 1 ? upstreamCandidates[0] : undefined);
   if (!edge) return undefined;
   return {
     componentId: edge.componentId ?? '',
@@ -1295,6 +1436,8 @@ function slotProtectionAtTerminal(
 
 function selectedProtectionDevicesForConnection(
   connection: SystemConnection,
+  edge: GraphEdge | undefined,
+  busType: BusType,
   nodes: Map<string, TerminalNode>,
   adjacency: Map<string, GraphEdge[]>
 ): BranchProtectionDevice[] {
@@ -1305,8 +1448,15 @@ function selectedProtectionDevicesForConnection(
   const devices = endpointKeys.flatMap((key) => {
     const node = nodes.get(key);
     const productDevice = node ? protectionDeviceFromNode(node) : undefined;
-    const slotDevice = slotProtectionAtTerminal(key, adjacency);
-    return [productDevice, slotDevice].filter((item): item is BranchProtectionDevice => Boolean(item));
+    const integratedDevice = node && !isParallelBatteryAggregateEndpoint(key, edge, busType, nodes, adjacency)
+      ? integratedProtectionDeviceFromNode(node)
+      : undefined;
+    // This endpoint may be the upstream (fromKey) side of a fuse holder's internal
+    // slot edge rather than the protected (downstream) side — e.g. the cable
+    // landing on a single-slot holder's input terminal. That lead's cable sizing
+    // still needs to account for the installed fuse it feeds.
+    const slotDevice = selectedSlotProtectionAtTerminal(key, adjacency);
+    return [productDevice, integratedDevice, slotDevice].filter((item): item is BranchProtectionDevice => Boolean(item));
   });
 
   return dedupeProtectionDevices(devices);
@@ -1317,11 +1467,19 @@ function protectionForSourceSide(
   oppositeKey: string,
   connectionLengthFt: number,
   shortSourceLeadMaxFt: number,
+  sideSummary: SideSummary | undefined,
   nodes: Map<string, TerminalNode>,
   adjacency: Map<string, GraphEdge[]>
 ): BranchProtectionDevice | undefined {
   const sideNode = nodes.get(sideKey);
   const oppositeNode = nodes.get(oppositeKey);
+
+  if (sideNode) {
+    const device = batteryCountOnSide(sideSummary?.keys, nodes, sideNode.busType) > 1 && isBatteryProduct(sideNode.product) && sideNode.busType === 'dc_pos'
+      ? undefined
+      : integratedProtectionDeviceFromNode(sideNode);
+    if (device) return device;
+  }
 
   // A cable endpoint on a fuse or breaker is protected from sources behind that
   // device. Fuse current interruption is bidirectional; "in/out" labels only
@@ -1366,6 +1524,7 @@ function protectionForSourceSide(
       return {
         componentId: collectorNode.component.id,
         label: 'Short parallel battery bank interconnect',
+        isPolicyExemption: true,
       };
     }
   }
@@ -1386,6 +1545,7 @@ function protectionForSourceSide(
     return {
       componentId: sideNode.component.id,
       label: 'Short parallel battery pack interconnect',
+      isPolicyExemption: true,
     };
   }
 
@@ -1396,8 +1556,12 @@ function protectionForSourceSide(
     if (device) return device;
   }
 
-  // Distribution products model protected outputs as internal fused edges.
-  return slotProtectionAtTerminal(sideKey, adjacency);
+  // Distribution products model protected outputs as internal fused edges. The
+  // sideKey may be the downstream (protectedTerminalKey) or upstream (fromKey) of a
+  // slot; the oppositeKey may likewise be either. Check both endpoints, including
+  // the upstream direction, so cables entering a holder are treated as protected.
+  return slotProtectionAtTerminal(sideKey, adjacency, true)
+    ?? slotProtectionAtTerminal(oppositeKey, adjacency, true);
 }
 
 function sourceSideRequiresProtection(
@@ -1406,13 +1570,21 @@ function sourceSideRequiresProtection(
   cableAmpacityA: number | undefined
 ): boolean {
   if (!side || !isPowerBus(busType)) return false;
-  const sourcePresent = side.canSourceFaultCurrent || side.requiresOvercurrentProtection;
+  // hasNormalSource covers current-limited electronic sources (MPPTs, DC-DC
+  // chargers, inverter/charger DC output) as well as fault-current-capable ones
+  // (batteries, shore power) — without it, the "compare source capacity to cable
+  // ampacity" fallback below is unreachable for every current-limited source type,
+  // and protection would depend entirely on a manually-set catalog flag with no
+  // algorithmic backstop.
+  const sourcePresent = side.canSourceFaultCurrent || side.requiresOvercurrentProtection || side.hasNormalSource;
   if (!sourcePresent) return false;
   if (!busTypeRequiresFuse(busType) && !side.requiresOvercurrentProtection) return false;
   if (side.requiresOvercurrentProtection) return true;
 
   // Current-limited electronic sources do not require another source-side fuse
-  // when their available current is already below the conductor ampacity.
+  // when their available current is already within the conductor ampacity. Fault
+  // sources and groups that explicitly require OCP are handled by the branches
+  // above; this fallback is for outputs such as inverter AC output stages.
   if (!side.hasLoadFollowingSource && side.sourceCapacityA != null && cableAmpacityA != null) {
     return side.sourceCapacityA > cableAmpacityA;
   }
@@ -1435,22 +1607,39 @@ function sourceProtectionStatus(
   const sourcePresent = Boolean(sideSummary?.canSourceFaultCurrent || sideSummary?.hasNormalSource);
   const required = sourceSideRequiresProtection(sideSummary, busType, cableAmpacityA);
   const protection = required
-    ? protectionForSourceSide(sideKey, oppositeKey, connectionLengthFt, shortSourceLeadMaxFt, nodes, adjacency)
+    ? protectionForSourceSide(sideKey, oppositeKey, connectionLengthFt, shortSourceLeadMaxFt, sideSummary, nodes, adjacency)
     : undefined;
+
+  // A named policy exemption (pack-wiring segment covered by the bank's main fuse
+  // elsewhere) protects the branch without naming a rated device. Any other
+  // protection reference must carry an actual rating to count — an installed fuse
+  // slot or breaker component with no rating chosen yet has not actually verified
+  // this branch is protected.
+  const isProtected = protection != null && (protection.isPolicyExemption || protection.ratingA != null);
 
   return {
     side,
     sourcePresent,
     required,
-    protected: required ? Boolean(protection) : true,
+    protected: required ? isProtected : true,
     protection,
   };
 }
 
+function currentLimitedSourceCableFloorA(side: SideSummary | undefined): number | undefined {
+  if (!side) return undefined;
+  if (!side.hasNormalSource) return undefined;
+  if (side.canSourceFaultCurrent || side.hasLoadFollowingSource || side.requiresOvercurrentProtection) return undefined;
+  return positiveNumber(side.sourceCapacityA);
+}
+
 function protectionDevicesForConnection(
   connection: SystemConnection,
+  edge: GraphEdge | undefined,
+  busType: BusType,
   productsByComponent: Map<string, Product | undefined>,
   componentsById: Map<string, SystemComponent>,
+  nodes: Map<string, TerminalNode>,
   adjacency: Map<string, GraphEdge[]>
 ): BranchProtectionDevice[] {
   const productBoundaries = [connection.fromComponentId, connection.toComponentId].flatMap((componentId) => {
@@ -1468,17 +1657,22 @@ function protectionDevicesForConnection(
     terminalKey(connection.fromComponentId, connection.fromTerminalId),
     terminalKey(connection.toComponentId, connection.toTerminalId),
   ];
+  const integratedBoundaries = endpointKeys.flatMap((key) => {
+    const node = nodes.get(key);
+    const device = node && !isParallelBatteryAggregateEndpoint(key, edge, busType, nodes, adjacency)
+      ? integratedProtectionDeviceFromNode(node)
+      : undefined;
+    return device ? [device] : [];
+  });
+  // Also matches a cable landing on a single-slot holder's input (the upstream
+  // terminal of its fuse-slot edge), not just its protected output — see
+  // selectedSlotProtectionAtTerminal.
   const slotBoundaries = endpointKeys.flatMap((key) => {
-    return (adjacency.get(key) ?? [])
-      .filter((edge) => edge.protectedTerminalKey === key && edge.protectionLabel)
-      .map((edge) => ({
-        componentId: edge.componentId ?? '',
-        label: edge.protectionLabel!,
-        ratingA: edge.protectionRatingA,
-      }));
+    const device = selectedSlotProtectionAtTerminal(key, adjacency);
+    return device ? [device] : [];
   });
 
-  return dedupeProtectionDevices([...productBoundaries, ...slotBoundaries]);
+  return dedupeProtectionDevices([...productBoundaries, ...integratedBoundaries, ...slotBoundaries]);
 }
 
 function analyzeConnection(
@@ -1499,8 +1693,8 @@ function analyzeConnection(
   const toNode = nodes.get(toKey);
   const busType = edge?.busType ?? connectionBusType(fromNode, toNode);
   const voltageV = inferredVoltageV ?? voltageForConnection(connection, busType, nodes, system);
-  const protectedBy = protectionDevicesForConnection(connection, productsByComponent, componentsById, adjacency);
-  const selectedProtectionDevices = selectedProtectionDevicesForConnection(connection, nodes, adjacency);
+  const protectedBy = protectionDevicesForConnection(connection, edge, busType, productsByComponent, componentsById, nodes, adjacency);
+  const selectedProtectionDevices = selectedProtectionDevicesForConnection(connection, edge, busType, nodes, adjacency);
   const selectedFuseA = minDefined(...selectedProtectionDevices.map((device) => device.ratingA));
   const maxSelectedFuseA = maxDefined(...selectedProtectionDevices.map((device) => device.ratingA));
   const errors: BranchValidationIssue[] = [];
@@ -1537,8 +1731,18 @@ function analyzeConnection(
   let fromSide: SideSummary | undefined;
   let toSide: SideSummary | undefined;
 
+  let hasRedundantBusPath = false;
   if (edge && isPowerBus(busType) && fromNode && toNode) {
-    fromSide = summarizeSide(collectSide(fromKey, edge.id, busType, adjacency, nodes), nodes);
+    const fromKeys = collectSide(fromKey, edge.id, busType, adjacency, nodes);
+    // collectSide's BFS assumes this edge is the only path between its two sides
+    // (a tree/radial bus). If another same-busType path also connects them — a
+    // second cable between the same two busbars, a wiring loop — blocking just
+    // this edge doesn't actually separate "from" and "to": toKey is still
+    // reachable from fromKey, so fromSide/toSide would silently become the same
+    // merged aggregate and every branch current on the loop would be sized
+    // against the whole network's current instead of its real share.
+    hasRedundantBusPath = fromKeys.has(toKey);
+    fromSide = summarizeSide(fromKeys, nodes);
     toSide = summarizeSide(collectSide(toKey, edge.id, busType, adjacency, nodes), nodes);
     if (!designCurrentA) designCurrentA = edgeCurrentFromSides(fromSide, toSide);
   }
@@ -1568,6 +1772,13 @@ function analyzeConnection(
       errors: [],
       warnings: [],
     };
+  }
+
+  if (hasRedundantBusPath) {
+    addError(
+      'REDUNDANT_BUS_PATH',
+      `More than one ${busType.replace('_', ' ')} path connects the two ends of this conductor (a loop or duplicate wiring) - branch current and sizing on this run cannot be trusted until the redundant connection is removed or the buses are split`
+    );
   }
 
   const sideRequiresProtection = Boolean(fromSide?.requiresOvercurrentProtection || toSide?.requiresOvercurrentProtection);
@@ -1604,12 +1815,40 @@ function analyzeConnection(
   // PV source/output conductors are sized at 156% of design current (NEC 690.8);
   // all other circuits use the standard 125% continuous-load factor.
   const continuousFactor = continuousFactorForBus(busType);
+
+  // A battery's integrated breaker only ever carries that battery's own cell
+  // current (see isParallelBatteryAggregateEndpoint), never the pass-through
+  // current on an interconnect edge. Check it here against the battery's own
+  // proportional share of pack demand instead of this edge's design current.
+  for (const endpointNode of [fromNode, toNode]) {
+    if (!endpointNode || !isBatteryProduct(endpointNode.product)) continue;
+    const device = integratedProtectionDeviceFromNode(endpointNode);
+    if (!device?.ratingA) continue;
+    const ownShareA = batteryOwnShareCurrentA(endpointNode, busType, nodes, adjacency);
+    if (ownShareA == null) continue;
+    if (device.ratingA < ownShareA) {
+      addError(
+        'INTEGRATED_BREAKER_UNDER_OWN_SHARE',
+        `${device.label} (${device.ratingA}A) is below this battery's own ~${ownShareA.toFixed(0)}A share of pack current`
+      );
+    } else if (device.ratingA < ownShareA * continuousFactor) {
+      warnings.push(
+        `${device.label} (${device.ratingA}A) is below the ${(ownShareA * continuousFactor).toFixed(0)}A continuous-load recommendation for this battery's ~${ownShareA.toFixed(0)}A share of pack current`
+      );
+    }
+  }
+
   const minimumFuseA = protectionRequired ? nextStandardFuse(designCurrentA * continuousFactor) : undefined;
   const targetFuseA = minimumFuseA != null ? Math.max(minimumFuseA, preferredFuseA ?? 0) : undefined;
+  const currentLimitedSourceFloorA = maxDefined(
+    currentLimitedSourceCableFloorA(fromSide),
+    currentLimitedSourceCableFloorA(toSide)
+  );
   const cableSizingCurrentA = Math.max(
     designCurrentA * continuousFactor,
     targetFuseA ?? 0,
     maxSelectedFuseA ?? 0,
+    currentLimitedSourceFloorA ?? 0,
     // A return/supply conductor is sized to match its paired leg so a fuse that
     // upsizes one side upsizes the other (both carry the same branch current).
     cableSizingCurrentFloorA ?? 0
@@ -1632,8 +1871,14 @@ function analyzeConnection(
   const dropPercent = voltageV > 0 ? (dropV / voltageV) * 100 : 0;
   const maxFuseByCableA = selectedCable?.ampacity;
   const maximumFuseA = minDefined(maxFuseByCableA, terminalMaxFuseA);
+  // chooseFuse only fails to find a rating when the required minimum exceeds what the
+  // cable/terminal can carry (minimumFuseA is itself always a standard rating, so it
+  // would otherwise always satisfy its own query). Never fall back to that unsafe
+  // minimum here — leaving the recommendation undefined, plus the
+  // FUSE_OVER_CABLE_AMPACITY error below, is the correct signal that the cable or
+  // connector needs to be upsized rather than a fuse that can't protect the conductor.
   const recommendedFuseA = minimumFuseA != null
-    ? chooseFuse(minimumFuseA, maximumFuseA, preferredFuseA) ?? minimumFuseA
+    ? chooseFuse(minimumFuseA, maximumFuseA, preferredFuseA)
     : undefined;
   const effectiveBranchLimitA = selectedFuseA ?? recommendedFuseA;
   const shortSourceLeadMaxFt = system.assumptions.batteryInterconnectMaxLengthFt ?? DEFAULT_ASSUMPTIONS.batteryInterconnectMaxLengthFt;
@@ -1658,11 +1903,14 @@ function analyzeConnection(
     );
   }
 
-  const fuseProtectingCableA = maxSelectedFuseA ?? recommendedFuseA;
-  if ((finalProtectionRequired || selectedFuseA != null) && fuseProtectingCableA != null && maxFuseByCableA != null && fuseProtectingCableA > maxFuseByCableA) {
+  // Falls back to minimumFuseA (the required-but-unreachable rating) so this still
+  // fires when chooseFuse() above correctly declined to recommend an over-ampacity
+  // fuse — the branch still needs to be flagged as unresolved, not silently blank.
+  const fuseProtectingCableA = maxSelectedFuseA ?? recommendedFuseA ?? minimumFuseA;
+  if (fuseProtectingCableA != null && maxFuseByCableA != null && fuseProtectingCableA > maxFuseByCableA) {
     addError(
       'FUSE_OVER_CABLE_AMPACITY',
-      `${fuseProtectingCableA}A fuse exceeds ${selectedAwg} AWG cable ampacity of ${maxFuseByCableA}A`
+      `${fuseProtectingCableA}A required fuse exceeds ${selectedAwg} AWG cable ampacity of ${maxFuseByCableA}A - use a larger cable or higher-rated connector`
     );
   }
 
@@ -1691,10 +1939,22 @@ function analyzeConnection(
 
   for (const status of sourceProtection) {
     if (!status.required || status.protected) continue;
-    addError(
-      'SOURCE_SIDE_PROTECTION_MISSING',
-      `${status.side === 'from' ? 'From' : 'To'} side source can energize this ${busType.replace('_', ' ')} branch without source-side fuse or breaker protection`
-    );
+    const sideLabel = status.side === 'from' ? 'From' : 'To';
+    const busLabel = busType.replace('_', ' ');
+    const sideSummary = status.side === 'from' ? fromSide : toSide;
+    const isParallelBatteryPackOutput = busType === 'dc_pos' && batteryCountOnSide(sideSummary?.keys, nodes, busType) > 1;
+    if (isParallelBatteryPackOutput) {
+      addError(
+        'PACK_FUSE_REQUIRED',
+        `${sideLabel} side parallel battery pack can energize this ${busLabel} branch; add a fuse or breaker on the combined pack positive takeoff`
+      );
+      continue;
+    }
+
+    const message = status.protection && status.protection.ratingA == null
+      ? `${sideLabel} side ${status.protection.label} protects this ${busLabel} branch but has no fuse/breaker rating selected yet`
+      : `${sideLabel} side source can energize this ${busLabel} branch without source-side fuse or breaker protection`;
+    addError('SOURCE_SIDE_PROTECTION_MISSING', message);
   }
 
   const selectedCableIndex = cableTableIndex(selectedAwg);

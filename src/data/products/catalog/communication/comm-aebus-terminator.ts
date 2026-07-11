@@ -1,4 +1,4 @@
-import type { Product } from '../../../../types/system';
+﻿import type { Product } from '../../../../types/system';
 
 const product: Product = {
   id: "comm-aebus-terminator",
@@ -29,7 +29,6 @@ const product: Product = {
       label: "Port",
       role: "bidirectional",
       direction: "bidirectional",
-      connectorType: "RJ45",
       supportedProtocols: ["AEbus"],
       configuredProtocol: "AEbus"
     }

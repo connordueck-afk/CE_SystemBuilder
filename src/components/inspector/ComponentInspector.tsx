@@ -23,8 +23,7 @@ import {
 } from '../../utils/solarCalculations';
 import { isDcBusProduct } from '../../utils/dcBusVoltage';
 import { getTerminalPortId, terminalKind, terminalRole } from '../../utils/portSpecs';
-import { getFuseHolderForProduct } from '../../utils/fuseHolders';
-import { fuseRatingsForStyle, findFuseProductByStyleRating } from '../../utils/fuseSelection';
+import { getFuseRating } from '../../utils/fuseSelection';
 import { getEffectiveTerminals } from '../../utils/effectiveTerminals';
 import type { SystemDesignAnalysis } from '../../utils/analysis';
 import {
@@ -68,7 +67,6 @@ interface Props {
   onUpdateLabel: (id: string, label: string) => void;
   onUpdatePrice: (id: string, price: number | undefined) => void;
   onUpdateIncludeInBom: (id: string, includeInBom: boolean) => void;
-  onUpdateFuseHolder: (id: string, includeFuseHolder: boolean, fuseHolderProductId?: string) => void;
   onUpdateInstanceVoltage: (id: string, voltageV: number | undefined) => void;
   onUpdateDcBusNominalVoltage: (id: string, voltageV: number | undefined) => void;
   onUpdateInstanceMaxCurrent: (id: string, currentA: number | undefined) => void;
@@ -76,6 +74,8 @@ interface Props {
   onUpdateComponentImageScale: (id: string, scale: number) => void;
   onUpdateBusPolarity: (id: string, busPolarity: SystemComponent['busPolarity']) => void;
   onUpdateFuseSlot: (id: string, slotId: string, patch: FuseSlotState) => void;
+  onOpenFusePicker?: (componentId: string, slotId: string) => void;
+  onRemoveFuseSlot?: (componentId: string, slotId: string) => void;
   onUpdateCustomSolarArrayRatings: (id: string, ratings: CustomSolarArrayRatings) => void;
   onUpdateConfiguredProtocol?: (id: string, portId: string, protocol: CommunicationProtocol | undefined) => void;
   onUpdateSourceType?: (id: string, sourceType: DcSourceType | AcSourceType | undefined) => void;
@@ -296,7 +296,7 @@ function PortSummarySection({
           {port.kind === 'comm' && (
             <div className="port-summary-subsection">
               <div className="port-summary-subtitle">Communication Port</div>
-              <SpecRow label="Connector" value={port.connectorType ?? null} />
+              <SpecRow label="Connector" value={effectiveTerminals.find(t => t.connectorType != null)?.connectorType ?? null} />
               {port.isConfigurable && onUpdateConfiguredProtocol ? (
                 <div className="spec-row-editable">
                   <span className="spec-row-label">Protocol</span>
@@ -362,7 +362,6 @@ export function ComponentInspector({
   onUpdateLabel,
   onUpdatePrice,
   onUpdateIncludeInBom,
-  onUpdateFuseHolder,
   onUpdateInstanceVoltage,
   onUpdateDcBusNominalVoltage,
   onUpdateInstanceMaxCurrent,
@@ -370,6 +369,8 @@ export function ComponentInspector({
   onUpdateComponentImageScale,
   onUpdateBusPolarity,
   onUpdateFuseSlot,
+  onOpenFusePicker,
+  onRemoveFuseSlot,
   onUpdateCustomSolarArrayRatings,
   onUpdateConfiguredProtocol,
   onUpdateSourceType,
@@ -393,7 +394,6 @@ export function ComponentInspector({
   const includeInBom = component.includeInBom !== false;
   const fuseSlots = product.distributionTopology?.fuseSlots ?? [];
   const isDcBus = isDcBusProduct(product);
-  const fuseHolder = getFuseHolderForProduct(product);
   const imageScale = componentScale(component);
   const productMaxCableAwg = (() => {
     const awgs = product.terminals
@@ -677,6 +677,68 @@ export function ComponentInspector({
         )}
       </div>
 
+      {fuseSlots.length > 0 && (
+        <div className="inspector-section">
+          <div className="inspector-label">Fuse Slots</div>
+          <div className="fuse-slot-list">
+            {fuseSlots.map((slot) => {
+              const state = component.fuseSlots?.[slot.id] ?? {};
+              const installed = state.installed ?? slot.defaultInstalled ?? false;
+              const fuseStyle = slot.fuseStyle ?? slot.protectionType ?? 'Fuse';
+              const selectedProductId = state.fuseProductId ?? '';
+              const selectedProduct = selectedProductId ? products.get(selectedProductId) : undefined;
+              const fuseRating = selectedProduct ? getFuseRating(selectedProduct) : state.ratingA;
+              const unitPrice = selectedProduct?.msrpUsd;
+
+              const hasSelectedProduct = Boolean(selectedProduct);
+              const hasRating = fuseRating != null;
+
+              return (
+                <div key={slot.id} className={`fuse-slot-row${installed ? '' : ' fuse-slot-row-empty'}`}>
+                  <div className="fuse-slot-header">
+                    <span className="fuse-slot-title">Fuse {slot.label}</span>
+                    <span className={`fuse-slot-rating-badge${fuseRating ? '' : ' fuse-slot-rating-badge--empty'}`}>
+                      {fuseRating ? `${fuseRating}A` : '—'}
+                    </span>
+                  </div>
+                  <div className="fuse-slot-style">
+                    {selectedProduct
+                      ? `${selectedProduct.manufacturer} ${selectedProduct.name}`
+                      : hasRating
+                        ? `Auto-sized ${fuseRating}A · ${fuseStyle}`
+                        : `No fuse selected · ${fuseStyle}`}
+                    {unitPrice != null ? ` · ${fmt(unitPrice)}` : ''}
+                  </div>
+                  {(onOpenFusePicker || (onRemoveFuseSlot && installed)) && (
+                    <div className="fuse-slot-actions">
+                      {onOpenFusePicker && (
+                        <button
+                          type="button"
+                          className="btn-secondary-inline"
+                          onClick={() => onOpenFusePicker(component.id, slot.id)}
+                        >
+                          Pick Fuse
+                        </button>
+                      )}
+                      {onRemoveFuseSlot && installed && (
+                        <button
+                          type="button"
+                          className="btn-remove-inline"
+                          onClick={() => onRemoveFuseSlot(component.id, slot.id)}
+                          title="Remove fuse from this slot"
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {(product.ports?.length ?? 0) > 0 && (
         <div className="inspector-section">
           <div className="inspector-label">Ports</div>
@@ -725,56 +787,6 @@ export function ComponentInspector({
         </div>
       )}
 
-      {fuseSlots.length > 0 && (
-        <div className="inspector-section">
-          <div className="inspector-label">Fuse Slots</div>
-          <div className="fuse-slot-list">
-            {fuseSlots.map((slot) => {
-              const state = component.fuseSlots?.[slot.id] ?? {};
-              const installed = state.installed ?? slot.defaultInstalled ?? false;
-              const ratingA = state.ratingA ?? slot.defaultFuseA;
-              const fuseStyle = slot.fuseStyle ?? slot.protectionType ?? 'Fuse';
-              // Ratings menu: explicit override if present, else derived from the catalog by style.
-              const ratings = slot.allowedFuseRatingsA && slot.allowedFuseRatingsA.length > 0
-                ? [...slot.allowedFuseRatingsA].sort((a, b) => a - b)
-                : fuseRatingsForStyle(products.values(), fuseStyle, slot.maxFuseA);
-              const selectValue = installed && ratingA != null ? String(ratingA) : '';
-              const fuseProduct = installed && ratingA != null
-                ? findFuseProductByStyleRating(products.values(), fuseStyle, ratingA)
-                : undefined;
-              const unitPrice = fuseProduct?.msrpUsd;
-
-              return (
-                <div key={slot.id} className={`fuse-slot-row${installed ? '' : ' fuse-slot-row-empty'}`}>
-                  <span className="fuse-slot-enabled"><span>{slot.label}</span></span>
-                  <select
-                    className="inspector-input fuse-slot-rating"
-                    value={selectValue}
-                    onChange={(e) => {
-                      const v = e.target.value;
-                      if (v === '') {
-                        onUpdateFuseSlot(component.id, slot.id, { installed: false, ratingA: undefined });
-                      } else {
-                        onUpdateFuseSlot(component.id, slot.id, { installed: true, ratingA: Number(v) });
-                      }
-                    }}
-                  >
-                    <option value="">Empty</option>
-                    {ratings.map((r) => (
-                      <option key={r} value={r}>{`${r}A`}</option>
-                    ))}
-                  </select>
-                  <span className="fuse-slot-style">
-                    {fuseStyle}
-                    {unitPrice != null ? ` · ${fmt(unitPrice)}` : ''}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
       <div className="inspector-section">
         <div className="inspector-label">Pricing</div>
         <label className="inspector-checkbox-row">
@@ -785,22 +797,6 @@ export function ComponentInspector({
           />
           <span>Include In BOM</span>
         </label>
-        {fuseHolder && (
-          <label className="inspector-checkbox-row">
-            <input
-              type="checkbox"
-              checked={component.includeFuseHolder === true}
-              onChange={(e) =>
-                onUpdateFuseHolder(
-                  component.id,
-                  e.target.checked,
-                  e.target.checked ? fuseHolder.id : undefined
-                )
-              }
-            />
-            <span>Include fuse holder</span>
-          </label>
-        )}
         <SpecRow label="MSRP" value={fmt(product.msrpUsd ?? null)} />
         <div style={{ marginTop: 6 }}>
           <div style={{ color: 'var(--muted)', fontSize: 11, fontWeight: 600, marginBottom: 3 }}>Price override (unit)</div>

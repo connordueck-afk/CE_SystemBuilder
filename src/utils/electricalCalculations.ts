@@ -23,10 +23,16 @@ import { formatFeetAndInches } from './cableSummary';
 import { analyzeBatteryTopology, type BatteryTopologyAnalysis } from './batteryTopology';
 import { resolveFuseSlot } from './distributionTopology';
 
+// Floating-point rounding guard only (chained division/multiplication across linked
+// jacks and bonded nodes can leave sub-0.1A noise on an exact rating match) — not a
+// deliberate overage allowance. A flat 0.5A tolerance was previously used here, which
+// is negligible on a 100A+ terminal but let a 5A-rated jack silently run ~10% over.
+const OVERCURRENT_ROUNDING_TOLERANCE_A = 0.05;
 const PASS_THROUGH_TYPES = new Set<string>(['fuse', 'breaker']);
 const PASSIVE_ELECTRICAL_TYPES = new Set<string>([
   'busbar',
   'dc_distribution',
+  'fuse_holder',
   'solar_combiner',
   'fuse',
   'breaker',
@@ -265,7 +271,14 @@ export function generateWarnings(
   };
 
   for (const conflict of netlist.conflicts) {
-    warn('error', conflict, 'BUS_TYPE_CONFLICT');
+    const labels = conflict.componentIds
+      .map((id) => componentById.get(id)?.label ?? id)
+      .join(', ');
+    // One warning per component on the conflicted net so each is independently
+    // clickable/locatable, instead of a single unattributed message.
+    for (const componentId of conflict.componentIds) {
+      warn('error', `${conflict.message} Involves: ${labels}.`, 'BUS_TYPE_CONFLICT', componentId);
+    }
   }
 
   for (const interconnect of batteryInterconnects.values()) {
@@ -436,7 +449,7 @@ export function generateWarnings(
       const cablesOnGroup = linkKey ? Math.max(1, cablesPerLinkGroup.get(linkKey) ?? 1) : 1;
       // Linked jacks share their bonded node's current equally across their cables.
       const jackCurrentA = connectionDesignCurrentA(connection) / cablesOnGroup;
-      if (jackCurrentA > terminal.maxCurrentA + 0.5) {
+      if (jackCurrentA > terminal.maxCurrentA + OVERCURRENT_ROUNDING_TOLERANCE_A) {
         warn(
           'error',
           `"${productLabel(comp, product)}" ${terminal.label} connection carries ${jackCurrentA.toFixed(0)}A, above this connection point's ${terminal.maxCurrentA}A rating`,
@@ -503,7 +516,7 @@ export function generateWarnings(
         const busCurrentA = product.productType === 'battery'
           ? batteryInternalShareCurrentA(comp.id, externalBusCurrentA)
           : externalBusCurrentA;
-        if (busCurrentA > portRatingA + 0.5) {
+        if (busCurrentA > portRatingA + OVERCURRENT_ROUNDING_TOLERANCE_A) {
           warn(
             'error',
             `"${productLabel(comp, product)}" ${port.label ?? port.id} internal busbar carries ${busCurrentA.toFixed(0)}A, above its ${portRatingA}A rating`,
@@ -799,7 +812,7 @@ export function generateWarnings(
       !context.protectionRequired ||
       context.designCurrentA <= 0 ||
       context.protectedBy.length > 0 ||
-      context.errors.some((issue) => issue.code === 'SOURCE_SIDE_PROTECTION_MISSING')
+      context.errors.some((issue) => issue.code === 'SOURCE_SIDE_PROTECTION_MISSING' || issue.code === 'PACK_FUSE_REQUIRED')
     ) {
       continue;
     }

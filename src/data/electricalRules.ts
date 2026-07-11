@@ -1,4 +1,7 @@
-export const CONTINUOUS_LOAD_FACTOR = 1.25;
+// NEC 210.19(A)(1)/215.3 call for 125% on continuous loads; we're running 110%
+// as an interim, less-conservative default while fuse sizing is re-evaluated.
+// Revisit: either restore 1.25 or replace with duty-cycle-aware sizing.
+export const CONTINUOUS_LOAD_FACTOR = 1.10;
 
 /**
  * PV source/output circuit sizing factor (NEC 690.8).
@@ -45,6 +48,7 @@ export const SECTION_FOR_TYPE: Record<string, string> = {
   ac_distribution:  'AC Distribution',
   acDisconnect:     'AC Distribution',
   transferSwitch:   'AC Distribution',
+  fuse_holder:      'Protection',
   fuse:             'Protection',
   breaker:          'Protection',
   relay:            'Protection',

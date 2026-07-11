@@ -1,4 +1,4 @@
-﻿import type { SystemDesign } from '../types/system';
+import type { SystemDesign } from '../types/system';
 import { DEFAULT_SYSTEM } from './defaultSystem';
 
 export interface SystemPreset {
@@ -15,63 +15,450 @@ export interface SystemPreset {
 // "Set Default" writer.
 // ----------------------------------------------------------
 const SIMPLE_12V: SystemDesign = {
-  id: "preset-12v-small-rv",
-  name: "12V Small RV",
+  id: "sys-1783612996217-79",
+  name: "12V Bare DC",
   nominalVoltage: 12,
-  assumptions: { ...DEFAULT_SYSTEM.assumptions },
-  createdAt: "2026-07-06T00:00:00.000Z",
-  updatedAt: "2026-07-06T00:00:00.000Z",
+  assumptions: {
+    inverterEfficiency: 0.92,
+    defaultOemDiscountPercent: 30,
+    defaultCableLengthFt: 6,
+    maxVoltageDropPercent: 3,
+    continuousLoadMultiplier: 1.25,
+    batteryInterconnectMaxLengthFt: 3
+  },
+  createdAt: "2026-07-09T16:03:16.217Z",
+  updatedAt: "2026-07-09T22:38:02.860Z",
   components: [
-    { id: "rv12-bat-1", productId: "discover-aes-lithium-12-200", label: "House Battery 1", quantity: 1, x: -360, y: 120, includeInBom: true },
-    { id: "rv12-bat-2", productId: "discover-aes-lithium-12-200", label: "House Battery 2", quantity: 1, x: -360, y: 280, includeInBom: true },
-    { id: "rv12-pack-fuse", productId: "fuse-class-t-225a", label: "Battery 1 Fuse", quantity: 1, x: -160, y: 100, includeInBom: true, rotationDeg: 0, inferredConnectionKind: "dc_power", inferredPolarity: "positive", inferredVoltageClass: "dc_low_voltage" },
-    { id: "rv12-pack-fuse-2", productId: "fuse-class-t-225a", label: "Battery 2 Fuse", quantity: 1, x: -160, y: 240, includeInBom: true, rotationDeg: 0, inferredConnectionKind: "dc_power", inferredPolarity: "positive", inferredVoltageClass: "dc_low_voltage" },
-    { id: "rv12-pos-bus", productId: "dist-generic-busbar-6pt", label: "Positive Busbar", quantity: 1, x: 40, y: 120, includeInBom: true, busPolarity: "positive", inferredConnectionKind: "dc_power", inferredPolarity: "positive", inferredVoltageClass: "dc_low_voltage" },
-    { id: "rv12-neg-bus", productId: "dist-generic-busbar-6pt", label: "Negative Busbar", quantity: 1, x: 40, y: 280, includeInBom: true, busPolarity: "negative", inferredConnectionKind: "dc_power", inferredPolarity: "negative", inferredVoltageClass: "dc_low_voltage" },
-    { id: "rv12-inv-fuse", productId: "fuse-class-t-225a", label: "Inverter Fuse", quantity: 1, x: 240, y: 80, includeInBom: true, inferredConnectionKind: "dc_power", inferredPolarity: "positive", inferredVoltageClass: "dc_low_voltage" },
-    { id: "rv12-inverter", productId: "multiplus-12-2000", label: "MultiPlus 12/2000", quantity: 1, x: 480, y: 120, includeInBom: true },
-    { id: "rv12-ac-source", productId: "generic-generator-source", label: "Shore / Generator", quantity: 1, x: 260, y: 420, includeInBom: true, instanceVoltageV: 120, instanceMaxCurrentA: 20 },
-    { id: "rv12-ac-load", productId: "acc-ac-load-generic", label: "AC Loads", quantity: 1, x: 720, y: 420, includeInBom: true, instanceVoltageV: 120, instanceMaxCurrentA: 15 },
-    { id: "rv12-mppt", productId: "mppt-vic-150-60", label: "SmartSolar MPPT 150/60", quantity: 1, x: 220, y: -260, includeInBom: true },
-    { id: "rv12-pv-1", productId: "solar-array-400w", label: "Solar Panel 1", quantity: 1, x: -320, y: -340, includeInBom: true },
-    { id: "rv12-pv-2", productId: "solar-array-400w", label: "Solar Panel 2", quantity: 1, x: -160, y: -340, includeInBom: true },
-    { id: "rv12-mppt-fuse", productId: "fuse-midi-80a", label: "MPPT Fuse", quantity: 1, x: 40, y: -120, includeInBom: true, inferredConnectionKind: "dc_power", inferredPolarity: "positive", inferredVoltageClass: "dc_low_voltage" },
-    { id: "rv12-alternator", productId: "generic-alternator-source", label: "Vehicle Alternator", quantity: 1, x: -360, y: -80, includeInBom: true, instanceVoltageV: 12, instanceMaxCurrentA: 30 },
-    { id: "rv12-dcdc-in-fuse", productId: "fuse-midi-40a", label: "Alternator Input Fuse", quantity: 1, x: -180, y: -80, includeInBom: true, inferredConnectionKind: "dc_power", inferredPolarity: "positive", inferredVoltageClass: "dc_low_voltage" },
-    { id: "rv12-dcdc", productId: "acc-vic-dc-dc-orion-12-12-30", label: "Orion-Tr Smart 12/12-30A", quantity: 1, x: 20, y: -80, includeInBom: true },
-    { id: "rv12-dcdc-out-fuse", productId: "fuse-midi-40a", label: "DC-DC Output Fuse", quantity: 1, x: 220, y: -80, includeInBom: true, inferredConnectionKind: "dc_power", inferredPolarity: "positive", inferredVoltageClass: "dc_low_voltage" },
-    { id: "rv12-dc-load-fuse", productId: "fuse-midi-30a", label: "DC Load Fuse", quantity: 1, x: 240, y: 260, includeInBom: true, inferredConnectionKind: "dc_power", inferredPolarity: "positive", inferredVoltageClass: "dc_low_voltage" },
-    { id: "rv12-dc-load", productId: "acc-dc-load-generic", label: "12V DC Loads", quantity: 1, x: 480, y: 280, includeInBom: true, instanceVoltageV: 12, instanceMaxCurrentA: 10 }
+    {
+      id: "rv12-bat-1",
+      productId: "discover-aes-lithium-12-200",
+      label: "House Battery",
+      quantity: 1,
+      x: -240,
+      y: 160,
+      includeInBom: true
+    },
+    {
+      id: "rv12-lynx",
+      productId: "dist-vic-lynx-distributor",
+      label: "Lynx Distributor",
+      quantity: 1,
+      x: -40,
+      y: -20,
+      includeInBom: true,
+      dcNominalVoltage: 12,
+      instanceVoltageV: 12,
+      inferredConnectionKind: "dc_power",
+      inferredVoltageClass: "dc_low_voltage",
+      fuseSlots: {
+        slot_1: {
+          installed: true,
+          ratingA: 30,
+          fuseProductId: "fuse-mega-littelfuse-32v-30a"
+        },
+        slot_2: {
+          installed: true,
+          ratingA: 80,
+          fuseProductId: "fuse-mega-littelfuse-32v-80a"
+        },
+        slot_3: {
+          installed: true,
+          ratingA: 40,
+          fuseProductId: "fuse-mega-littelfuse-32v-40a"
+        },
+        slot_4: {
+          installed: false
+        }
+      }
+    },
+    {
+      id: "rv12-alternator",
+      productId: "generic-alternator-source",
+      label: "Vehicle Alternator",
+      quantity: 1,
+      x: -440,
+      y: -80,
+      includeInBom: true,
+      instanceVoltageV: 12,
+      instanceMaxCurrentA: 30
+    },
+    {
+      id: "rv12-dcdc-in-fuse",
+      productId: "holder-midi-1pos-inline",
+      label: "Alternator Input Fuse",
+      quantity: 1,
+      x: -300,
+      y: -120,
+      includeInBom: true,
+      fuseSlots: {
+        slot_1: {
+          installed: true,
+          ratingA: 40
+        }
+      }
+    },
+    {
+      id: "rv12-dcdc",
+      productId: "acc-vic-dc-dc-orion-12-12-30",
+      label: "Orion-Tr Smart 12/12-30A",
+      quantity: 1,
+      x: -40,
+      y: -160,
+      includeInBom: true
+    },
+    {
+      id: "rv12-mppt",
+      productId: "mppt-vic-150-60",
+      label: "SmartSolar MPPT 150/60",
+      quantity: 1,
+      x: 100,
+      y: -380,
+      includeInBom: true
+    },
+    {
+      id: "rv12-pv-1",
+      productId: "solar-array-400w",
+      label: "Solar Panel 1",
+      quantity: 1,
+      x: -220,
+      y: -380,
+      includeInBom: true
+    },
+    {
+      id: "rv12-pv-2",
+      productId: "solar-array-400w",
+      label: "Solar Panel 2",
+      quantity: 1,
+      x: -60,
+      y: -380,
+      includeInBom: true
+    },
+    {
+      id: "rv12-dc-load",
+      productId: "acc-dc-load-generic",
+      label: "12V DC Loads",
+      quantity: 1,
+      x: 260,
+      y: 120,
+      includeInBom: true,
+      instanceVoltageV: 12,
+      instanceMaxCurrentA: 20
+    }
   ],
   connections: [
-    { id: "rv12-bat-1-to-pack-fuse", fromComponentId: "rv12-bat-1", fromTerminalId: "dc_pos", toComponentId: "rv12-pack-fuse", toTerminalId: "in", cableLengthFt: 2 },
-    { id: "rv12-pack-fuse-to-pos-bus", fromComponentId: "rv12-pack-fuse", fromTerminalId: "out", toComponentId: "rv12-pos-bus", toTerminalId: "terminal_1", cableLengthFt: 2 },
-    { id: "rv12-bat-2-to-pack-fuse", fromComponentId: "rv12-bat-2", fromTerminalId: "dc_pos", toComponentId: "rv12-pack-fuse-2", toTerminalId: "in", cableLengthFt: 2 },
-    { id: "rv12-pack-fuse-2-to-pos-bus", fromComponentId: "rv12-pack-fuse-2", fromTerminalId: "out", toComponentId: "rv12-pos-bus", toTerminalId: "terminal_6", cableLengthFt: 2 },
-    { id: "rv12-bat-1-to-neg-bus", fromComponentId: "rv12-bat-1", fromTerminalId: "dc_neg", toComponentId: "rv12-neg-bus", toTerminalId: "terminal_1", cableLengthFt: 2 },
-    { id: "rv12-bat-2-to-neg-bus", fromComponentId: "rv12-bat-2", fromTerminalId: "dc_neg", toComponentId: "rv12-neg-bus", toTerminalId: "terminal_6", cableLengthFt: 2 },
-    { id: "rv12-pos-bus-to-inv-fuse", fromComponentId: "rv12-pos-bus", fromTerminalId: "terminal_2", toComponentId: "rv12-inv-fuse", toTerminalId: "in", cableLengthFt: 3 },
-    { id: "rv12-inv-fuse-to-inverter", fromComponentId: "rv12-inv-fuse", fromTerminalId: "out", toComponentId: "rv12-inverter", toTerminalId: "dc_pos", cableLengthFt: 3 },
-    { id: "rv12-inverter-neg", fromComponentId: "rv12-neg-bus", fromTerminalId: "terminal_2", toComponentId: "rv12-inverter", toTerminalId: "dc_neg", cableLengthFt: 6 },
-    { id: "rv12-pv-series", fromComponentId: "rv12-pv-1", fromTerminalId: "pv_pos", toComponentId: "rv12-pv-2", toTerminalId: "pv_neg", cableLengthFt: 6 },
-    { id: "rv12-pv-neg", fromComponentId: "rv12-pv-1", fromTerminalId: "pv_neg", toComponentId: "rv12-mppt", toTerminalId: "pv_neg", cableLengthFt: 15 },
-    { id: "rv12-pv-pos", fromComponentId: "rv12-pv-2", fromTerminalId: "pv_pos", toComponentId: "rv12-mppt", toTerminalId: "pv_pos", cableLengthFt: 15 },
-    { id: "rv12-mppt-to-fuse", fromComponentId: "rv12-mppt", fromTerminalId: "bat_pos", toComponentId: "rv12-mppt-fuse", toTerminalId: "in", cableLengthFt: 3 },
-    { id: "rv12-mppt-fuse-to-bus", fromComponentId: "rv12-mppt-fuse", fromTerminalId: "out", toComponentId: "rv12-pos-bus", toTerminalId: "terminal_3", cableLengthFt: 3 },
-    { id: "rv12-mppt-neg", fromComponentId: "rv12-mppt", fromTerminalId: "bat_neg", toComponentId: "rv12-neg-bus", toTerminalId: "terminal_3", cableLengthFt: 4 },
-    { id: "rv12-alt-to-input-fuse", fromComponentId: "rv12-alternator", fromTerminalId: "dc_pos", toComponentId: "rv12-dcdc-in-fuse", toTerminalId: "in", cableLengthFt: 3 },
-    { id: "rv12-input-fuse-to-dcdc", fromComponentId: "rv12-dcdc-in-fuse", fromTerminalId: "out", toComponentId: "rv12-dcdc", toTerminalId: "in_pos", cableLengthFt: 3 },
-    { id: "rv12-alt-neg-to-dcdc", fromComponentId: "rv12-alternator", fromTerminalId: "dc_neg", toComponentId: "rv12-dcdc", toTerminalId: "in_neg", cableLengthFt: 6 },
-    { id: "rv12-dcdc-to-output-fuse", fromComponentId: "rv12-dcdc", fromTerminalId: "out_pos", toComponentId: "rv12-dcdc-out-fuse", toTerminalId: "in", cableLengthFt: 3 },
-    { id: "rv12-output-fuse-to-bus", fromComponentId: "rv12-dcdc-out-fuse", fromTerminalId: "out", toComponentId: "rv12-pos-bus", toTerminalId: "terminal_4", cableLengthFt: 3 },
-    { id: "rv12-dcdc-neg", fromComponentId: "rv12-dcdc", fromTerminalId: "out_neg", toComponentId: "rv12-neg-bus", toTerminalId: "terminal_4", cableLengthFt: 4 },
-    { id: "rv12-pos-bus-to-dc-load-fuse", fromComponentId: "rv12-pos-bus", fromTerminalId: "terminal_5", toComponentId: "rv12-dc-load-fuse", toTerminalId: "in", cableLengthFt: 1 },
-    { id: "rv12-dc-load-fuse-to-load", fromComponentId: "rv12-dc-load-fuse", fromTerminalId: "out", toComponentId: "rv12-dc-load", toTerminalId: "dc_pos", cableLengthFt: 4 },
-    { id: "rv12-dc-load-neg", fromComponentId: "rv12-neg-bus", fromTerminalId: "terminal_5", toComponentId: "rv12-dc-load", toTerminalId: "dc_neg", cableLengthFt: 6 },
-    { id: "rv12-ac-source-l", fromComponentId: "rv12-ac-source", fromTerminalId: "ac_l", toComponentId: "rv12-inverter", toTerminalId: "ac_in_l", cableLengthFt: 10 },
-    { id: "rv12-ac-source-n", fromComponentId: "rv12-ac-source", fromTerminalId: "ac_n", toComponentId: "rv12-inverter", toTerminalId: "ac_in_n", cableLengthFt: 10 },
-    { id: "rv12-ac-load-l", fromComponentId: "rv12-inverter", fromTerminalId: "ac_out_l", toComponentId: "rv12-ac-load", toTerminalId: "ac_l", cableLengthFt: 15 },
-    { id: "rv12-ac-load-n", fromComponentId: "rv12-inverter", fromTerminalId: "ac_out_n", toComponentId: "rv12-ac-load", toTerminalId: "ac_n", cableLengthFt: 15 }
+    {
+      id: "rv12-alt-to-input-fuse",
+      fromComponentId: "rv12-alternator",
+      fromTerminalId: "dc_pos",
+      toComponentId: "rv12-dcdc-in-fuse",
+      toTerminalId: "in_pos",
+      cableLengthFt: 3,
+      busType: "dc_pos",
+      calculatedCurrentA: 30,
+      recommendedFuseA: 40,
+      recommendedCableAwg: "12",
+      voltageDropV: 0.286,
+      voltageDropPercent: 2.38,
+      warnings: [],
+      errors: []
+    },
+    {
+      id: "rv12-input-fuse-to-dcdc",
+      fromComponentId: "rv12-dcdc-in-fuse",
+      fromTerminalId: "out_pos",
+      toComponentId: "rv12-dcdc",
+      toTerminalId: "in_pos",
+      cableLengthFt: 3,
+      busType: "dc_pos",
+      calculatedCurrentA: 30,
+      recommendedFuseA: 40,
+      recommendedCableAwg: "12",
+      voltageDropV: 0.286,
+      voltageDropPercent: 2.38,
+      warnings: [],
+      errors: []
+    },
+    {
+      id: "rv12-alt-neg-to-dcdc",
+      fromComponentId: "rv12-alternator",
+      fromTerminalId: "dc_neg",
+      toComponentId: "rv12-dcdc",
+      toTerminalId: "in_neg",
+      cableLengthFt: 6,
+      busType: "dc_neg",
+      calculatedCurrentA: 30,
+      recommendedCableAwg: "10",
+      voltageDropV: 0.36,
+      voltageDropPercent: 3,
+      warnings: [],
+      routePoints: [
+        {
+          x: -45,
+          y: -70
+        }
+      ],
+      routeMode: "manual",
+      errors: []
+    },
+    {
+      id: "rv12-pv-series",
+      fromComponentId: "rv12-pv-1",
+      fromTerminalId: "pv_pos",
+      toComponentId: "rv12-pv-2",
+      toTerminalId: "pv_neg",
+      cableLengthFt: 6,
+      busType: "unknown",
+      calculatedCurrentA: 12,
+      recommendedCableAwg: "18",
+      voltageDropV: 0.919,
+      voltageDropPercent: 2.7,
+      warnings: [],
+      errors: []
+    },
+    {
+      id: "rv12-pv-neg-to-mppt",
+      fromComponentId: "rv12-pv-1",
+      fromTerminalId: "pv_neg",
+      toComponentId: "rv12-mppt",
+      toTerminalId: "pv_neg",
+      cableLengthFt: 12,
+      busType: "pv_neg",
+      calculatedCurrentA: 12,
+      recommendedCableAwg: "14",
+      voltageDropV: 0.727,
+      voltageDropPercent: 2.14,
+      warnings: [],
+      routePoints: [
+        {
+          x: -245,
+          y: -290
+        },
+        {
+          x: 72,
+          y: -290
+        }
+      ],
+      routeMode: "manual",
+      errors: []
+    },
+    {
+      id: "rv12-pv-pos-to-mppt",
+      fromComponentId: "rv12-pv-2",
+      fromTerminalId: "pv_pos",
+      toComponentId: "rv12-mppt",
+      toTerminalId: "pv_pos",
+      cableLengthFt: 12,
+      busType: "pv_pos",
+      calculatedCurrentA: 12,
+      recommendedCableAwg: "14",
+      voltageDropV: 0.727,
+      voltageDropPercent: 2.14,
+      warnings: [],
+      routePoints: [
+        {
+          x: -35,
+          y: -280
+        },
+        {
+          x: 91,
+          y: -280
+        }
+      ],
+      routeMode: "manual",
+      errors: [],
+      recommendedFuseA: 20
+    },
+    {
+      id: "conn-1783539219742-1",
+      fromComponentId: "rv12-dcdc",
+      fromTerminalId: "out_neg",
+      toComponentId: "rv12-lynx",
+      toTerminalId: "out_neg_3",
+      cableLengthFt: 6,
+      routePoints: [
+        {
+          x: -24,
+          y: -110
+        },
+        {
+          x: 60,
+          y: -110
+        },
+        {
+          x: 60,
+          y: 50
+        },
+        {
+          x: -6,
+          y: 50
+        }
+      ],
+      routeMode: "manual",
+      busType: "dc_neg",
+      calculatedCurrentA: 30,
+      recommendedCableAwg: "10",
+      voltageDropV: 0.36,
+      voltageDropPercent: 3,
+      warnings: [],
+      errors: []
+    },
+    {
+      id: "conn-1783539221718-2",
+      fromComponentId: "rv12-dcdc",
+      fromTerminalId: "out_pos",
+      toComponentId: "rv12-lynx",
+      toTerminalId: "out_pos_3",
+      cableLengthFt: 6,
+      routePoints: [
+        {
+          x: -35,
+          y: -100
+        },
+        {
+          x: 70,
+          y: -100
+        },
+        {
+          x: 70,
+          y: 60
+        },
+        {
+          x: -16,
+          y: 60
+        }
+      ],
+      routeMode: "manual",
+      busType: "dc_pos",
+      calculatedCurrentA: 30,
+      recommendedFuseA: 40,
+      recommendedCableAwg: "10",
+      voltageDropV: 0.36,
+      voltageDropPercent: 3,
+      warnings: [],
+      errors: []
+    },
+    {
+      id: "conn-1783539238957-3",
+      fromComponentId: "rv12-mppt",
+      fromTerminalId: "bat_neg",
+      toComponentId: "rv12-lynx",
+      toTerminalId: "out_neg_2",
+      cableLengthFt: 6,
+      routePoints: [
+        {
+          x: 128,
+          y: 90
+        },
+        {
+          x: -39,
+          y: 90
+        }
+      ],
+      routeMode: "manual",
+      busType: "dc_neg",
+      calculatedCurrentA: 60,
+      recommendedCableAwg: "6",
+      voltageDropV: 0.284,
+      voltageDropPercent: 2.37,
+      warnings: [],
+      errors: []
+    },
+    {
+      id: "conn-1783539240902-4",
+      fromComponentId: "rv12-lynx",
+      fromTerminalId: "out_pos_2",
+      toComponentId: "rv12-mppt",
+      toTerminalId: "bat_pos",
+      cableLengthFt: 6,
+      routePoints: [
+        {
+          x: -49,
+          y: 80
+        },
+        {
+          x: 209,
+          y: 80
+        }
+      ],
+      routeMode: "manual",
+      busType: "dc_pos",
+      calculatedCurrentA: 60,
+      recommendedFuseA: 75,
+      recommendedCableAwg: "6",
+      voltageDropV: 0.284,
+      voltageDropPercent: 2.37,
+      warnings: [],
+      errors: []
+    },
+    {
+      id: "conn-1783539247566-5",
+      fromComponentId: "rv12-lynx",
+      fromTerminalId: "out_neg_1",
+      toComponentId: "rv12-dc-load",
+      toTerminalId: "dc_neg",
+      cableLengthFt: 6,
+      busType: "dc_neg",
+      calculatedCurrentA: 20,
+      recommendedCableAwg: "10",
+      voltageDropV: 0.24,
+      voltageDropPercent: 2,
+      warnings: [],
+      errors: []
+    },
+    {
+      id: "conn-1783539249493-6",
+      fromComponentId: "rv12-lynx",
+      fromTerminalId: "out_pos_1",
+      toComponentId: "rv12-dc-load",
+      toTerminalId: "dc_pos",
+      cableLengthFt: 6,
+      busType: "dc_pos",
+      calculatedCurrentA: 20,
+      recommendedFuseA: 25,
+      recommendedCableAwg: "10",
+      voltageDropV: 0.24,
+      voltageDropPercent: 2,
+      warnings: [],
+      errors: []
+    },
+    {
+      id: "rv12-bat-1-to-lynx-neg",
+      fromComponentId: "rv12-bat-1",
+      fromTerminalId: "dc_neg",
+      toComponentId: "rv12-lynx",
+      toTerminalId: "main_neg",
+      cableLengthFt: 6,
+      busType: "dc_neg",
+      calculatedCurrentA: 90,
+      recommendedCableAwg: "4",
+      voltageDropV: 0.269,
+      voltageDropPercent: 2.1,
+      warnings: [],
+      errors: []
+    },
+    {
+      id: "conn-1783636682856-7",
+      fromComponentId: "rv12-bat-1",
+      fromTerminalId: "dc_pos",
+      toComponentId: "rv12-lynx",
+      toTerminalId: "main_pos",
+      cableLengthFt: 6,
+      routePoints: [
+        {
+          x: -196,
+          y: -45
+        }
+      ],
+      routeMode: "auto",
+      busType: "dc_pos",
+      calculatedCurrentA: 90,
+      recommendedFuseA: 125,
+      recommendedCableAwg: "4",
+      voltageDropV: 0.269,
+      voltageDropPercent: 2.1,
+      warnings: [],
+      errors: []
+    }
   ],
   annotations: []
 };
@@ -86,10 +473,10 @@ const MEDIUM_24V: SystemDesign = {
   components: [
     { id: "rv24-bat-1", productId: "discover-aes-lithium-24-100", label: "House Battery 1", quantity: 1, x: -420, y: 120, includeInBom: true },
     { id: "rv24-bat-2", productId: "discover-aes-lithium-24-100", label: "House Battery 2", quantity: 1, x: -420, y: 280, includeInBom: true },
-    { id: "rv24-pack-fuse", productId: "fuse-class-t-175a", label: "Main Battery Fuse", quantity: 1, x: -220, y: 120, includeInBom: true, inferredConnectionKind: "dc_power", inferredPolarity: "positive", inferredVoltageClass: "dc_low_voltage" },
+    { id: "rv24-pack-fuse", productId: "holder-class-t-1pos", label: "Main Battery Fuse", quantity: 1, x: -220, y: 120, includeInBom: true, fuseSlots: { slot_1: { installed: true, ratingA: 175 } } },
     { id: "rv24-pos-bus", productId: "dist-generic-busbar-5pt", label: "Positive Busbar", quantity: 1, x: 0, y: 120, includeInBom: true, busPolarity: "positive", inferredConnectionKind: "dc_power", inferredPolarity: "positive", inferredVoltageClass: "dc_low_voltage" },
     { id: "rv24-neg-bus", productId: "dist-generic-busbar-5pt", label: "Negative Busbar", quantity: 1, x: 0, y: 280, includeInBom: true, busPolarity: "negative", inferredConnectionKind: "dc_power", inferredPolarity: "negative", inferredVoltageClass: "dc_low_voltage" },
-    { id: "rv24-inv-fuse", productId: "fuse-class-t-175a", label: "Inverter Fuse", quantity: 1, x: 220, y: 80, includeInBom: true, inferredConnectionKind: "dc_power", inferredPolarity: "positive", inferredVoltageClass: "dc_low_voltage" },
+    { id: "rv24-inv-fuse", productId: "holder-class-t-1pos", label: "Inverter Fuse", quantity: 1, x: 220, y: 80, includeInBom: true, fuseSlots: { slot_1: { installed: true, ratingA: 175 } } },
     { id: "rv24-inverter", productId: "inv-vic-mp2-24-3000", label: "MultiPlus-II 24/3000", quantity: 1, x: 480, y: 120, includeInBom: true },
     { id: "rv24-ac-source", productId: "generic-generator-source", label: "Shore / Generator", quantity: 1, x: 240, y: 430, includeInBom: true, instanceVoltageV: 120, instanceMaxCurrentA: 30 },
     { id: "rv24-ac-load", productId: "acc-ac-load-generic", label: "AC Loads", quantity: 1, x: 720, y: 430, includeInBom: true, instanceVoltageV: 120, instanceMaxCurrentA: 20 },
@@ -99,23 +486,23 @@ const MEDIUM_24V: SystemDesign = {
     { id: "rv24-pv-3", productId: "solar-array-400w", label: "Solar Panel 3", quantity: 1, x: -520, y: -340, includeInBom: true },
     { id: "rv24-pv-4", productId: "solar-array-400w", label: "Solar Panel 4", quantity: 1, x: -360, y: -340, includeInBom: true },
     { id: "rv24-combiner", productId: "solar-combiner-2-string", label: "PV Combiner", quantity: 1, x: -80, y: -400, includeInBom: true },
-    { id: "rv24-mppt-fuse", productId: "fuse-midi-80a", label: "MPPT Fuse", quantity: 1, x: 40, y: -120, includeInBom: true, inferredConnectionKind: "dc_power", inferredPolarity: "positive", inferredVoltageClass: "dc_low_voltage" },
+    { id: "rv24-mppt-fuse", productId: "holder-midi-1pos-inline", label: "MPPT Fuse", quantity: 1, x: 40, y: -120, includeInBom: true, fuseSlots: { slot_1: { installed: true, ratingA: 80 } } },
     { id: "rv24-alternator", productId: "generic-alternator-source", label: "Vehicle Alternator", quantity: 1, x: -420, y: -80, includeInBom: true, instanceVoltageV: 12, instanceMaxCurrentA: 30 },
-    { id: "rv24-dcdc-in-fuse", productId: "fuse-midi-30a", label: "Alternator Input Fuse", quantity: 1, x: -240, y: -80, includeInBom: true, inferredConnectionKind: "dc_power", inferredPolarity: "positive", inferredVoltageClass: "dc_low_voltage" },
+    { id: "rv24-dcdc-in-fuse", productId: "holder-midi-1pos-inline", label: "Alternator Input Fuse", quantity: 1, x: -240, y: -80, includeInBom: true, fuseSlots: { slot_1: { installed: true, ratingA: 30 } } },
     { id: "rv24-dcdc", productId: "orion-tr-smart-12-24-15-non-isolated", label: "Orion-Tr Smart 12/24-15A", quantity: 1, x: -40, y: -80, includeInBom: true },
-    { id: "rv24-dcdc-out-fuse", productId: "fuse-midi-30a", label: "DC-DC Output Fuse", quantity: 1, x: 160, y: -80, includeInBom: true, inferredConnectionKind: "dc_power", inferredPolarity: "positive", inferredVoltageClass: "dc_low_voltage" },
+    { id: "rv24-dcdc-out-fuse", productId: "holder-midi-1pos-inline", label: "DC-DC Output Fuse", quantity: 1, x: 160, y: -80, includeInBom: true, fuseSlots: { slot_1: { installed: true, ratingA: 30 } } },
     { id: "rv24-converter", productId: "orion-tr-24-12-30-converter", label: "24V to 12V Converter", quantity: 1, x: 260, y: 280, includeInBom: true },
-    { id: "rv24-converter-fuse", productId: "fuse-midi-40a", label: "12V Load Fuse", quantity: 1, x: 500, y: 280, includeInBom: true, inferredConnectionKind: "dc_power", inferredPolarity: "positive", inferredVoltageClass: "dc_low_voltage" },
+    { id: "rv24-converter-fuse", productId: "holder-midi-1pos-inline", label: "12V Load Fuse", quantity: 1, x: 500, y: 280, includeInBom: true, fuseSlots: { slot_1: { installed: true, ratingA: 40 } } },
     { id: "rv24-dc-load", productId: "acc-dc-load-generic", label: "12V DC Loads", quantity: 1, x: 720, y: 280, includeInBom: true, instanceVoltageV: 12, instanceMaxCurrentA: 20 }
   ],
   connections: [
     { id: "rv24-bat-pos-link", fromComponentId: "rv24-bat-2", fromTerminalId: "dc_pos", toComponentId: "rv24-bat-1", toTerminalId: "dc_pos", cableLengthFt: 2 },
     { id: "rv24-bat-neg-link", fromComponentId: "rv24-bat-2", fromTerminalId: "dc_neg", toComponentId: "rv24-bat-1", toTerminalId: "dc_neg", cableLengthFt: 2 },
-    { id: "rv24-bat-to-pack-fuse", fromComponentId: "rv24-bat-1", fromTerminalId: "dc_pos", toComponentId: "rv24-pack-fuse", toTerminalId: "in", cableLengthFt: 2 },
-    { id: "rv24-pack-fuse-to-pos-bus", fromComponentId: "rv24-pack-fuse", fromTerminalId: "out", toComponentId: "rv24-pos-bus", toTerminalId: "terminal_1", cableLengthFt: 2 },
+    { id: "rv24-bat-to-pack-fuse", fromComponentId: "rv24-bat-1", fromTerminalId: "dc_pos", toComponentId: "rv24-pack-fuse", toTerminalId: "in_pos", cableLengthFt: 2 },
+    { id: "rv24-pack-fuse-to-pos-bus", fromComponentId: "rv24-pack-fuse", fromTerminalId: "out_pos", toComponentId: "rv24-pos-bus", toTerminalId: "terminal_1", cableLengthFt: 2 },
     { id: "rv24-bat-to-neg-bus", fromComponentId: "rv24-bat-1", fromTerminalId: "dc_neg", toComponentId: "rv24-neg-bus", toTerminalId: "terminal_1", cableLengthFt: 2 },
-    { id: "rv24-pos-bus-to-inv-fuse", fromComponentId: "rv24-pos-bus", fromTerminalId: "terminal_2", toComponentId: "rv24-inv-fuse", toTerminalId: "in", cableLengthFt: 3 },
-    { id: "rv24-inv-fuse-to-inverter", fromComponentId: "rv24-inv-fuse", fromTerminalId: "out", toComponentId: "rv24-inverter", toTerminalId: "dc_pos", cableLengthFt: 3 },
+    { id: "rv24-pos-bus-to-inv-fuse", fromComponentId: "rv24-pos-bus", fromTerminalId: "terminal_2", toComponentId: "rv24-inv-fuse", toTerminalId: "in_pos", cableLengthFt: 3 },
+    { id: "rv24-inv-fuse-to-inverter", fromComponentId: "rv24-inv-fuse", fromTerminalId: "out_pos", toComponentId: "rv24-inverter", toTerminalId: "dc_pos", cableLengthFt: 3 },
     { id: "rv24-inverter-neg", fromComponentId: "rv24-neg-bus", fromTerminalId: "terminal_2", toComponentId: "rv24-inverter", toTerminalId: "dc_neg", cableLengthFt: 6 },
     { id: "rv24-pv-s1-series", fromComponentId: "rv24-pv-1", fromTerminalId: "pv_pos", toComponentId: "rv24-pv-2", toTerminalId: "pv_neg", cableLengthFt: 6 },
     { id: "rv24-pv-s2-series", fromComponentId: "rv24-pv-3", fromTerminalId: "pv_pos", toComponentId: "rv24-pv-4", toTerminalId: "pv_neg", cableLengthFt: 6 },
@@ -125,19 +512,19 @@ const MEDIUM_24V: SystemDesign = {
     { id: "rv24-pv-s2-pos", fromComponentId: "rv24-pv-4", fromTerminalId: "pv_pos", toComponentId: "rv24-combiner", toTerminalId: "string_2_pos", cableLengthFt: 8 },
     { id: "rv24-combiner-to-mppt-pos", fromComponentId: "rv24-combiner", fromTerminalId: "out_pos", toComponentId: "rv24-mppt", toTerminalId: "pv_pos", cableLengthFt: 12 },
     { id: "rv24-combiner-to-mppt-neg", fromComponentId: "rv24-combiner", fromTerminalId: "out_neg", toComponentId: "rv24-mppt", toTerminalId: "pv_neg", cableLengthFt: 12 },
-    { id: "rv24-mppt-to-fuse", fromComponentId: "rv24-mppt", fromTerminalId: "bat_pos", toComponentId: "rv24-mppt-fuse", toTerminalId: "in", cableLengthFt: 3 },
-    { id: "rv24-mppt-fuse-to-bus", fromComponentId: "rv24-mppt-fuse", fromTerminalId: "out", toComponentId: "rv24-pos-bus", toTerminalId: "terminal_3", cableLengthFt: 3 },
+    { id: "rv24-mppt-to-fuse", fromComponentId: "rv24-mppt", fromTerminalId: "bat_pos", toComponentId: "rv24-mppt-fuse", toTerminalId: "in_pos", cableLengthFt: 3 },
+    { id: "rv24-mppt-fuse-to-bus", fromComponentId: "rv24-mppt-fuse", fromTerminalId: "out_pos", toComponentId: "rv24-pos-bus", toTerminalId: "terminal_3", cableLengthFt: 3 },
     { id: "rv24-mppt-neg", fromComponentId: "rv24-mppt", fromTerminalId: "bat_neg", toComponentId: "rv24-neg-bus", toTerminalId: "terminal_3", cableLengthFt: 4 },
-    { id: "rv24-alt-to-input-fuse", fromComponentId: "rv24-alternator", fromTerminalId: "dc_pos", toComponentId: "rv24-dcdc-in-fuse", toTerminalId: "in", cableLengthFt: 3 },
-    { id: "rv24-input-fuse-to-dcdc", fromComponentId: "rv24-dcdc-in-fuse", fromTerminalId: "out", toComponentId: "rv24-dcdc", toTerminalId: "in_pos", cableLengthFt: 3 },
+    { id: "rv24-alt-to-input-fuse", fromComponentId: "rv24-alternator", fromTerminalId: "dc_pos", toComponentId: "rv24-dcdc-in-fuse", toTerminalId: "in_pos", cableLengthFt: 3 },
+    { id: "rv24-input-fuse-to-dcdc", fromComponentId: "rv24-dcdc-in-fuse", fromTerminalId: "out_pos", toComponentId: "rv24-dcdc", toTerminalId: "in_pos", cableLengthFt: 3 },
     { id: "rv24-alt-neg-to-dcdc", fromComponentId: "rv24-alternator", fromTerminalId: "dc_neg", toComponentId: "rv24-dcdc", toTerminalId: "in_neg", cableLengthFt: 6 },
-    { id: "rv24-dcdc-to-output-fuse", fromComponentId: "rv24-dcdc", fromTerminalId: "out_pos", toComponentId: "rv24-dcdc-out-fuse", toTerminalId: "in", cableLengthFt: 3 },
-    { id: "rv24-output-fuse-to-bus", fromComponentId: "rv24-dcdc-out-fuse", fromTerminalId: "out", toComponentId: "rv24-pos-bus", toTerminalId: "terminal_4", cableLengthFt: 3 },
+    { id: "rv24-dcdc-to-output-fuse", fromComponentId: "rv24-dcdc", fromTerminalId: "out_pos", toComponentId: "rv24-dcdc-out-fuse", toTerminalId: "in_pos", cableLengthFt: 3 },
+    { id: "rv24-output-fuse-to-bus", fromComponentId: "rv24-dcdc-out-fuse", fromTerminalId: "out_pos", toComponentId: "rv24-pos-bus", toTerminalId: "terminal_4", cableLengthFt: 3 },
     { id: "rv24-dcdc-neg", fromComponentId: "rv24-dcdc", fromTerminalId: "out_neg", toComponentId: "rv24-neg-bus", toTerminalId: "terminal_4", cableLengthFt: 4 },
     { id: "rv24-pos-bus-to-converter", fromComponentId: "rv24-pos-bus", fromTerminalId: "terminal_5", toComponentId: "rv24-converter", toTerminalId: "in_pos", cableLengthFt: 4 },
     { id: "rv24-converter-neg", fromComponentId: "rv24-neg-bus", fromTerminalId: "terminal_5", toComponentId: "rv24-converter", toTerminalId: "in_neg", cableLengthFt: 4 },
-    { id: "rv24-converter-to-load-fuse", fromComponentId: "rv24-converter", fromTerminalId: "out_pos", toComponentId: "rv24-converter-fuse", toTerminalId: "in", cableLengthFt: 3 },
-    { id: "rv24-load-fuse-to-load", fromComponentId: "rv24-converter-fuse", fromTerminalId: "out", toComponentId: "rv24-dc-load", toTerminalId: "dc_pos", cableLengthFt: 4 },
+    { id: "rv24-converter-to-load-fuse", fromComponentId: "rv24-converter", fromTerminalId: "out_pos", toComponentId: "rv24-converter-fuse", toTerminalId: "in_pos", cableLengthFt: 3 },
+    { id: "rv24-load-fuse-to-load", fromComponentId: "rv24-converter-fuse", fromTerminalId: "out_pos", toComponentId: "rv24-dc-load", toTerminalId: "dc_pos", cableLengthFt: 4 },
     { id: "rv24-load-neg", fromComponentId: "rv24-converter", fromTerminalId: "out_neg", toComponentId: "rv24-dc-load", toTerminalId: "dc_neg", cableLengthFt: 4 },
     { id: "rv24-ac-source-l", fromComponentId: "rv24-ac-source", fromTerminalId: "ac_l", toComponentId: "rv24-inverter", toTerminalId: "ac_in_l", cableLengthFt: 10 },
     { id: "rv24-ac-source-n", fromComponentId: "rv24-ac-source", fromTerminalId: "ac_n", toComponentId: "rv24-inverter", toTerminalId: "ac_in_n", cableLengthFt: 10 },
@@ -215,13 +602,14 @@ const OFFGRID_48V: SystemDesign = {
     },
     {
       id: "comp-1782867508123-18",
-      productId: "fuse-class-t-350a",
-      label: "Fuse",
+      productId: "holder-class-t-1pos",
+      label: "Battery Fuse",
       quantity: 1,
       x: 260,
       y: -580,
       rotationDeg: 180,
       includeInBom: true,
+      fuseSlots: { slot_1: { installed: true, ratingA: 350 } },
       inferredConnectionKind: "dc_power",
       inferredPolarity: "positive",
       inferredVoltageClass: "dc_low_voltage"
@@ -616,7 +1004,7 @@ const OFFGRID_48V: SystemDesign = {
       fromComponentId: "comp-1782867373333-10",
       fromTerminalId: "dc_pos_1",
       toComponentId: "comp-1782867508123-18",
-      toTerminalId: "in",
+      toTerminalId: "in_pos",
       cableLengthFt: 3,
       routePoints: [
         {
@@ -636,7 +1024,7 @@ const OFFGRID_48V: SystemDesign = {
     {
       id: "conn-1782867508124-20",
       fromComponentId: "comp-1782867508123-18",
-      fromTerminalId: "out",
+      fromTerminalId: "out_pos",
       toComponentId: "comp-1782867470682-15",
       toTerminalId: "dc_pos",
       cableLengthFt: 3,
@@ -1438,15 +1826,13 @@ const FULL_12V: SystemDesign = {
     },
     {
       id: "rv24-pack-fuse",
-      productId: "fuse-class-t-200a",
+      productId: "holder-class-t-1pos",
       label: "Main Battery Fuse",
       quantity: 1,
       x: -220,
       y: 120,
       includeInBom: true,
-      inferredConnectionKind: "dc_power",
-      inferredPolarity: "positive",
-      inferredVoltageClass: "dc_low_voltage"
+      fuseSlots: { slot_1: { installed: true, ratingA: 200 } }
     },
     {
       id: "rv24-pos-bus",
@@ -1474,15 +1860,13 @@ const FULL_12V: SystemDesign = {
     },
     {
       id: "rv24-inv-fuse",
-      productId: "fuse-class-t-175a",
+      productId: "holder-class-t-1pos",
       label: "Inverter Fuse",
       quantity: 1,
       x: 220,
       y: 80,
       includeInBom: true,
-      inferredConnectionKind: "dc_power",
-      inferredPolarity: "positive",
-      inferredVoltageClass: "dc_low_voltage"
+      fuseSlots: { slot_1: { installed: true, ratingA: 175 } }
     },
     {
       id: "rv24-inverter",
@@ -1571,15 +1955,13 @@ const FULL_12V: SystemDesign = {
     },
     {
       id: "rv24-mppt-fuse",
-      productId: "fuse-midi-80a",
+      productId: "holder-midi-1pos-inline",
       label: "MPPT Fuse",
       quantity: 1,
       x: 40,
       y: -120,
       includeInBom: true,
-      inferredConnectionKind: "dc_power",
-      inferredPolarity: "positive",
-      inferredVoltageClass: "dc_low_voltage"
+      fuseSlots: { slot_1: { installed: true, ratingA: 80 } }
     },
     {
       id: "rv24-alternator",
@@ -1594,15 +1976,13 @@ const FULL_12V: SystemDesign = {
     },
     {
       id: "rv24-dcdc-in-fuse",
-      productId: "fuse-midi-30a",
+      productId: "holder-midi-1pos-inline",
       label: "Alternator Input Fuse",
       quantity: 1,
       x: -240,
       y: -80,
       includeInBom: true,
-      inferredConnectionKind: "dc_power",
-      inferredPolarity: "positive",
-      inferredVoltageClass: "dc_low_voltage"
+      fuseSlots: { slot_1: { installed: true, ratingA: 30 } }
     },
     {
       id: "rv24-dcdc",
@@ -1615,15 +1995,13 @@ const FULL_12V: SystemDesign = {
     },
     {
       id: "rv24-dcdc-out-fuse",
-      productId: "fuse-midi-30a",
+      productId: "holder-midi-1pos-inline",
       label: "DC-DC Output Fuse",
       quantity: 1,
       x: 160,
       y: -80,
       includeInBom: true,
-      inferredConnectionKind: "dc_power",
-      inferredPolarity: "positive",
-      inferredVoltageClass: "dc_low_voltage"
+      fuseSlots: { slot_1: { installed: true, ratingA: 30 } }
     },
     {
       id: "rv24-converter",
@@ -1636,15 +2014,13 @@ const FULL_12V: SystemDesign = {
     },
     {
       id: "rv24-converter-fuse",
-      productId: "fuse-midi-40a",
+      productId: "holder-midi-1pos-inline",
       label: "12V Load Fuse",
       quantity: 1,
       x: 500,
       y: 280,
       includeInBom: true,
-      inferredConnectionKind: "dc_power",
-      inferredPolarity: "positive",
-      inferredVoltageClass: "dc_low_voltage"
+      fuseSlots: { slot_1: { installed: true, ratingA: 40 } }
     },
     {
       id: "rv24-dc-load",
@@ -2195,11 +2571,11 @@ const FULL_12V: SystemDesign = {
 export const SYSTEM_PRESETS: SystemPreset[] = [
   {
     id: 'simple-12v',
-    name: '12V Small RV',
+    name: '12V Bare DC',
     description:
-      'Compact 12V RV system: 2x Discover AES-B batteries, Victron MultiPlus 12/2000, MPPT 150/60, Orion 12/12 DC-DC charging, and dual 400W PV panels.',
+      'Minimal 12V DC-only system: Discover AES-B battery, Victron MPPT 150/60 with 2x 400W panels, Orion 12/12-30A DC-DC charger, and DC loads.',
     voltage: 12,
-    tags: ['12V', 'Small RV', 'Solar', 'DC-DC', 'Lithium'],
+    tags: ['12V', 'DC-Only', 'Solar', 'DC-DC', 'Lithium'],
     system: SIMPLE_12V,
   },
   {

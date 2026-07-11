@@ -1,4 +1,4 @@
-import type { Product } from '../../../../types/system';
+﻿import type { Product } from '../../../../types/system';
 
 const product: Product = {
   id: "kisae-ic122055",
@@ -214,7 +214,6 @@ const product: Product = {
       topology: "two_pole",
       role: "bidirectional",
       direction: "bidirectional",
-      connectorType: "RJ45",
       supportedProtocols: ["VE.Bus"],
       configuredProtocol: "VE.Bus"
     }

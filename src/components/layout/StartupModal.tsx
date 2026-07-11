@@ -53,7 +53,7 @@ export function StartupModal({ hasCachedSystem, onResume, onNewSystem, onLoadFro
       <div className="new-system-modal" onClick={(e) => e.stopPropagation()}>
         <div className="new-system-modal-header">
           <div>
-            <div className="modal-title">Welcome to System Builder</div>
+            <div className="modal-title">Welcome to DES System Builder</div>
             <div className="new-system-modal-subtitle">How would you like to get started?</div>
           </div>
         </div>

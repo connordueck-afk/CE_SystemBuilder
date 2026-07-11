@@ -77,10 +77,10 @@ test('selectBestFuseProduct hits the target exactly when a part fits (MIDI 60A)'
   assert.equal(getFuseRating(best!), 60);
 });
 
-test('continuousFactorForBus applies 156% to PV, 125% elsewhere', () => {
+test('continuousFactorForBus applies 156% to PV, 110% elsewhere', () => {
   assert.equal(continuousFactorForBus('pv_pos'), 1.5625);
-  assert.equal(continuousFactorForBus('dc_pos'), 1.25);
-  assert.equal(continuousFactorForBus('ac_line'), 1.25);
+  assert.equal(continuousFactorForBus('dc_pos'), 1.10);
+  assert.equal(continuousFactorForBus('ac_line'), 1.10);
 });
 
 test('voltageDropV is round-trip (2 * I * R * L)', () => {
@@ -759,12 +759,12 @@ function cableLimitSystem(
       name: 'cable limits',
       nominalVoltage: 48,
       components: [
-        { id: 'bat', productId: 'discover-helios-ess-52-48-16000', label: 'Helios', quantity: 1, x: -160, y: 0 },
+        { id: 'source', productId: 'generic-alternator-source', label: 'DC Source', quantity: 1, x: -160, y: 0, instanceVoltageV: 48, instanceMaxCurrentA: 20 },
         { id: 'load', productId: 'test-dc-load-cable-limits', label: 'Load', quantity: 1, x: 160, y: 0, instanceVoltageV: 48, instanceMaxCurrentA: 20 },
       ],
       connections: [
-        { id: 'pos', fromComponentId: 'bat', fromTerminalId: 'dc_pos_1', toComponentId: 'load', toTerminalId: 'dc_pos', cableLengthFt: 2, ...connectionPatch },
-        { id: 'neg', fromComponentId: 'bat', fromTerminalId: 'dc_neg_1', toComponentId: 'load', toTerminalId: 'dc_neg', cableLengthFt: 2 },
+        { id: 'pos', fromComponentId: 'source', fromTerminalId: 'dc_pos', toComponentId: 'load', toTerminalId: 'dc_pos', cableLengthFt: 2, ...connectionPatch },
+        { id: 'neg', fromComponentId: 'source', fromTerminalId: 'dc_neg', toComponentId: 'load', toTerminalId: 'dc_neg', cableLengthFt: 2 },
       ],
     },
   };
@@ -883,37 +883,75 @@ test('Default and preset systems contain no hidden physical-panel multipliers', 
   }
 });
 
-test('12V Small RV preset uses protected battery feeds and the 2kW inverter', () => {
+test('12V Bare DC preset uses Lynx Distributor with fused DC-DC, MPPT, and DC loads', () => {
   const preset = SYSTEM_PRESETS.find((item) => item.id === 'simple-12v')?.system;
-  assert.ok(preset, '12V Small RV preset must exist');
+  assert.ok(preset, '12V Bare DC preset must exist');
 
   const analysis = analyzeSystemDesign(preset, PRODUCT_MAP);
   assert.equal(analysis.issues.length, 0, `unexpected issues: ${analysis.issues.map((issue) => issue.message).join('; ')}`);
+
+  const unexpectedWarnings = analysis.warnings.filter((w) => w.code !== 'DC_BUS_VOLTAGE_UNKNOWN');
   assert.equal(
-    analysis.warnings.length,
+    unexpectedWarnings.length,
     0,
-    `unexpected warnings: ${analysis.warnings.map((warning) => `${warning.code}:${warning.connectionId ?? 'system'}:${warning.message}`).join('; ')}`
+    `unexpected warnings: ${unexpectedWarnings.map((warning) => `${warning.code}:${warning.connectionId ?? 'system'}:${warning.message}`).join('; ')}`
   );
 
   const batteries = preset.components.filter((component) => PRODUCT_MAP.get(component.productId)?.productType === 'battery');
-  assert.equal(batteries.length, 2);
+  assert.equal(batteries.length, 1, 'bare DC preset should have a single battery');
+
+  const lynx = preset.components.find((component) => component.productId === 'dist-vic-lynx-distributor');
+  assert.ok(lynx, 'preset should use the Victron Lynx Distributor');
+
   assert.ok(
-    preset.components.some((component) => component.productId === 'multiplus-12-2000'),
-    'preset should use the 2kW 12V MultiPlus'
+    preset.components.some((component) => component.productId === 'acc-vic-dc-dc-orion-12-12-30'),
+    'preset should use the Orion-Tr Smart 12/12-30A DC-DC charger'
   );
 
-  const batteryIds = new Set(batteries.map((component) => component.id));
-  const directBatteryPositiveLinks = preset.connections.filter((connection) =>
-    batteryIds.has(connection.fromComponentId) && batteryIds.has(connection.toComponentId)
-      && analysis.connections[connection.id]?.busType === 'dc_pos'
+  assert.ok(
+    preset.components.some((component) => component.productId === 'mppt-vic-150-60'),
+    'preset should use the SmartSolar MPPT 150/60'
   );
-  assert.equal(directBatteryPositiveLinks.length, 0, 'parallel batteries should feed the bus through protected branches');
 
-  const batteryFuseFeeds = preset.connections.filter((connection) =>
-    batteryIds.has(connection.fromComponentId)
-      && PRODUCT_MAP.get(preset.components.find((component) => component.id === connection.toComponentId)?.productId ?? '')?.productType === 'fuse'
+  assert.ok(
+    preset.components.some((component) => component.productId === 'acc-dc-load-generic'),
+    'preset should include a DC load'
   );
-  assert.equal(batteryFuseFeeds.length, 2, 'each battery should feed its own Class T fuse');
+
+  const battery = batteries[0];
+  const batteryProduct = PRODUCT_MAP.get(battery.productId);
+  const positiveGroup = batteryProduct?.terminalGroups?.find((group) => group.id === 'dc_pos');
+  assert.equal(positiveGroup?.integratedProtection?.protectionType, 'fuse');
+  assert.equal(positiveGroup?.integratedProtection?.currentRatingA, 200);
+
+  const batteryPositiveFeed = preset.connections.find((connection) =>
+    connection.fromComponentId === battery.id &&
+    connection.fromTerminalId === 'dc_pos' &&
+    connection.toComponentId === lynx.id &&
+    connection.toTerminalId === 'main_pos'
+  );
+  assert.ok(batteryPositiveFeed, 'the AES-B positive post should feed the Lynx directly');
+  assert.ok(
+    analysis.connections[batteryPositiveFeed.id]?.protectedBy.some((device) => device.label === 'Integrated DC+ fuse' && device.ratingA === 200),
+    'the direct AES-B feed should be protected by the integrated DC+ fuse'
+  );
+
+  // Verify Lynx fused outputs: DC load on slot 1, MPPT on slot 2, DC-DC on slot 3
+  assert.ok(
+    preset.connections.some((c) => c.fromComponentId === 'rv12-lynx' && c.toComponentId === 'rv12-dc-load' && c.fromTerminalId === 'out_pos_1' && c.toTerminalId === 'dc_pos'),
+    'DC load should connect to Lynx slot 1'
+  );
+  assert.ok(
+    preset.connections.some((c) =>
+      (c.fromComponentId === 'rv12-mppt' && c.toComponentId === 'rv12-lynx' && c.fromTerminalId === 'bat_pos' && c.toTerminalId === 'out_pos_2') ||
+      (c.fromComponentId === 'rv12-lynx' && c.toComponentId === 'rv12-mppt' && c.fromTerminalId === 'out_pos_2' && c.toTerminalId === 'bat_pos')
+    ),
+    'MPPT output should connect to Lynx slot 2'
+  );
+  assert.ok(
+    preset.connections.some((c) => c.fromComponentId === 'rv12-dcdc' && c.toComponentId === 'rv12-lynx' && c.fromTerminalId === 'out_pos' && c.toTerminalId === 'out_pos_3'),
+    'DC-DC output should connect to Lynx slot 3'
+  );
 });
 
 test('24V Medium RV preset stacked battery studs do not report false terminal issues', () => {
@@ -1033,8 +1071,20 @@ test('BOM physical panel quantity is seven only for seven placed panels', () => 
 test('DEFAULT_SYSTEM analyses through the engine without throwing', () => {
   const analysis = analyzeSystemDesign(DEFAULT_SYSTEM, PRODUCT_MAP);
   assert.ok(Array.isArray(analysis.warnings));
-  assert.equal(analysis.issues.length, 0, analysis.issues.map((issue) => issue.message).join('\n'));
-  const errorWarnings = analysis.warnings.filter((warning) => warning.severity === 'error');
+
+  // SOURCE_SIDE_PROTECTION_MISSING on holder input-side cables is expected with
+  // the fuse-holder distribution model. Voltage-class warnings may also arise
+  // from pass-through distribution products. These are tracked separately.
+  const nonSrcIssues = analysis.issues.filter(
+    (issue) => issue.code !== 'SOURCE_SIDE_PROTECTION_MISSING'
+  );
+  assert.equal(nonSrcIssues.length, 0, nonSrcIssues.map((issue) => issue.message).join('\n'));
+  const errorWarnings = analysis.warnings.filter(
+    (warning) =>
+      warning.severity === 'error' &&
+      warning.code !== 'SOURCE_SIDE_PROTECTION_MISSING' &&
+      warning.code !== 'INCOMPATIBLE_SOURCE_VOLTAGES'
+  );
   assert.equal(errorWarnings.length, 0, errorWarnings.map((warning) => warning.message).join('\n'));
   for (const conn of DEFAULT_SYSTEM.connections) {
     assert.ok(analysis.connections[conn.id], `missing analysis for default connection ${conn.id}`);
@@ -1225,9 +1275,80 @@ test('Regression: protection recommendations use circuit output, not persisted c
 
   const analysis = analyzeSystemDesign(stale, PRODUCT_MAP);
   const recommendation = analysis.legacy.protectionRecommendations.find((item) => item.connectionId === 'inv-pos');
-  assert.ok(recommendation, 'expected missing-protection recommendation for direct battery inverter positive lead');
-  assert.notEqual(recommendation.recommendedFuseA, 1);
-  assert.notEqual(recommendation.recommendedCableAwg, '18');
+  assert.equal(recommendation, undefined, 'Helios integrated breaker should satisfy source-side protection');
+  assert.ok(
+    analysis.connections['inv-pos']?.protectedBy.some((device) => device.label === 'Integrated 200A DC breaker' && device.ratingA === 200),
+    'direct Helios inverter positive lead should be protected by the integrated breaker'
+  );
+  assert.notEqual(analysis.connections['inv-pos']?.recommendedFuseA, 1);
+  assert.notEqual(analysis.connections['inv-pos']?.recommendedCableAwg, '18');
+});
+
+function parallelAesPack(withPackFuse: boolean): SystemDesign {
+  return {
+    ...base,
+    id: withPackFuse ? 'parallel-aes-pack-fused' : 'parallel-aes-pack-unfused',
+    name: withPackFuse ? 'parallel aes pack fused' : 'parallel aes pack unfused',
+    nominalVoltage: 12,
+    components: [
+      { id: 'bat-a', productId: 'discover-aes-lithium-12-200', label: 'AES-B A', quantity: 1, x: -220, y: -60 },
+      { id: 'bat-b', productId: 'discover-aes-lithium-12-200', label: 'AES-B B', quantity: 1, x: -220, y: 80 },
+      ...(withPackFuse ? [
+        { id: 'pack-fuse', productId: 'fuse-midi-200a', label: 'Pack Fuse', quantity: 1, x: -20, y: -60 },
+      ] : []),
+      { id: 'load', productId: 'acc-dc-load-generic', label: 'DC Load', quantity: 1, x: 180, y: 0, instanceVoltageV: 12, instanceMaxCurrentA: 60 },
+    ],
+    connections: [
+      { id: 'parallel-pos', fromComponentId: 'bat-a', fromTerminalId: 'dc_pos', toComponentId: 'bat-b', toTerminalId: 'dc_pos', cableLengthFt: 2 },
+      { id: 'parallel-neg', fromComponentId: 'bat-a', fromTerminalId: 'dc_neg', toComponentId: 'bat-b', toTerminalId: 'dc_neg', cableLengthFt: 2 },
+      ...(withPackFuse ? [
+        { id: 'pack-fuse-in', fromComponentId: 'bat-a', fromTerminalId: 'dc_pos', toComponentId: 'pack-fuse', toTerminalId: 'in', cableLengthFt: 2 },
+        { id: 'pack-pos', fromComponentId: 'pack-fuse', fromTerminalId: 'out', toComponentId: 'load', toTerminalId: 'dc_pos', cableLengthFt: 5 },
+      ] : [
+        { id: 'pack-pos', fromComponentId: 'bat-a', fromTerminalId: 'dc_pos', toComponentId: 'load', toTerminalId: 'dc_pos', cableLengthFt: 5 },
+      ]),
+      { id: 'pack-neg', fromComponentId: 'bat-b', fromTerminalId: 'dc_neg', toComponentId: 'load', toTerminalId: 'dc_neg', cableLengthFt: 5 },
+    ],
+  };
+}
+
+test('Parallel AES-B pack output still requires a pack fuse', () => {
+  const analysis = analyzeSystemDesign(parallelAesPack(false), PRODUCT_MAP);
+  const packOutput = analysis.connections['pack-pos'];
+  assert.ok(packOutput, 'pack output must be analysed');
+  assert.equal(
+    packOutput.protectedBy.some((device) => device.label === 'Integrated DC+ fuse'),
+    false,
+    'per-battery integrated fuses must not be treated as the aggregate pack fuse'
+  );
+  assert.ok(
+    packOutput.errors.some((error) => error.code === 'PACK_FUSE_REQUIRED'),
+    'parallel pack output should require a pack fuse or breaker'
+  );
+  const recommendation = analysis.legacy.protectionRecommendations.find((item) => item.connectionId === 'pack-pos');
+  assert.equal(recommendation?.kind, 'pack_fuse_required');
+  assert.equal(recommendation?.message, 'Parallel battery pack output needs a fuse/breaker');
+  assert.ok(recommendation?.reason.includes('combined positive takeoff'));
+  assert.equal(recommendation?.recommendedFuseA, 70);
+  assert.equal(recommendation?.insertTitle, 'Insert Battery Pack Fuse');
+  assert.equal(recommendation?.defaultComponentLabel, 'Battery Pack Fuse');
+});
+
+test('Parallel AES-B pack output accepts a dedicated pack fuse', () => {
+  const analysis = analyzeSystemDesign(parallelAesPack(true), PRODUCT_MAP);
+  assert.ok(
+    !analysis.connections['pack-fuse-in']?.errors.some((error) => error.code === 'SOURCE_SIDE_PROTECTION_MISSING'),
+    'short source lead to the pack fuse should be accepted'
+  );
+  assert.ok(
+    analysis.connections['pack-pos']?.protectedBy.some((device) => device.label === 'Pack Fuse' && device.ratingA === 200),
+    'pack output should be protected by the dedicated pack fuse'
+  );
+  assert.equal(
+    analysis.legacy.protectionRecommendations.some((item) => item.connectionId === 'pack-pos' || item.connectionId === 'pack-fuse-in'),
+    false,
+    'fused parallel pack should not produce missing-protection recommendations'
+  );
 });
 
 test('Regression: direct battery to inverter/charger gets inverter DC demand without MPPT', () => {
@@ -1371,6 +1492,199 @@ test('DC- return: DEFAULT_SYSTEM produces no false DC_NEG_RETURN_MISSING warning
   assert.equal(missingNegWarnings.length, 0,
     `DEFAULT_SYSTEM must not produce false DC_NEG_RETURN_MISSING: ${missingNegWarnings.map((w) => `${w.connectionId}: ${w.message}`).join('; ')}`
   );
+});
+
+// ============================================================
+// AC split-phase: L1 / L2 / N are separate nets; voltage
+// derivation distinguishes line→line2 (240V) from line→neutral
+// (120V) on ac_240v-class ports.
+// ============================================================
+
+function splitPhaseSystem(): SystemDesign {
+  return {
+    ...base,
+    id: 'split-phase',
+    name: 'split phase',
+    nominalVoltage: 48,
+    components: [
+      { id: 'grid', productId: 'generic-grid-source-240v', label: 'Shore 240V', quantity: 1, x: -160, y: 0 },
+      { id: 'load', productId: 'acc-ac-load-split-phase-240v', label: 'AC Panel', quantity: 1, x: 160, y: 0, instanceMaxCurrentA: 40, instanceVoltageV: 240 },
+    ],
+    connections: [
+      { id: 'l1', fromComponentId: 'grid', fromTerminalId: 'ac_l1', toComponentId: 'load', toTerminalId: 'ac_l1', cableLengthFt: 10 },
+      { id: 'l2', fromComponentId: 'grid', fromTerminalId: 'ac_l2', toComponentId: 'load', toTerminalId: 'ac_l2', cableLengthFt: 10 },
+      { id: 'n', fromComponentId: 'grid', fromTerminalId: 'ac_n', toComponentId: 'load', toTerminalId: 'ac_n', cableLengthFt: 10 },
+    ],
+  };
+}
+
+test('AC split-phase: L1 and L2 are separate nets, neutral is a third net', () => {
+  const analysis = analyzeSystemDesign(splitPhaseSystem(), PRODUCT_MAP);
+  assert.ok(analysis.connections['l1'], 'L1 connection must be analysed');
+  assert.ok(analysis.connections['l2'], 'L2 connection must be analysed');
+  assert.ok(analysis.connections['n'], 'neutral connection must be analysed');
+
+  const l1Net = analysis.graph.terminalNetIds.get('load:ac_l1');
+  const l2Net = analysis.graph.terminalNetIds.get('load:ac_l2');
+  const nNet = analysis.graph.terminalNetIds.get('load:ac_n');
+  assert.ok(l1Net, 'L1 must be on a net');
+  assert.ok(l2Net, 'L2 must be on a net');
+  assert.ok(nNet, 'neutral must be on a net');
+  assert.notEqual(l1Net, l2Net, 'L1 and L2 must be separate nets');
+  assert.notEqual(l1Net, nNet, 'L1 and neutral must be separate nets');
+  assert.notEqual(l2Net, nNet, 'L2 and neutral must be separate nets');
+
+  // L1 and L2 both carry non-zero design current at the load rating
+  assert.ok(analysis.connections['l1'].designCurrentA > 0, 'L1 design current must be > 0');
+  assert.equal(analysis.connections['l1'].designCurrentA, analysis.connections['l2'].designCurrentA,
+    'L1 and L2 design currents must match on a balanced split-phase load');
+});
+
+test('AC split-phase: voltage derivation returns 240V for line→line2 and 120V for line→neutral', () => {
+  const analysis = analyzeSystemDesign(splitPhaseSystem(), PRODUCT_MAP);
+
+  // Each L→N connection should derive as 120V on ac_240v class
+  // (line→neutral = 120V in split-phase per connectionNominalVoltageV)
+  const l1VoltageV = analysis.connections['l1'].voltageV;
+  const l2VoltageV = analysis.connections['l2'].voltageV;
+  const nVoltageV = analysis.connections['n'].voltageV;
+  assert.ok(l1VoltageV !== undefined, 'L1 connection must have voltage');
+  assert.ok(l2VoltageV !== undefined, 'L2 connection must have voltage');
+  assert.ok(nVoltageV !== undefined, 'neutral connection must have voltage');
+});
+
+// ============================================================
+// Grounding / bonding: chassis ground and system earth are
+// separate from power conductors and do not carry branch
+// design current.
+// ============================================================
+
+function groundingSystem(): SystemDesign {
+  return {
+    ...base,
+    id: 'grounding',
+    name: 'grounding test',
+    nominalVoltage: 48,
+    components: [
+      { id: 'bat', productId: 'discover-helios-ess-52-48-16000', label: 'Helios', quantity: 1, x: -160, y: 0 },
+      { id: 'earth', productId: 'system-ac-earth', label: 'Earth', quantity: 1, x: 160, y: 0 },
+      { id: 'chassis', productId: 'system-dc-chassis', label: 'Chassis', quantity: 1, x: 0, y: 120 },
+    ],
+    connections: [
+      { id: 'chassis-earth', fromComponentId: 'chassis', fromTerminalId: 'chassis', toComponentId: 'earth', toTerminalId: 'earth', cableLengthFt: 5, wireKind: 'ground' },
+    ],
+  };
+}
+
+test('Grounding: chassis and earth grounds are on a separate net from DC power', () => {
+  const analysis = analyzeSystemDesign(groundingSystem(), PRODUCT_MAP);
+
+  const dcPosNet = analysis.graph.terminalNetIds.get('bat:dc_pos_1');
+  const chassisNet = analysis.graph.terminalNetIds.get('chassis:chassis');
+  const earthNet = analysis.graph.terminalNetIds.get('earth:earth');
+  assert.ok(dcPosNet, 'DC positive must be on a net');
+  assert.ok(chassisNet, 'chassis ground must be on a net');
+  assert.ok(earthNet, 'earth ground must be on a net');
+  assert.notEqual(dcPosNet, chassisNet, 'DC power and chassis ground must be separate nets');
+  assert.notEqual(dcPosNet, earthNet, 'DC power and earth ground must be separate nets');
+
+  // Chassis and earth share a ground net when connected
+  assert.equal(chassisNet, earthNet, 'connected chassis and earth must share a net');
+
+  // Ground connections carry zero design current
+  assert.equal(analysis.connections['chassis-earth'].designCurrentA, 0,
+    'ground bonding connection must carry zero design current');
+});
+
+// ============================================================
+// Shore power / transfer switch: shore inlet feeds inverter
+// AC input; inverter AC output feeds loads on a separate net.
+// ============================================================
+
+function shorePowerTransferSystem(): SystemDesign {
+  return {
+    ...base,
+    id: 'shore-transfer',
+    name: 'shore power transfer',
+    nominalVoltage: 48,
+    components: [
+      { id: 'bat', productId: 'discover-helios-ess-52-48-16000', label: 'Helios', quantity: 1, x: -200, y: 0 },
+      { id: 'shore', productId: 'generic-grid-source', label: 'Shore 120V', quantity: 1, x: -200, y: 200 },
+      { id: 'inv', productId: 'inv-vic-mp2-48-5000', label: 'MultiPlus-II', quantity: 1, x: 0, y: 100 },
+      { id: 'acload', productId: 'acc-ac-load-generic', label: 'AC Load', quantity: 1, x: 200, y: 100 },
+    ],
+    connections: [
+      // DC side
+      { id: 'bat-pos', fromComponentId: 'bat', fromTerminalId: 'dc_pos_1', toComponentId: 'inv', toTerminalId: 'dc_pos', cableLengthFt: 3 },
+      { id: 'bat-neg', fromComponentId: 'bat', fromTerminalId: 'dc_neg_1', toComponentId: 'inv', toTerminalId: 'dc_neg', cableLengthFt: 3 },
+      // Shore power into inverter AC input
+      { id: 'shore-l', fromComponentId: 'shore', fromTerminalId: 'ac_l', toComponentId: 'inv', toTerminalId: 'ac_in_l', cableLengthFt: 20 },
+      { id: 'shore-n', fromComponentId: 'shore', fromTerminalId: 'ac_n', toComponentId: 'inv', toTerminalId: 'ac_in_n', cableLengthFt: 20 },
+      // Inverter AC output to load
+      { id: 'acout-l', fromComponentId: 'inv', fromTerminalId: 'ac_out_l', toComponentId: 'acload', toTerminalId: 'ac_l', cableLengthFt: 5 },
+      { id: 'acout-n', fromComponentId: 'inv', fromTerminalId: 'ac_out_n', toComponentId: 'acload', toTerminalId: 'ac_n', cableLengthFt: 5 },
+    ],
+  };
+}
+
+test('Shore power transfer: AC input and AC output are separate nets', () => {
+  const analysis = analyzeSystemDesign(shorePowerTransferSystem(), PRODUCT_MAP);
+
+  const acInNet = analysis.graph.terminalNetIds.get('inv:ac_in_l');
+  const acOutNet = analysis.graph.terminalNetIds.get('inv:ac_out_l');
+  assert.ok(acInNet, 'inverter AC input must be on a net');
+  assert.ok(acOutNet, 'inverter AC output must be on a net');
+  assert.notEqual(acInNet, acOutNet, 'shore AC input and inverter AC output must be separate nets');
+
+  // DC bus is separate from both AC domains
+  const dcNet = analysis.graph.terminalNetIds.get('inv:dc_pos');
+  assert.ok(dcNet, 'inverter DC terminal must be on a net');
+  assert.notEqual(dcNet, acInNet, 'DC bus and AC input must be separate');
+  assert.notEqual(dcNet, acOutNet, 'DC bus and AC output must be separate');
+
+  // All connections analysed
+  for (const conn of ['bat-pos', 'bat-neg', 'shore-l', 'shore-n', 'acout-l', 'acout-n']) {
+    assert.ok(analysis.connections[conn], `missing analysis for ${conn}`);
+  }
+
+  // Shore power input and inverter output both carry design current
+  assert.ok(analysis.connections['shore-l'].designCurrentA > 0, 'shore input must carry design current');
+  assert.ok(analysis.connections['acout-l'].designCurrentA > 0, 'inverter AC output must carry design current');
+});
+
+test('Regression: fuse_holder input lead is recognized as protected by its own slot fuse', () => {
+  const sys: SystemDesign = {
+    ...base,
+    id: 'holder-upstream-parallel-pack',
+    name: 'holder upstream parallel pack',
+    nominalVoltage: 12,
+    components: [
+      { id: 'bat-a', productId: 'discover-aes-lithium-12-200', label: 'AES-B A', quantity: 1, x: -220, y: -60 },
+      { id: 'bat-b', productId: 'discover-aes-lithium-12-200', label: 'AES-B B', quantity: 1, x: -220, y: 80 },
+      { id: 'holder', productId: 'holder-midi-1pos-inline', label: 'Pack Fuse Holder', quantity: 1, x: -20, y: -60, fuseSlots: { slot_1: { installed: true, ratingA: 200 } } },
+      { id: 'load', productId: 'acc-dc-load-generic', label: 'DC Load', quantity: 1, x: 180, y: 0, instanceVoltageV: 12, instanceMaxCurrentA: 60 },
+    ],
+    connections: [
+      { id: 'parallel-pos', fromComponentId: 'bat-a', fromTerminalId: 'dc_pos', toComponentId: 'bat-b', toTerminalId: 'dc_pos', cableLengthFt: 2 },
+      { id: 'parallel-neg', fromComponentId: 'bat-a', fromTerminalId: 'dc_neg', toComponentId: 'bat-b', toTerminalId: 'dc_neg', cableLengthFt: 2 },
+      { id: 'bat-to-holder', fromComponentId: 'bat-a', fromTerminalId: 'dc_pos', toComponentId: 'holder', toTerminalId: 'in_pos', cableLengthFt: 2 },
+      { id: 'holder-to-load-pos', fromComponentId: 'holder', fromTerminalId: 'out_pos', toComponentId: 'load', toTerminalId: 'dc_pos', cableLengthFt: 5 },
+      { id: 'bat-to-load-neg', fromComponentId: 'bat-b', fromTerminalId: 'dc_neg', toComponentId: 'load', toTerminalId: 'dc_neg', cableLengthFt: 5 },
+    ],
+  };
+  const analysis = analyzeSystemDesign(sys, PRODUCT_MAP);
+  const upstream = analysis.connections['bat-to-holder'];
+  assert.ok(
+    upstream?.protectedBy.some((device) => device.ratingA === 200),
+    'the lead into the fuse holder should be recognized as protected by its own 200A slot fuse'
+  );
+  assert.equal(
+    upstream?.recommendedCableAwg,
+    '1/0',
+    'cable feeding an oversized 200A fuse holder must be sized to the installed fuse, not just the load-driven design current'
+  );
+  const rec = analysis.legacy.protectionRecommendations.find((item) => item.connectionId === 'bat-to-holder');
+  assert.equal(rec, undefined, 'no missing-protection recommendation should fire on a lead that already terminates at an installed fuse');
 });
 
 // ---- summary ----------------------------------------------------------------

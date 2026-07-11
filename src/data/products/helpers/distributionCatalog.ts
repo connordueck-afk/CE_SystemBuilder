@@ -14,7 +14,7 @@ import type {
   TerminalSide,
 } from '../../../types/system';
 
-type DistributionProductType = 'busbar' | 'dc_distribution';
+type DistributionProductType = 'busbar' | 'dc_distribution' | 'fuse_holder';
 
 interface DistributionProductInput {
   id: string;
@@ -103,7 +103,6 @@ interface CommPortInput {
   label: string;
   protocols: CommunicationProtocol[];
   configuredProtocol?: CommunicationProtocol;
-  connectorType?: ProductPort['connectorType'];
 }
 
 const m8Stud: TerminalConnector = { kind: 'stud', holeSize: 'M8' };
@@ -214,7 +213,6 @@ export function commPort(input: CommPortInput): ProductPort {
     label: input.label,
     role: 'bidirectional',
     direction: 'bidirectional',
-    connectorType: input.connectorType ?? 'RJ45',
     supportedProtocols: input.protocols,
     configuredProtocol: input.configuredProtocol ?? input.protocols[0],
   };

@@ -41,10 +41,16 @@ export function isDynamicSingleConductorProduct(product: Product): boolean {
     return new Set(powerTerminals.map((terminal) => terminalGroupFor(product, terminal)?.polarity).filter(Boolean)).size <= 1;
   }
 
-  const description = `${product.name} ${product.description ?? ''}`.toLowerCase();
-  if (product.productType === 'monitor' && description.includes('shunt')) {
-    const powerTerminals = product.terminals.filter((terminal) => terminalKind(product, terminal) === 'dc_power');
-    return powerTerminals.length >= 2;
+  // A monitor wired in series on the DC bus (a shunt) is identified structurally by
+  // its power terminals sitting on a pass_through port — not by matching the word
+  // "shunt" in its name/description, which breaks the moment a product is renamed
+  // or a new shunt-style monitor is authored without that exact word.
+  if (product.productType === 'monitor') {
+    const powerTerminals = product.terminals.filter((terminal) => {
+      if (terminalKind(product, terminal) !== 'dc_power') return false;
+      return getTerminalPort(product, terminal)?.topology === 'pass_through';
+    });
+    if (powerTerminals.length >= 2) return true;
   }
 
   return false;
@@ -93,6 +99,7 @@ function baseEffectiveTerminal(product: Product, terminal: TerminalDefinition): 
     requiresDisconnect: group?.requiresDisconnect,
     recommendedFuseA: group?.recommendedFuseA,
     maxFuseA: group?.maxFuseA,
+    integratedProtection: group?.integratedProtection,
   });
 }
 

@@ -1,4 +1,4 @@
-import type { Product } from '../../../../types/system';
+﻿import type { Product } from '../../../../types/system';
 
 const product: Product = {
   id: "comm-vebus-cable-rj45",
@@ -36,7 +36,6 @@ const product: Product = {
       label: "Port A",
       role: "bidirectional",
       direction: "bidirectional",
-      connectorType: "RJ45",
       supportedProtocols: ["VE.Bus"],
       configuredProtocol: "VE.Bus"
     },
@@ -47,7 +46,6 @@ const product: Product = {
       label: "Port B",
       role: "bidirectional",
       direction: "bidirectional",
-      connectorType: "RJ45",
       supportedProtocols: ["VE.Bus"],
       configuredProtocol: "VE.Bus"
     }

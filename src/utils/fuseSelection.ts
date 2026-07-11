@@ -111,7 +111,7 @@ export function selectBestFuseProduct(
 // no changes here.
 // ============================================================
 
-function fuseProductsOfStyle(products: Iterable<Product>, style: string): Product[] {
+export function fuseProductsOfStyle(products: Iterable<Product>, style: string): Product[] {
   const result: Product[] = [];
   for (const product of products) {
     if (product.productType !== 'fuse') continue;

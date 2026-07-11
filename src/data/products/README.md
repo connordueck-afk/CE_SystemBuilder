@@ -1,7 +1,7 @@
 # Product Catalog Developer Reference
 
 This directory contains the active product catalog, catalog helpers, schemas, and
-validation utilities for Nomadeus System Builder.
+validation utilities for DES System Builder.
 
 The current catalog is intentionally reduced to a fully ported validation set.
 Products under `legacy/` are preserved for future reintegration but are not loaded.

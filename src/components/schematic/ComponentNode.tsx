@@ -18,10 +18,12 @@ interface Props {
   product: Product;
   selected: boolean;
   preferVectorSymbol?: boolean;
+  isRotateDragging?: boolean;
   onSelect: (id: string) => void;
   onDragStart: (id: string, e: React.MouseEvent) => void;
   onContextMenu: (id: string, e: React.MouseEvent) => void;
   onScaleHandleMouseDown: (id: string, e: React.MouseEvent) => void;
+  onRotateHandleMouseDown: (id: string, e: React.MouseEvent) => void;
 }
 
 function Symbol({
@@ -106,10 +108,12 @@ export const ComponentNode = memo(function ComponentNode({
   product,
   selected,
   preferVectorSymbol = false,
+  isRotateDragging = false,
   onSelect,
   onDragStart,
   onContextMenu,
   onScaleHandleMouseDown,
+  onRotateHandleMouseDown,
 }: Props) {
   const label = component.label ?? product.name;
   const displayLabel = label.length > 22 ? label.slice(0, 21) + '...' : label;
@@ -183,6 +187,46 @@ export const ComponentNode = memo(function ComponentNode({
               fill="none"
               stroke="#ffffff"
               strokeWidth={1.8}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </g>
+        )}
+
+        {/* Rotation handle — top-right corner of bounding box */}
+        {selected && (
+          <g
+            transform={`translate(${scaledWidth / 2 + 2}, ${-scaledHeight / 2 - 2})`}
+            style={{ cursor: isRotateDragging ? 'grabbing' : 'grab' }}
+            onMouseDown={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onRotateHandleMouseDown(component.id, e);
+            }}
+          >
+            <circle
+              r={isRotateDragging ? 10 : 7}
+              fill={isRotateDragging ? '#e8f0ff' : '#1769d2'}
+              stroke={isRotateDragging ? '#1769d2' : '#ffffff'}
+              strokeWidth={isRotateDragging ? 2.5 : 2}
+              opacity={isRotateDragging ? 1 : 0.9}
+            />
+            {isRotateDragging && (
+              <circle r={14} fill="none" stroke="#1769d2" strokeWidth={1} opacity={0.35} />
+            )}
+            <path
+              d="M -1 -3 A 4 4 0 1 1 -4 1"
+              fill="none"
+              stroke={isRotateDragging ? '#1769d2' : '#ffffff'}
+              strokeWidth={1.8}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+            <path
+              d="M -1 -5 L -1 -1 L -5 -1"
+              fill="none"
+              stroke={isRotateDragging ? '#1769d2' : '#ffffff'}
+              strokeWidth={1.5}
               strokeLinecap="round"
               strokeLinejoin="round"
             />

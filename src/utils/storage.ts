@@ -3,15 +3,15 @@ import { DEFAULT_ASSUMPTIONS } from '../data/electricalRules';
 import { PRODUCT_MAP } from '../data/products';
 import { sanitizeSystemDesign } from './systemSanitization';
 
-const STORAGE_KEY = 'nomadeus-system-v1';
-const SAVED_SYSTEMS_KEY = 'nomadeus-saved-systems-v1';
+const STORAGE_KEY = 'des-system-builder-v1';
+const SAVED_SYSTEMS_KEY = 'des-saved-systems-v1';
 const SAVE_FILE_VERSION = 1;
 
 /** The running app version, injected at build time from package.json (see vite.config.ts). */
 export const CURRENT_APP_VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '0.0.0';
 
 export interface SystemSaveFile {
-  fileType: 'nomadeus-system-builder';
+  fileType: 'des-system-builder';
   /** Save-file schema version (bump when the on-disk shape changes). */
   version: number;
   /** App version that produced this file, used for compatibility checks on load. */
@@ -83,7 +83,7 @@ export function checkCompatibility(sourceVersion: string | null): CompatibilityR
 export function createSystemSaveFile(system: SystemDesign): SystemSaveFile {
   const sanitized = sanitizeSystemDesign(system, PRODUCT_MAP);
   return {
-    fileType: 'nomadeus-system-builder',
+    fileType: 'des-system-builder',
     version: SAVE_FILE_VERSION,
     appVersion: CURRENT_APP_VERSION,
     exportedAt: new Date().toISOString(),
@@ -93,7 +93,7 @@ export function createSystemSaveFile(system: SystemDesign): SystemSaveFile {
 
 export function parseSystemSaveFile(raw: string): LoadResult {
   const parsed = JSON.parse(raw) as unknown;
-  const isSaveFile = isObject(parsed) && parsed.fileType === 'nomadeus-system-builder';
+  const isSaveFile = isObject(parsed) && (parsed.fileType === 'des-system-builder' || parsed.fileType === 'nomadeus-system-builder');
   const candidate = isSaveFile ? parsed.system : parsed;
   const sourceVersion = isSaveFile && typeof parsed.appVersion === 'string' ? parsed.appVersion : null;
 

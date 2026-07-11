@@ -54,11 +54,19 @@ function legacyPort(product: Product, portId: string | undefined, terminalId?: s
     product.communicationPorts?.find((port) => port.id === terminalId);
 }
 
-function metadataFromProductPort(port: ProductPort, legacy?: ProductCommunicationPort): CommPortMetadata {
+function metadataFromProductPort(port: ProductPort, product: Product, legacy?: ProductCommunicationPort): CommPortMetadata {
+  // Resolve connectorType from the product's terminals on this port (via terminal groups).
+  const resolvedConnectorType = port.kind === 'comm'
+    ? product.terminals.find(t => {
+        const group = t.terminalGroupId ? product.terminalGroups?.find(g => g.id === t.terminalGroupId) : undefined;
+        return group?.portId === port.id && t.connectorType != null;
+      })?.connectorType ?? legacy?.connectorType
+    : undefined;
+
   return {
     id: port.id,
     name: port.label ?? legacy?.name ?? port.id,
-    connectorType: port.connectorType ?? legacy?.connectorType,
+    connectorType: resolvedConnectorType,
     supportedProtocols: port.supportedProtocols ?? legacy?.supportedProtocols ?? [],
     configuredProtocol: port.configuredProtocol ?? legacy?.configuredProtocol,
     isConfigurable: port.isConfigurable ?? legacy?.isConfigurable,
@@ -91,7 +99,7 @@ function resolveCommPortByPortId(
   const productPort = product.ports?.find((p) => p.id === portId && p.kind === 'comm');
   const legacy = legacyPort(product, portId);
   const port = productPort
-    ? metadataFromProductPort(productPort, legacy)
+    ? metadataFromProductPort(productPort, product, legacy)
     : legacy
       ? metadataFromLegacyPort(legacy)
       : undefined;
@@ -119,7 +127,7 @@ export function resolveCommEndpoint(
   const productPort = product.ports?.find((p) => p.id === portId && p.kind === 'comm');
   const legacy = legacyPort(product, portId, terminal.id);
   const port = productPort
-    ? metadataFromProductPort(productPort, legacy)
+    ? metadataFromProductPort(productPort, product, legacy)
     : legacy
       ? metadataFromLegacyPort(legacy)
       : undefined;
