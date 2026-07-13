@@ -181,9 +181,10 @@ const WORLD_W = 30000;
 const WORLD_H = 30000;
 const GRID = 20;
 const MIN_ZOOM = 0.5;
-const MAX_ZOOM = 2.5;
+const MAX_ZOOM = 5;
 const ZOOM_STEP = 0.2;
 const TRACKPAD_ZOOM_SENSITIVITY = 0.004;
+const WHEEL_PAN_SENSITIVITY = 0.45;
 const FIT_PADDING = 80;
 const EDGE_SCROLL_ZONE = 80; // screen px from canvas edge to trigger auto-scroll
 const EDGE_SCROLL_MAX = 10;  // screen px per frame at maximum scroll speed
@@ -905,8 +906,8 @@ export function SchematicCanvas({
     setViewportCenter((currentCenter) => {
       const panScale = e.deltaMode === WheelEvent.DOM_DELTA_LINE ? GRID : 1;
       return clampCenter({
-        x: currentCenter.x + (e.deltaX * panScale) / zoom,
-        y: currentCenter.y + (e.deltaY * panScale) / zoom,
+        x: currentCenter.x + (e.deltaX * panScale * WHEEL_PAN_SENSITIVITY) / zoom,
+        y: currentCenter.y + (e.deltaY * panScale * WHEEL_PAN_SENSITIVITY) / zoom,
       }, zoom, canvasSize);
     });
   }, [canvasSize, zoom]);

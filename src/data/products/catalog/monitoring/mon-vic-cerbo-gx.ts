@@ -5,6 +5,7 @@ const product: Product = {
   manufacturer: "Victron",
   name: "Cerbo GX",
   productType: "monitor",
+  imageUrl: '/product-images/victron/cerbo_gx.svg',
   category: "Monitoring",
   msrpUsd: 329,
   oemPriceUsd: 230,
@@ -13,8 +14,8 @@ const product: Product = {
   productUrl: "https://www.cdnrg.com/products/vebpp900450100",
   source: "Victron 2024",
   dataQuality: "complete",
-  width: 80,
-  height: 60,
+  width: 132,
+  height: 70,
   terminalGroups: [
     {
       id: "signal_iface",
@@ -29,8 +30,8 @@ const product: Product = {
       id: "signal",
       terminalGroupId: "signal_iface",
       label: "Signal",
-      side: "left",
-      offsetX: -40,
+      side: "right",
+      offsetX: 60,
       offsetY: 0,
       connector: {
         kind: "comm"

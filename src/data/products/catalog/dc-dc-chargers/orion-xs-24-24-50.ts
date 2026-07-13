@@ -5,6 +5,7 @@ const product: Product = {
   manufacturer: "Victron",
   name: "Orion XS 24/24-50A DC-DC Charger",
   productType: "dc_dc_charger",
+  imageUrl: '/product-images/victron/orion_xs_1400.svg',
   category: "Charging",
   nominalVoltage: 24,
   maxCurrentA: 50,
@@ -15,8 +16,8 @@ const product: Product = {
   partNumber: "ORI242417040",
   source: "Victron 2025",
   dataQuality: "partial",
-  width: 86,
-  height: 80,
+  width: 90,
+  height: 100,
   dcDcChargerRatings: {
     inputVoltageMinV: 18,
     inputVoltageMaxV: 35,
@@ -71,8 +72,8 @@ const product: Product = {
       terminalGroupId: "in_pos",
       label: "In+",
       side: "bottom",
-      offsetX: -16,
-      offsetY: 24,
+      offsetX: -27,
+      offsetY: 48,
       maxCurrentA: 50,
       connector: {
         kind: "screw_terminal"
@@ -83,8 +84,8 @@ const product: Product = {
       terminalGroupId: "in_neg",
       label: "In-",
       side: "bottom",
-      offsetX: -5,
-      offsetY: 24,
+      offsetX: -9,
+      offsetY: 48,
       maxCurrentA: 50,
       connector: {
         kind: "screw_terminal"
@@ -95,8 +96,8 @@ const product: Product = {
       terminalGroupId: "out_pos",
       label: "Out+",
       side: "bottom",
-      offsetX: 5,
-      offsetY: 24,
+      offsetX: 9,
+      offsetY: 48,
       maxCurrentA: 50,
       connector: {
         kind: "screw_terminal"
@@ -107,8 +108,8 @@ const product: Product = {
       terminalGroupId: "out_neg",
       label: "Out-",
       side: "bottom",
-      offsetX: 16,
-      offsetY: 24,
+      offsetX: 27,
+      offsetY: 48,
       maxCurrentA: 50,
       connector: {
         kind: "screw_terminal"

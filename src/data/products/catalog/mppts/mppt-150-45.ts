@@ -18,11 +18,11 @@ const product: Product = {
   "description": "Victron SmartSolar MPPT solar charge controller with Bluetooth",
   "source": "Victron 2025",
   "dataQuality": "complete",
-  "imageUrl": "/product-images/victron/smartsolar_mppt_large_mc4.svg",
+  "imageUrl": '/product-images/victron/smartsolar_mppt_150_35_150_45.svg',
   "partNumber": "SCC115045212",
   "msrpUsd": 267,
-  "width": 80,
-  "height": 112,
+  "width": 100,
+  "height": 76,
   "terminalGroups": [
     {
       id: "pv_neg",
@@ -75,7 +75,7 @@ const product: Product = {
       "terminalGroupId": "pv_neg",
       "label": "PV-",
       "side": "bottom",
-      "offsetX": -28,
+      "offsetX": -33,
       "offsetY": 38,
       "maxCurrentA": 45,
       "connector": {
@@ -88,7 +88,7 @@ const product: Product = {
       "terminalGroupId": "pv_pos",
       "label": "PV+",
       "side": "bottom",
-      "offsetX": -9,
+      "offsetX": -11,
       "offsetY": 38,
       "maxCurrentA": 45,
       "connector": {
@@ -101,7 +101,7 @@ const product: Product = {
       "terminalGroupId": "bat_pos",
       "label": "BAT+",
       "side": "bottom",
-      "offsetX": 9,
+      "offsetX": 11,
       "offsetY": 38,
       "maxCurrentA": 45,
       "connector": {
@@ -114,7 +114,7 @@ const product: Product = {
       "terminalGroupId": "bat_neg",
       "label": "BAT-",
       "side": "bottom",
-      "offsetX": 28,
+      "offsetX": 33,
       "offsetY": 38,
       "maxCurrentA": 45,
       "connector": {
@@ -127,8 +127,8 @@ const product: Product = {
       "terminalGroupId": "ve_direct",
       "label": "VE.Direct",
       "side": "top",
-      "offsetX": 0,
-      "offsetY": -56,
+      "offsetX": 46,
+      "offsetY": -38,
     }
   ],
   "mpptRatings": {

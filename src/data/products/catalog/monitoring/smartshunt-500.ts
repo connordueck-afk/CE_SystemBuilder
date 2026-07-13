@@ -5,6 +5,7 @@ const product: Product = {
   manufacturer: "Victron",
   name: "SmartShunt 500A/50mV",
   productType: "monitor",
+  imageUrl: '/product-images/victron/smartshunt.svg',
   category: "Monitoring",
   maxCurrentA: 500,
   msrpUsd: 123,
@@ -13,7 +14,7 @@ const product: Product = {
   source: "Victron 2025",
   dataQuality: "partial",
   notes: "Simplified as a 500A negative-leg pass-through shunt with VE.Direct communication.",
-  width: 100,
+  width: 130,
   height: 50,
   terminalGroups: [
     {
@@ -47,9 +48,9 @@ const product: Product = {
       id: "shunt_pos",
       terminalGroupId: "shunt_batt_side",
       label: "BATT-",
-      side: "left",
-      offsetX: -42,
-      offsetY: 13,
+      side: "top",
+      offsetX: -31,
+      offsetY: -23,
       maxCurrentA: 500,
       connector: {
         kind: "stud",
@@ -61,9 +62,9 @@ const product: Product = {
       id: "shunt_neg",
       terminalGroupId: "shunt_bus_side",
       label: "SYS-",
-      side: "right",
-      offsetX: 42,
-      offsetY: 13,
+      side: "top",
+      offsetX: 31,
+      offsetY: -23,
       maxCurrentA: 500,
       connector: {
         kind: "stud",
@@ -75,9 +76,9 @@ const product: Product = {
       id: "ve_direct",
       terminalGroupId: "ve_direct_iface",
       label: "VE.Direct",
-      side: "top",
-      offsetX: 0,
-      offsetY: -25
+      side: "bottom",
+      offsetX: -34,
+      offsetY: 18
     }
   ],
   communicationPorts: [

@@ -1,10 +1,11 @@
-﻿import type { Product } from '../../../../types/system';
+import type { Product } from '../../../../types/system';
 
 const product: Product = {
   id: "multiplus-ii-24-3000-2x120v",
   manufacturer: "Victron",
   name: "MultiPlus-II 24/3000/70-50 2x120V",
   productType: "inverter_charger",
+  imageUrl: '/product-images/victron/multiplus_ii_2x120v.svg',
   category: "Inverters",
   nominalVoltage: 24,
   continuousPowerW: 3000,
@@ -17,7 +18,7 @@ const product: Product = {
   source: "Victron 2025",
   dataQuality: "partial",
   width: 90,
-  height: 130,
+  height: 180,
   inverterChargerRatings: {
     dcVoltageV: 24,
     maxDcCurrentA: 130,

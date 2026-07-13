@@ -18,13 +18,13 @@ const product: Product = {
   description: "Victron SmartSolar MPPT TR solar charge controller with TR-type connectors and Bluetooth",
   source: "Victron 2024",
   dataQuality: "complete",
-  imageUrl: "/product-images/victron/smartsolar_mppt_large_tr.svg",
+  imageUrl: "/product-images/victron/smartsolar_mppt_150_60_250_70.svg",
   partNumber: "SCC115060210",
   productUrl: "https://www.cdnrg.com/products/vescc115060310",
   msrpUsd: 379,
   oemPriceUsd: 265,
-  width: 80,
-  height: 112,
+  width: 100,
+  height: 76,
   terminalGroups: [
     {
       id: "pv_neg",
@@ -83,8 +83,8 @@ const product: Product = {
       terminalGroupId: "pv_neg",
       label: "PV-",
       side: "bottom",
-      offsetX: -28,
-      offsetY: 38,
+      offsetX: 6,
+      offsetY: 36,
       maxCurrentA: 50,
       connector: {
         kind: "screw_terminal"
@@ -96,8 +96,8 @@ const product: Product = {
       terminalGroupId: "pv_pos",
       label: "PV+",
       side: "bottom",
-      offsetX: -9,
-      offsetY: 38,
+      offsetX: 15,
+      offsetY: 36,
       maxCurrentA: 50,
       connector: {
         kind: "screw_terminal"
@@ -109,8 +109,8 @@ const product: Product = {
       terminalGroupId: "dc_out_pos",
       label: "BAT+",
       side: "bottom",
-      offsetX: 9,
-      offsetY: 38,
+      offsetX: -15,
+      offsetY: 36,
       maxCurrentA: 60,
       connector: {
         kind: "screw_terminal"
@@ -122,8 +122,8 @@ const product: Product = {
       terminalGroupId: "dc_out_neg",
       label: "BAT-",
       side: "bottom",
-      offsetX: 28,
-      offsetY: 38,
+      offsetX: -6,
+      offsetY: 36,
       maxCurrentA: 60,
       connector: {
         kind: "screw_terminal"
@@ -135,16 +135,18 @@ const product: Product = {
       terminalGroupId: "ve_can_iface",
       label: "VE.Can",
       side: "top",
-      offsetX: -40,
-      offsetY: -56
+      offsetX: 26,
+      offsetY: 36,
+      connectorType: "RJ45"
     },
     {
       id: "ve_direct",
       terminalGroupId: "ve_direct_iface",
       label: "VE.Direct",
       side: "top",
-      offsetX: 40,
-      offsetY: -56
+      offsetX: 36,
+      offsetY: 36,
+      connectorType: "VE.Direct"
     }
   ],
   mpptRatings: {

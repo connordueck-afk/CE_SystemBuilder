@@ -15,6 +15,7 @@ const product = defineDistributionProduct({
   manufacturer: 'Victron',
   name: 'VE.Bus BMS NG',
   productType: 'dc_distribution',
+  imageUrl: '/product-images/victron/ve_bus_bms_ng.svg',
   nominalVoltage: [12, 24, 48],
   msrpUsd: 260,
   description: 'Victron VE.Bus BMS NG - battery management system for Victron Lithium NG batteries. VE.Bus / Bluetooth.',
@@ -22,11 +23,11 @@ const product = defineDistributionProduct({
   source: 'Victron 2025',
   dataQuality: 'partial',
   notes: 'Placeholder pricing/specs. Intended for Victron Lithium NG battery systems.',
-  width: 80,
-  height: 60,
+  width: 116,
+  height: 96,
   terminals: [
-    dcStudTerminal({ id: 'bat_pos', label: 'Bat+', terminalGroupId: 'bat_pos_sense', side: 'left', offsetX: -40, offsetY: 0, maxCurrentA: 1, connector: connector('comm'), notes: 'Low-current battery positive sense/control reference.' }),
-    commTerminal({ id: 'signal', label: 'VE.Bus', terminalGroupId: 've_bus_iface', side: 'right', offsetX: 40, offsetY: 0 }),
+    dcStudTerminal({ id: 'bat_pos', label: 'Bat+', terminalGroupId: 'bat_pos_sense', side: 'left', offsetX: -54, offsetY: 0, maxCurrentA: 1, connector: connector('comm'), notes: 'Low-current battery positive sense/control reference.' }),
+    commTerminal({ id: 'signal', label: 'VE.Bus', terminalGroupId: 've_bus_iface', side: 'right', offsetX: 54, offsetY: 0 }),
   ],
   terminalGroups: [
     powerGroup({ id: 'bat_pos_sense', portId: 'dc_sense', label: 'Battery Positive Sense', polarity: 'positive', internallyCommon: false, maxCurrentA: 1 }),

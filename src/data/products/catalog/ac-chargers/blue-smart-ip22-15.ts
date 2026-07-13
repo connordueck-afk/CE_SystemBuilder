@@ -5,6 +5,7 @@ const product: Product = {
   manufacturer: "Victron",
   name: "Blue Smart IP22 Charger 12/15",
   productType: "shore_charger",
+  imageUrl: '/product-images/victron/blue_smart_ip22_charger_120v.svg',
   category: "Charging",
   nominalVoltage: 12,
   maxCurrentA: 15,
@@ -14,8 +15,8 @@ const product: Product = {
   source: "Victron 2025",
   dataQuality: "partial",
   notes: "Placeholder pricing/specs from legacy catalog.",
-  width: 80,
-  height: 60,
+  width: 64,
+  height: 140,
   terminalGroups: [
     { id: "ac_l", portId: "ac_in", label: "AC Line", groupType: "power_conductor", polarity: "line", internallyCommon: false },
     { id: "ac_n", portId: "ac_in", label: "AC Neutral", groupType: "power_conductor", polarity: "neutral", internallyCommon: false },
@@ -23,10 +24,10 @@ const product: Product = {
     { id: "dc_neg", portId: "dc_out", label: "DC Negative", groupType: "power_conductor", polarity: "negative", internallyCommon: false, maxCurrentA: 15 }
   ],
   terminals: [
-    { id: "ac_l", terminalGroupId: "ac_l", label: "AC L", side: "left", offsetX: -40, offsetY: -10, connector: { kind: "screw_terminal" }, notes: "AC input line conductor." },
-    { id: "ac_n", terminalGroupId: "ac_n", label: "AC N", side: "left", offsetX: -40, offsetY: 10, connector: { kind: "screw_terminal" }, notes: "AC input neutral conductor." },
-    { id: "dc_pos", terminalGroupId: "dc_pos", label: "DC+", side: "right", offsetX: 40, offsetY: -10, maxCurrentA: 15, connector: { kind: "screw_terminal" }, notes: "DC output positive." },
-    { id: "dc_neg", terminalGroupId: "dc_neg", label: "DC-", side: "right", offsetX: 40, offsetY: 10, maxCurrentA: 15, connector: { kind: "screw_terminal" }, notes: "DC output negative." }
+    { id: "ac_l", terminalGroupId: "ac_l", label: "AC L", side: "bottom", offsetX: -24, offsetY: 68, connector: { kind: "screw_terminal" }, notes: "AC input line conductor." },
+    { id: "ac_n", terminalGroupId: "ac_n", label: "AC N", side: "bottom", offsetX: -8, offsetY: 68, connector: { kind: "screw_terminal" }, notes: "AC input neutral conductor." },
+    { id: "dc_pos", terminalGroupId: "dc_pos", label: "DC+", side: "bottom", offsetX: 8, offsetY: 68, maxCurrentA: 15, connector: { kind: "screw_terminal" }, notes: "DC output positive." },
+    { id: "dc_neg", terminalGroupId: "dc_neg", label: "DC-", side: "bottom", offsetX: 24, offsetY: 68, maxCurrentA: 15, connector: { kind: "screw_terminal" }, notes: "DC output negative." }
   ],
   ports: [
     { id: "ac_in", kind: "ac", topology: "two_pole", label: "AC Input", voltageClass: "ac_120v", nominalVoltageV: 120, role: "sink", direction: "input" },

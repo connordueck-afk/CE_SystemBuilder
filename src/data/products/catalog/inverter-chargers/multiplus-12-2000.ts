@@ -1,10 +1,11 @@
-﻿import type { Product } from '../../../../types/system';
+import type { Product } from '../../../../types/system';
 
 const product: Product = {
   id: "multiplus-12-2000",
   manufacturer: "Victron",
   name: "MultiPlus 12/2000/80-50",
   productType: "inverter_charger",
+  imageUrl: '/product-images/victron/multiplus_1200kva_20kw.svg',
   category: "Inverters",
   nominalVoltage: 12,
   continuousPowerW: 2000,
@@ -17,7 +18,7 @@ const product: Product = {
   source: "Victron 2025",
   dataQuality: "partial",
   width: 90,
-  height: 130,
+  height: 124,
   inverterChargerRatings: {
     dcVoltageV: 12,
     maxDcCurrentA: 167,
