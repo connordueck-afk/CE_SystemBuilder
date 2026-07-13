@@ -49,11 +49,13 @@ const product: Product = {
     },
     {
       id: "terminal_aebus",
-      label: "AEBus",
+      label: "LYNK",
       side: "top",
       offsetX: 0,
       offsetY: -45,
-      terminalGroupId: "comm_aebus"
+      terminalGroupId: "comm_aebus",
+      connectorType: "M12",
+      gender: "male"
     }
   ],
   ports: [
@@ -74,7 +76,11 @@ const product: Product = {
       kind: "comm",
       topology: "two_pole",
       role: "bidirectional",
-      direction: "bidirectional"
+      direction: "bidirectional",
+      supportedProtocols: [
+        "AEbus"
+      ],
+      configuredProtocol: "AEbus"
     }
   ],
   terminalGroups: [
