@@ -24,6 +24,7 @@ const BUS_LABEL: Partial<Record<BusType, string>> = {
   pv_neg: 'PV Negative',
   ac_line: 'AC Line (L1)',
   ac_line2: 'AC Line (L2)',
+  ac_line3: 'AC Line (L3)',
   ac_neutral: 'AC Neutral',
   ac_ground: 'AC Ground',
   communication: 'Communication',
@@ -34,7 +35,7 @@ const BUS_LABEL: Partial<Record<BusType, string>> = {
 const CABLE_SCHEDULE_ORDER: BusType[] = [
   'dc_pos', 'dc_neg', 'chassis_ground',
   'pv_pos', 'pv_neg',
-  'ac_line', 'ac_line2', 'ac_neutral', 'ac_ground',
+  'ac_line', 'ac_line2', 'ac_line3', 'ac_neutral', 'ac_ground',
   'communication', 'signal',
 ];
 

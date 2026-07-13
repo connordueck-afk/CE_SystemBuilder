@@ -146,13 +146,19 @@ export function portTerminalsBond(port: ProductPort | undefined): boolean {
 }
 
 /**
- * Nominal voltage at a port (V). Prefers the port's own voltage; falls back to the
- * device-level `nominalVoltage` (first entry if it is an array).
+ * Nominal voltage at a port (V). Port data is authoritative for multi-interface
+ * equipment. Product-level voltage is only a safe fallback for a product with a
+ * single electrical interface and no port-specific voltage range.
  */
 export function portNominalVoltageV(product: Product, port: ProductPort): number | undefined {
   if (port.nominalVoltageV != null) return port.nominalVoltageV;
+  if (port.voltageMinV != null || port.voltageMaxV != null) return undefined;
+  const electricalPorts = (product.ports ?? []).filter(
+    (candidate) => candidate.kind === 'dc' || candidate.kind === 'pv' || candidate.kind === 'ac'
+  );
+  if (electricalPorts.length !== 1) return undefined;
   const nv = product.nominalVoltage;
-  return Array.isArray(nv) ? nv[0] : nv;
+  return Array.isArray(nv) && nv.length === 1 ? nv[0] : Array.isArray(nv) ? undefined : nv;
 }
 
 /**
@@ -202,6 +208,14 @@ export function connectionNominalVoltageV(
       // Split-phase (two lines + neutral): 240 line→line2, 120 either line→neutral.
       if (spans('line', 'line2')) return 240;
       if (spans('line', 'neutral') || spans('line2', 'neutral')) return 120;
+      return 0;
+    case 'ac_208v':
+      if (spans('line', 'line2') || spans('line', 'line3') || spans('line2', 'line3')) return 208;
+      if (spans('line', 'neutral') || spans('line2', 'neutral') || spans('line3', 'neutral')) return 120;
+      return 0;
+    case 'ac_480v':
+      if (spans('line', 'line2') || spans('line', 'line3') || spans('line2', 'line3')) return 480;
+      if (spans('line', 'neutral') || spans('line2', 'neutral') || spans('line3', 'neutral')) return 277;
       return 0;
     case 'signal_low_voltage':
       return nominalVoltageV ?? 0;

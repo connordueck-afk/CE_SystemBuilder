@@ -19,7 +19,7 @@ export type SchematicFilter = 'all' | 'dc' | 'ac' | 'communication';
 const FILTER_BUS_TYPES: Record<SchematicFilter, BusType[] | null> = {
   all: null,
   dc: ['dc_pos', 'dc_neg', 'chassis_ground'],
-  ac: ['ac_line', 'ac_line2', 'ac_neutral', 'ac_ground'],
+  ac: ['ac_line', 'ac_line2', 'ac_line3', 'ac_neutral', 'ac_ground'],
   communication: ['communication'],
 };
 

@@ -1,4 +1,4 @@
-﻿import type { Product } from '../../../../types/system';
+import type { Product } from '../../../../types/system';
 
 const product: Product = {
   id: "inv-vic-mp2-24-3000",
@@ -12,7 +12,10 @@ const product: Product = {
   maxCurrentA: 130,
   msrpUsd: 1649,
   oemPriceUsd: 1154,
-  capabilities: ["inverter-charger", "battery-charger"],
+  capabilities: [
+    "inverter-charger",
+    "battery-charger"
+  ],
   description: "MultiPlus-II 24/3000/70-50 inverter/charger.",
   partNumber: "EAS024300114",
   productUrl: "https://www.victronenergy.com/inverters-chargers/multiplus-ii",
@@ -98,8 +101,8 @@ const product: Product = {
       terminalGroupId: "dc_pos",
       label: "DC+",
       side: "bottom",
-      offsetX: -20,
-      offsetY: 48,
+      offsetX: -25,
+      offsetY: 62,
       maxCurrentA: 130,
       connector: {
         kind: "stud",
@@ -111,8 +114,8 @@ const product: Product = {
       terminalGroupId: "dc_neg",
       label: "DC-",
       side: "bottom",
-      offsetX: -12,
-      offsetY: 48,
+      offsetX: -19,
+      offsetY: 62,
       maxCurrentA: 130,
       connector: {
         kind: "stud",
@@ -124,8 +127,8 @@ const product: Product = {
       terminalGroupId: "ac_in_l",
       label: "AC In L",
       side: "bottom",
-      offsetX: 2,
-      offsetY: 48,
+      offsetX: 4,
+      offsetY: 62,
       connector: {
         kind: "screw_terminal"
       }
@@ -135,8 +138,8 @@ const product: Product = {
       terminalGroupId: "ac_in_n",
       label: "AC In N",
       side: "bottom",
-      offsetX: 9,
-      offsetY: 48,
+      offsetX: 10,
+      offsetY: 62,
       connector: {
         kind: "screw_terminal"
       }
@@ -146,8 +149,8 @@ const product: Product = {
       terminalGroupId: "ac_out_l",
       label: "AC Out L",
       side: "bottom",
-      offsetX: 16,
-      offsetY: 48,
+      offsetX: 17,
+      offsetY: 62,
       maxCurrentA: 25,
       connector: {
         kind: "screw_terminal"
@@ -159,7 +162,7 @@ const product: Product = {
       label: "AC Out N",
       side: "bottom",
       offsetX: 23,
-      offsetY: 48,
+      offsetY: 62,
       maxCurrentA: 25,
       connector: {
         kind: "screw_terminal"
@@ -170,11 +173,12 @@ const product: Product = {
       terminalGroupId: "ve_bus_iface",
       label: "VE.Bus",
       side: "top",
-      offsetX: 0,
-      offsetY: -65,
+      offsetX: -10,
+      offsetY: 62,
       connector: {
         kind: "comm"
-      }
+      },
+      connectorType: "RJ45"
     }
   ],
   ports: [
@@ -217,7 +221,9 @@ const product: Product = {
       topology: "two_pole",
       role: "bidirectional",
       direction: "bidirectional",
-      supportedProtocols: ["VE.Bus"],
+      supportedProtocols: [
+        "VE.Bus"
+      ],
       configuredProtocol: "VE.Bus"
     }
   ],
@@ -226,10 +232,13 @@ const product: Product = {
       id: "ve_bus",
       name: "VE.Bus",
       connectorType: "RJ45",
-      supportedProtocols: ["VE.Bus"],
+      supportedProtocols: [
+        "VE.Bus"
+      ],
       configuredProtocol: "VE.Bus"
     }
-  ]
+  ],
+  imageUrl: "/product-images/victron/multiplus_ii_2x120v.svg"
 };
 
 export default product;

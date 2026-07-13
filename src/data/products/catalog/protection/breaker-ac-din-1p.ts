@@ -64,6 +64,15 @@ const product: Product = {
     breakerStyle: "AC DIN 1P",
     protectionType: "breaker"
   },
+  breakerDefinition: {
+    poleCount: 1,
+    tripLinkage: "independent",
+    poles: [{ id: "l1", inputTerminalGroupId: "l1_in", outputTerminalGroupId: "l1_out" }],
+    ratingProfiles: [{ id: "ac-277v-1p", label: "277 VAC, 1 pole", medium: "ac", maxVoltageV: 277, interruptRatingA: 6000, polesRequired: 1, wiring: "independent_conductors", phases: 1 }],
+    mounting: "din",
+    applicationTags: ["industrial"],
+    resetType: "toggle"
+  },
   variants: [
     {
       id: "breaker-ac-din-1p-6a",
@@ -141,6 +150,7 @@ const product: Product = {
       direction: "bidirectional",
       label: "Main",
       voltageClass: "ac_120v",
+      phases: 1,
       maxCurrentA: 0,
       voltageMaxV: 277
     }

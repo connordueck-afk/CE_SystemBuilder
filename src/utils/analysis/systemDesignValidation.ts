@@ -28,6 +28,7 @@ import { generateWarnings } from '../electricalCalculations';
 import { getEffectiveTerminals } from '../effectiveTerminals';
 import { effectiveMaxConnections } from '../connectorLimits';
 import { analyzeBatteryTopology } from '../batteryTopology';
+import { resolveVoltageDomains } from '../voltageDomains';
 import { resolveTerminalGroups } from './terminalGroups';
 import type {
   ComponentDesignAnalysis,
@@ -94,8 +95,8 @@ export function analyzeSystemDesign(
   products: Map<string, Product>
 ): SystemDesignAnalysis {
   // --- Stages 2-4: reuse deterministic computation modules ---
-  const netlist = buildElectricalNetlist(system, products);
-  const circuit = analyzeSystemCircuits(system, products);
+  const netlist = resolveVoltageDomains(system, buildElectricalNetlist(system, products));
+  const circuit = analyzeSystemCircuits(system, products, { netlist });
   applyBranchCurrentsToNetlist(netlist, system, circuit);
   const batteryTopology = analyzeBatteryTopology(system, products);
   const communicationNetworks = buildCommunicationNetworks(system, products);
@@ -282,6 +283,20 @@ export function analyzeSystemDesign(
         componentId,
       });
     });
+  });
+
+  netlist.voltageIssues.forEach((voltageIssue, index) => {
+    const issue: DesignIssue = {
+      id: `voltage-${index}-${voltageIssue.componentId ?? voltageIssue.netId ?? 'domain'}`,
+      severity: voltageIssue.severity,
+      category: 'compatibility',
+      code: voltageIssue.code.toLowerCase(),
+      message: voltageIssue.message,
+      componentId: voltageIssue.componentId,
+      terminalKey: voltageIssue.terminalKey,
+    };
+    issues.push(issue);
+    if (voltageIssue.componentId) components[voltageIssue.componentId]?.issues.push(issue);
   });
 
   // --- Stage 5: communication protocol/topology issues ---

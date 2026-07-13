@@ -12,7 +12,8 @@ import { continuousFactorForBus, DEFAULT_ASSUMPTIONS } from '../data/electricalR
 import { getEffectiveProductForComponent } from './solarCalculations';
 import { getEffectiveTerminals, isDynamicSingleConductorProduct } from './effectiveTerminals';
 import { canProvidePower, canReceivePower, inferTerminalDirection } from './terminalDirection';
-import { busTypeFromTerminal, busTypeRequiresFuse, type BusType } from './electricalNetlist';
+import { busTypeFromTerminal, busTypeRequiresFuse, type BusType, type ElectricalNetlist } from './electricalNetlist';
+import { connectionNominalVoltageV } from './voltageDomains';
 import { buildInternalDistributionEdges, hasDistributionTopology } from './distributionTopology';
 import { resolveTerminalCurrentA } from './terminalElectrics';
 import { getDcBusNominalVoltage } from './dcBusVoltage';
@@ -20,6 +21,7 @@ import { formatFeetAndInches } from './cableSummary';
 import { analyzeBatteryTopology } from './batteryTopology';
 import { linkGroupSizes, portLinkPairs } from './portLinks';
 import { getTerminalPort, terminalKind } from './portSpecs';
+import { breakerPoles } from './breakerSemantics';
 import {
   cableAwgSatisfiesConstraint,
   cableAwgSatisfiesElectrical,
@@ -197,6 +199,19 @@ function isConductivePassThroughProduct(product: Product): boolean {
 }
 
 /**
+ * Products that only conduct or distribute power must never contribute a normal
+ * source or load to a side summary. Distribution-topology products are excluded
+ * from isConductivePassThroughProduct because their internal graph edges are
+ * built from explicit buses and fuse slots, but they are still passive devices
+ * for current propagation.
+ */
+function isPassiveConductiveProduct(product: Product): boolean {
+  return isProtectionProduct(product) ||
+    hasDistributionTopology(product) ||
+    isConductivePassThroughProduct(product);
+}
+
+/**
  * A "leaf" power device terminates a branch with its own positive and negative
  * leads (battery, load, MPPT, inverter/charger, etc.) — as opposed to busbars,
  * distributors, pass-throughs, and protection devices that just relay a bus. Its
@@ -261,6 +276,13 @@ function protectionConductorKey(terminalId: string, powerTerminalCount: number):
 
 function passThroughGroupKey(product: Product, node: TerminalNode, powerTerminalCount: number): string {
   if (!isProtectionProduct(product)) return node.busType;
+  if (product.productType === 'breaker') {
+    const groupId = node.terminal.terminalGroupId;
+    const pole = breakerPoles(product).find((candidate) => (
+      candidate.inputTerminalGroupId === groupId || candidate.outputTerminalGroupId === groupId
+    ));
+    if (pole) return `${node.busType}:${pole.id}`;
+  }
   return `${node.busType}:${protectionConductorKey(node.terminal.id, powerTerminalCount)}`;
 }
 
@@ -302,7 +324,7 @@ function smallerMaxCableAwg(...awgs: Array<string | undefined>): string | undefi
 }
 
 function isActivePowerConductor(busType: BusType): boolean {
-  return busType === 'dc_pos' || busType === 'pv_pos' || busType === 'ac_line' || busType === 'ac_line2';
+  return busType === 'dc_pos' || busType === 'pv_pos' || busType === 'ac_line' || busType === 'ac_line2' || busType === 'ac_line3';
 }
 
 function isReturnConductor(busType: BusType): boolean {
@@ -325,7 +347,14 @@ function estimatePowerCurrent(powerW: number | undefined, voltageV: number | und
   return powerW / voltageV;
 }
 
-function defaultTerminalVoltage(product: Product, component: SystemComponent, terminal: EffectiveTerminal, system: SystemDesign): number {
+function defaultTerminalVoltage(
+  product: Product,
+  component: SystemComponent,
+  terminal: EffectiveTerminal,
+  system: SystemDesign,
+  resolvedVoltageV?: number
+): number {
+  if (resolvedVoltageV != null && resolvedVoltageV > 0) return resolvedVoltageV;
   if (terminal.nominalVoltageV) return terminal.nominalVoltageV;
   if (terminal.kind === 'ac_power') {
     return product.inverterChargerRatings?.acInputVoltageV ??
@@ -370,12 +399,13 @@ function terminalCurrents(
   component: SystemComponent,
   terminal: EffectiveTerminal,
   system: SystemDesign,
-  linkSize = 1
+  linkSize = 1,
+  resolvedVoltageV?: number
 ): Pick<TerminalBehavior, 'normalLoadCurrentA' | 'normalSourceCurrentA' | 'hasNormalSource' | 'hasLoadFollowingSource' | 'canReceiveCurrent' | 'sourceCapabilityA'> {
   const busType = busTypeFromTerminal(terminal);
   const direction = inferTerminalDirection(terminal);
   const terminalId = terminal.id.toLowerCase();
-  const voltage = defaultTerminalVoltage(product, component, terminal, system);
+  const voltage = defaultTerminalVoltage(product, component, terminal, system, resolvedVoltageV);
 
   let loadA = 0;
   let sourceA = 0;
@@ -431,7 +461,7 @@ function terminalCurrents(
     };
   }
 
-  if (isProtectionProduct(product) || isConductivePassThroughProduct(product)) {
+  if (isPassiveConductiveProduct(product)) {
     return {
       normalLoadCurrentA: 0,
       normalSourceCurrentA: 0,
@@ -534,12 +564,12 @@ function terminalCurrents(
     }
 
     case 'dc_dc_charger': {
-      if (terminalId.startsWith('in')) {
+      if (direction === 'input') {
         loadA = positiveNumber(product.dcDcChargerRatings?.inputCurrentA) ??
           estimatePowerCurrent(product.dcDcChargerRatings?.outputPowerW ?? product.continuousPowerW, voltage) ??
           positiveNumber(product.maxCurrentA) ??
           0;
-      } else if (terminalId.startsWith('out')) {
+      } else if (direction === 'output') {
         sourceA = positiveNumber(product.dcDcChargerRatings?.outputCurrentA) ??
           positiveNumber(product.maxCurrentA) ??
           0;
@@ -564,11 +594,11 @@ function terminalCurrents(
         sourceCapabilityA = maxDefined(inverterDrawA, chargerA);
         hasNormalSource = chargerA > 0;
         canReceive = true;
-      } else if (terminal.kind === 'ac_power' && terminalId.includes('in')) {
+      } else if (terminal.kind === 'ac_power' && direction === 'input') {
         loadA = positiveNumber(product.inverterChargerRatings?.acInputCurrentA) ??
           estimatePowerCurrent(product.continuousPowerW, voltage) ??
           0;
-      } else if (terminal.kind === 'ac_power' && terminalId.includes('out')) {
+      } else if (terminal.kind === 'ac_power' && direction === 'output') {
         sourceA = positiveNumber(product.inverterChargerRatings?.acOutputCurrentA) ??
           estimatePowerCurrent(product.continuousPowerW, voltage) ??
           0;
@@ -606,7 +636,7 @@ function terminalCurrents(
     }
 
     default: {
-      if (isProtectionProduct(product) || isConductivePassThroughProduct(product)) {
+      if (isPassiveConductiveProduct(product)) {
         hasNormalSource = false;
         canReceive = true;
         break;
@@ -643,9 +673,10 @@ function terminalBehavior(
   component: SystemComponent,
   terminal: EffectiveTerminal,
   system: SystemDesign,
-  linkSize = 1
+  linkSize = 1,
+  resolvedVoltageV?: number
 ): TerminalBehavior {
-  const currents = terminalCurrents(product, component, terminal, system, linkSize);
+  const currents = terminalCurrents(product, component, terminal, system, linkSize, resolvedVoltageV);
   const busType = busTypeFromTerminal(terminal);
 
   // Linked jacks share one internal node carrying the device's total current.
@@ -668,8 +699,13 @@ function terminalBehavior(
   };
 }
 
-function buildTerminalNodes(system: SystemDesign, products: Map<string, Product>): Map<string, TerminalNode> {
+function buildTerminalNodes(
+  system: SystemDesign,
+  products: Map<string, Product>,
+  netlist?: ElectricalNetlist
+): Map<string, TerminalNode> {
   const nodes = new Map<string, TerminalNode>();
+  const netById = new Map(netlist?.nets.map((net) => [net.id, net]) ?? []);
 
   for (const component of system.components) {
     const baseProduct = products.get(component.productId);
@@ -680,13 +716,15 @@ function buildTerminalNodes(system: SystemDesign, products: Map<string, Product>
     for (const terminal of getEffectiveTerminals(product, component)) {
       const key = terminalKey(component.id, terminal.id);
       const linkSize = linkSizes.get(terminal.id) ?? 1;
+      const netId = netlist?.terminalNetIds.get(key);
+      const resolvedVoltageV = netId ? netById.get(netId)?.nominalVoltageV : undefined;
       nodes.set(key, {
         key,
         component,
         product,
         terminal,
         busType: busTypeFromTerminal(terminal),
-        behavior: terminalBehavior(product, component, terminal, system, linkSize),
+        behavior: terminalBehavior(product, component, terminal, system, linkSize, resolvedVoltageV),
       });
     }
   }
@@ -1023,7 +1061,7 @@ function voltageForConnection(
     .filter((value): value is number => value != null && Number.isFinite(value) && value > 0);
 
   if (terminalVoltages.length > 0) return Math.max(...terminalVoltages);
-  if (busType === 'ac_line' || busType === 'ac_neutral' || busType === 'ac_ground') return 120;
+  if (busType === 'ac_line' || busType === 'ac_line2' || busType === 'ac_line3' || busType === 'ac_neutral' || busType === 'ac_ground') return 120;
   return system.nominalVoltage;
 }
 
@@ -1576,7 +1614,11 @@ function sourceSideRequiresProtection(
   // ampacity" fallback below is unreachable for every current-limited source type,
   // and protection would depend entirely on a manually-set catalog flag with no
   // algorithmic backstop.
-  const sourcePresent = side.canSourceFaultCurrent || side.requiresOvercurrentProtection || side.hasNormalSource;
+  // A sink may require that its supply branch be protected, but that requirement
+  // does not turn the sink into a source capable of energizing its own cable.
+  // Source-side status must be based only on actual source behavior; the opposite
+  // source side will still see the branch/device OCP requirement through the graph.
+  const sourcePresent = side.canSourceFaultCurrent || side.hasNormalSource;
   if (!sourcePresent) return false;
   if (!busTypeRequiresFuse(busType) && !side.requiresOvercurrentProtection) return false;
   if (side.requiresOvercurrentProtection) return true;
@@ -1751,6 +1793,22 @@ function analyzeConnection(
     const fallbackLoad = maxDefined(fromNode?.behavior.normalLoadCurrentA, toNode?.behavior.normalLoadCurrentA) ?? 0;
     const fallbackSource = maxDefined(fromNode?.behavior.normalSourceCurrentA, toNode?.behavior.normalSourceCurrentA) ?? 0;
     designCurrentA = Math.max(fallbackLoad, fallbackSource);
+  }
+
+  if (
+    designCurrentA <= 0 &&
+    isActivePowerConductor(busType) &&
+    fromSide &&
+    toSide &&
+    (
+      ((fromSide.hasNormalSource || fromSide.canSourceFaultCurrent) && toSide.canReceiveCurrent) ||
+      ((toSide.hasNormalSource || toSide.canSourceFaultCurrent) && fromSide.canReceiveCurrent)
+    )
+  ) {
+    addError(
+      'ANALYSIS_CURRENT_UNRESOLVED',
+      `Connected ${busType.replace('_', ' ')} source and sink resolve to 0A; verify port current ratings and direction metadata`
+    );
   }
 
   // A direct bus link is a bolted, zero-impedance join — the two terminals are
@@ -2364,7 +2422,7 @@ function buildReturnCurrentDesignCurrents(
       case 'shorePowerInlet':
         return true;
       case 'dc_dc_charger':
-        return node.terminal.id.startsWith('out');
+        return node.behavior.direction === 'output';
       default:
         return false;
     }
@@ -2453,8 +2511,12 @@ function buildReturnCurrentDesignCurrents(
   return inferred;
 }
 
-export function analyzeSystemCircuits(system: SystemDesign, products: Map<string, Product>): SystemCircuitAnalysis {
-  const nodes = buildTerminalNodes(system, products);
+export function analyzeSystemCircuits(
+  system: SystemDesign,
+  products: Map<string, Product>,
+  options: { netlist?: ElectricalNetlist } = {}
+): SystemCircuitAnalysis {
+  const nodes = buildTerminalNodes(system, products, options.netlist);
   const edges = buildGraphEdges(system, nodes);
   const adjacency = buildAdjacency(edges);
   const productsByComponent = new Map(
@@ -2471,10 +2533,16 @@ export function analyzeSystemCircuits(system: SystemDesign, products: Map<string
   );
   const inferredDesignCurrents = new Map<string, number>();
   const inferredVoltages = new Map<string, number>();
+  if (options.netlist) {
+    for (const connection of system.connections) {
+      const voltageV = connectionNominalVoltageV(options.netlist, connection.id);
+      if (voltageV != null) inferredVoltages.set(connection.id, voltageV);
+    }
+  }
   const batteryTopology = analyzeBatteryTopology(system, products);
   for (const pack of batteryTopology.packs) {
     for (const connectionId of pack.outputConnectionIds) {
-      inferredVoltages.set(connectionId, pack.voltageV);
+      if (!inferredVoltages.has(connectionId)) inferredVoltages.set(connectionId, pack.voltageV);
     }
   }
 

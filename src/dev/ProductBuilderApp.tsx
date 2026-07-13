@@ -126,8 +126,8 @@ const PORT_KINDS: PortKind[] = ['dc', 'ac', 'pv', 'comm', 'ground', 'signal', 'g
 const PORT_TOPOLOGIES: PortTopology[] = ['two_pole', 'bus', 'pass_through'];
 const PORT_ROLES: ConnectionRole[] = ['source', 'sink', 'bidirectional', 'pass_through', 'bus', 'sense', 'control'];
 const PORT_DIRECTIONS: TerminalDirection[] = ['input', 'output', 'bidirectional'];
-const VOLTAGE_CLASSES: VoltageClass[] = ['dc_low_voltage', 'pv_high_voltage', 'ac_120v', 'ac_240v', 'signal_low_voltage'];
-const POLARITIES: ConnectionPolarity[] = ['positive', 'negative', 'line', 'line2', 'neutral', 'ground'];
+const VOLTAGE_CLASSES: VoltageClass[] = ['dc_low_voltage', 'pv_high_voltage', 'ac_120v', 'ac_208v', 'ac_240v', 'ac_480v', 'signal_low_voltage'];
+const POLARITIES: ConnectionPolarity[] = ['positive', 'negative', 'line', 'line2', 'line3', 'neutral', 'ground'];
 const COMM_PROTOCOLS: CommunicationProtocol[] = ['CANopen', 'J1939', 'VE.Bus', 'VE.Direct', 'VE.Can', 'BMS-Can', 'AEbus', 'RS485', 'Ethernet', 'Pylon LV', 'Other'];
 const COMM_TOPOLOGIES: CommunicationTopologyType[] = ['bus', 'point-to-point', 'daisy-chain', 'star', 'configurable'];
 

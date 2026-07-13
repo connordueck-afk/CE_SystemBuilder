@@ -492,6 +492,7 @@ const MEDIUM_24V: SystemDesign = {
     { id: "rv24-dcdc", productId: "orion-tr-smart-12-24-15-non-isolated", label: "Orion-Tr Smart 12/24-15A", quantity: 1, x: -40, y: -80, includeInBom: true },
     { id: "rv24-dcdc-out-fuse", productId: "holder-midi-1pos-inline", label: "DC-DC Output Fuse", quantity: 1, x: 160, y: -80, includeInBom: true, fuseSlots: { slot_1: { installed: true, ratingA: 30 } } },
     { id: "rv24-converter", productId: "orion-tr-24-12-30-converter", label: "24V to 12V Converter", quantity: 1, x: 260, y: 280, includeInBom: true },
+    { id: "rv24-converter-input-fuse", productId: "holder-midi-1pos-inline", label: "Converter Input Fuse", quantity: 1, x: 120, y: 240, includeInBom: true, fuseSlots: { slot_1: { installed: true, ratingA: 20 } } },
     { id: "rv24-converter-fuse", productId: "holder-midi-1pos-inline", label: "12V Load Fuse", quantity: 1, x: 500, y: 280, includeInBom: true, fuseSlots: { slot_1: { installed: true, ratingA: 40 } } },
     { id: "rv24-dc-load", productId: "acc-dc-load-generic", label: "12V DC Loads", quantity: 1, x: 720, y: 280, includeInBom: true, instanceVoltageV: 12, instanceMaxCurrentA: 20 }
   ],
@@ -521,7 +522,8 @@ const MEDIUM_24V: SystemDesign = {
     { id: "rv24-dcdc-to-output-fuse", fromComponentId: "rv24-dcdc", fromTerminalId: "out_pos", toComponentId: "rv24-dcdc-out-fuse", toTerminalId: "in_pos", cableLengthFt: 3 },
     { id: "rv24-output-fuse-to-bus", fromComponentId: "rv24-dcdc-out-fuse", fromTerminalId: "out_pos", toComponentId: "rv24-pos-bus", toTerminalId: "terminal_4", cableLengthFt: 3 },
     { id: "rv24-dcdc-neg", fromComponentId: "rv24-dcdc", fromTerminalId: "out_neg", toComponentId: "rv24-neg-bus", toTerminalId: "terminal_4", cableLengthFt: 4 },
-    { id: "rv24-pos-bus-to-converter", fromComponentId: "rv24-pos-bus", fromTerminalId: "terminal_5", toComponentId: "rv24-converter", toTerminalId: "in_pos", cableLengthFt: 4 },
+    { id: "rv24-pos-bus-to-converter", fromComponentId: "rv24-pos-bus", fromTerminalId: "terminal_5", toComponentId: "rv24-converter-input-fuse", toTerminalId: "in_pos", cableLengthFt: 2 },
+    { id: "rv24-converter-input-fuse-to-converter", fromComponentId: "rv24-converter-input-fuse", fromTerminalId: "out_pos", toComponentId: "rv24-converter", toTerminalId: "in_pos", cableLengthFt: 2 },
     { id: "rv24-converter-neg", fromComponentId: "rv24-neg-bus", fromTerminalId: "terminal_5", toComponentId: "rv24-converter", toTerminalId: "in_neg", cableLengthFt: 4 },
     { id: "rv24-converter-to-load-fuse", fromComponentId: "rv24-converter", fromTerminalId: "out_pos", toComponentId: "rv24-converter-fuse", toTerminalId: "in_pos", cableLengthFt: 3 },
     { id: "rv24-load-fuse-to-load", fromComponentId: "rv24-converter-fuse", fromTerminalId: "out_pos", toComponentId: "rv24-dc-load", toTerminalId: "dc_pos", cableLengthFt: 4 },
@@ -535,7 +537,7 @@ const MEDIUM_24V: SystemDesign = {
 };
 
 const OFFGRID_48V: SystemDesign = {
-  id: "sys-1782867352547-5",
+  id: "sys-1783976129919-27",
   name: "48V Stationary",
   nominalVoltage: 48,
   assumptions: {
@@ -546,8 +548,8 @@ const OFFGRID_48V: SystemDesign = {
     continuousLoadMultiplier: 1.25,
     batteryInterconnectMaxLengthFt: 3
   },
-  createdAt: "2026-07-01T00:55:52.547Z",
-  updatedAt: "2026-07-01T01:09:01.478Z",
+  createdAt: "2026-07-13T20:55:29.919Z",
+  updatedAt: "2026-07-13T20:55:41.420Z",
   components: [
     {
       id: "comp-1782867357091-6",
@@ -609,7 +611,12 @@ const OFFGRID_48V: SystemDesign = {
       y: -580,
       rotationDeg: 180,
       includeInBom: true,
-      fuseSlots: { slot_1: { installed: true, ratingA: 350 } },
+      fuseSlots: {
+        slot_1: {
+          installed: true,
+          ratingA: 350
+        }
+      },
       inferredConnectionKind: "dc_power",
       inferredPolarity: "positive",
       inferredVoltageClass: "dc_low_voltage"
@@ -805,27 +812,29 @@ const OFFGRID_48V: SystemDesign = {
     {
       id: "comp-1782867869646-470",
       productId: "generic-grid-source-240v",
-      label: "Generator",
+      label: "Grid",
       quantity: 1,
       x: 980,
       y: -400,
       includeInBom: true,
-      instanceVoltageV: 120,
+      instanceVoltageV: 240,
       instanceMaxCurrentA: 40,
-      rotationDeg: 180
+      rotationDeg: 180,
+      availableFaultCurrentA: 5000
     },
     {
       id: "comp-1782867874813-497",
       productId: "generic-grid-source-240v",
-      label: "Grid",
+      label: "Generator",
       quantity: 1,
       x: 980,
       y: -500,
       includeInBom: true,
-      instanceVoltageV: 120,
+      instanceVoltageV: 240,
       instanceMaxCurrentA: 40,
       rotationDeg: 180,
-      locked: false
+      locked: false,
+      availableFaultCurrentA: 5000
     },
     {
       id: "comp-1782867890071-533",
@@ -835,7 +844,7 @@ const OFFGRID_48V: SystemDesign = {
       x: 980,
       y: -600,
       includeInBom: true,
-      instanceVoltageV: 120,
+      instanceVoltageV: 240,
       instanceMaxCurrentA: 30
     }
   ],
@@ -848,10 +857,10 @@ const OFFGRID_48V: SystemDesign = {
       toTerminalId: "dc_neg_1",
       cableLengthFt: 2,
       busType: "dc_neg",
-      calculatedCurrentA: 200,
+      calculatedCurrentA: 166.66666666666666,
       recommendedCableAwg: "4/0",
-      voltageDropV: 0.039,
-      voltageDropPercent: 0.08,
+      voltageDropV: 0.033,
+      voltageDropPercent: 0.07,
       warnings: [],
       routePoints: [
         {
@@ -871,7 +880,8 @@ const OFFGRID_48V: SystemDesign = {
           y: -493
         }
       ],
-      routeMode: "manual"
+      routeMode: "manual",
+      errors: []
     },
     {
       id: "conn-1782867380620-12",
@@ -900,11 +910,12 @@ const OFFGRID_48V: SystemDesign = {
       ],
       routeMode: "manual",
       busType: "dc_neg",
-      calculatedCurrentA: 200,
+      calculatedCurrentA: 83.33333333333333,
       recommendedCableAwg: "4/0",
-      voltageDropV: 0.039,
-      voltageDropPercent: 0.08,
-      warnings: []
+      voltageDropV: 0.016,
+      voltageDropPercent: 0.03,
+      warnings: [],
+      errors: []
     },
     {
       id: "conn-1782867449410-13",
@@ -933,12 +944,13 @@ const OFFGRID_48V: SystemDesign = {
       ],
       routeMode: "manual",
       busType: "dc_pos",
-      calculatedCurrentA: 200,
-      recommendedFuseA: 250,
+      calculatedCurrentA: 83.33333333333333,
+      recommendedFuseA: 100,
       recommendedCableAwg: "4/0",
-      voltageDropV: 0.039,
-      voltageDropPercent: 0.08,
-      warnings: []
+      voltageDropV: 0.016,
+      voltageDropPercent: 0.03,
+      warnings: [],
+      errors: []
     },
     {
       id: "conn-1782867450835-14",
@@ -963,12 +975,13 @@ const OFFGRID_48V: SystemDesign = {
       ],
       routeMode: "manual",
       busType: "dc_pos",
-      calculatedCurrentA: 200,
-      recommendedFuseA: 250,
+      calculatedCurrentA: 166.66666666666666,
+      recommendedFuseA: 200,
       recommendedCableAwg: "4/0",
-      voltageDropV: 0.039,
-      voltageDropPercent: 0.08,
-      warnings: []
+      voltageDropV: 0.033,
+      voltageDropPercent: 0.07,
+      warnings: [],
+      errors: []
     },
     {
       id: "conn-1782867485840-16",
@@ -996,8 +1009,9 @@ const OFFGRID_48V: SystemDesign = {
       calculatedCurrentA: 250,
       recommendedCableAwg: "4/0",
       voltageDropV: 0.147,
-      voltageDropPercent: 0.29,
-      warnings: []
+      voltageDropPercent: 0.31,
+      warnings: [],
+      errors: []
     },
     {
       id: "conn-1782867508124-19",
@@ -1014,12 +1028,13 @@ const OFFGRID_48V: SystemDesign = {
       ],
       busType: "dc_pos",
       calculatedCurrentA: 250,
-      recommendedFuseA: 325,
+      recommendedFuseA: 300,
       recommendedCableAwg: "4/0",
       voltageDropV: 0.074,
-      voltageDropPercent: 0.14,
+      voltageDropPercent: 0.15,
       warnings: [],
-      routeMode: "manual"
+      routeMode: "manual",
+      errors: []
     },
     {
       id: "conn-1782867508124-20",
@@ -1036,12 +1051,13 @@ const OFFGRID_48V: SystemDesign = {
       ],
       busType: "dc_pos",
       calculatedCurrentA: 250,
-      recommendedFuseA: 325,
+      recommendedFuseA: 300,
       recommendedCableAwg: "4/0",
       voltageDropV: 0.074,
       voltageDropPercent: 0.15,
       warnings: [],
-      routeMode: "manual"
+      routeMode: "manual",
+      errors: []
     },
     {
       id: "conn-1782867543784-21",
@@ -1055,7 +1071,8 @@ const OFFGRID_48V: SystemDesign = {
       calculatedCurrentA: 0,
       voltageDropV: 0,
       voltageDropPercent: 0,
-      warnings: []
+      warnings: [],
+      errors: []
     },
     {
       id: "conn-1782867544854-25",
@@ -1069,7 +1086,8 @@ const OFFGRID_48V: SystemDesign = {
       calculatedCurrentA: 0,
       voltageDropV: 0,
       voltageDropPercent: 0,
-      warnings: []
+      warnings: [],
+      errors: []
     },
     {
       id: "conn-1782867550632-29",
@@ -1094,7 +1112,8 @@ const OFFGRID_48V: SystemDesign = {
       calculatedCurrentA: 0,
       voltageDropV: 0,
       voltageDropPercent: 0,
-      warnings: []
+      warnings: [],
+      errors: []
     },
     {
       id: "conn-1782867587110-126",
@@ -1103,12 +1122,14 @@ const OFFGRID_48V: SystemDesign = {
       toComponentId: "comp-1782867576760-61",
       toTerminalId: "pv_neg",
       cableLengthFt: 6,
-      busType: "unknown",
+      busType: "pv_pos",
       calculatedCurrentA: 12,
-      recommendedCableAwg: "18",
-      voltageDropV: 0.919,
-      voltageDropPercent: 2.7,
-      warnings: []
+      recommendedCableAwg: "16",
+      voltageDropV: 0.578,
+      voltageDropPercent: 1.7,
+      warnings: [],
+      recommendedFuseA: 20,
+      errors: []
     },
     {
       id: "conn-1782867588024-133",
@@ -1117,12 +1138,14 @@ const OFFGRID_48V: SystemDesign = {
       toComponentId: "comp-1782867578965-74",
       toTerminalId: "pv_neg",
       cableLengthFt: 6,
-      busType: "unknown",
+      busType: "pv_pos",
       calculatedCurrentA: 12,
-      recommendedCableAwg: "18",
-      voltageDropV: 0.919,
-      voltageDropPercent: 2.7,
-      warnings: []
+      recommendedCableAwg: "16",
+      voltageDropV: 0.578,
+      voltageDropPercent: 1.7,
+      warnings: [],
+      recommendedFuseA: 20,
+      errors: []
     },
     {
       id: "conn-1782867589005-140",
@@ -1131,12 +1154,14 @@ const OFFGRID_48V: SystemDesign = {
       toComponentId: "comp-1782867580526-87",
       toTerminalId: "pv_neg",
       cableLengthFt: 6,
-      busType: "unknown",
+      busType: "pv_pos",
       calculatedCurrentA: 12,
-      recommendedCableAwg: "18",
-      voltageDropV: 0.919,
-      voltageDropPercent: 2.7,
-      warnings: []
+      recommendedCableAwg: "16",
+      voltageDropV: 0.578,
+      voltageDropPercent: 1.7,
+      warnings: [],
+      recommendedFuseA: 20,
+      errors: []
     },
     {
       id: "conn-1782867589947-147",
@@ -1145,12 +1170,14 @@ const OFFGRID_48V: SystemDesign = {
       toComponentId: "comp-1782867581782-100",
       toTerminalId: "pv_neg",
       cableLengthFt: 6,
-      busType: "unknown",
+      busType: "pv_pos",
       calculatedCurrentA: 12,
-      recommendedCableAwg: "18",
-      voltageDropV: 0.919,
-      voltageDropPercent: 2.7,
-      warnings: []
+      recommendedCableAwg: "16",
+      voltageDropV: 0.578,
+      voltageDropPercent: 1.7,
+      warnings: [],
+      recommendedFuseA: 20,
+      errors: []
     },
     {
       id: "conn-1782867590878-154",
@@ -1159,12 +1186,14 @@ const OFFGRID_48V: SystemDesign = {
       toComponentId: "comp-1782867583785-113",
       toTerminalId: "pv_neg",
       cableLengthFt: 6,
-      busType: "unknown",
+      busType: "pv_pos",
       calculatedCurrentA: 12,
-      recommendedCableAwg: "18",
-      voltageDropV: 0.919,
-      voltageDropPercent: 2.7,
-      warnings: []
+      recommendedCableAwg: "16",
+      voltageDropV: 0.578,
+      voltageDropPercent: 1.7,
+      warnings: [],
+      recommendedFuseA: 20,
+      errors: []
     },
     {
       id: "conn-1782867594293-161",
@@ -1196,8 +1225,9 @@ const OFFGRID_48V: SystemDesign = {
       calculatedCurrentA: 12,
       recommendedCableAwg: "16",
       voltageDropV: 0.578,
-      voltageDropPercent: 1.2,
-      warnings: []
+      voltageDropPercent: 1.7,
+      warnings: [],
+      errors: []
     },
     {
       id: "conn-1782867639237-223",
@@ -1206,12 +1236,14 @@ const OFFGRID_48V: SystemDesign = {
       toComponentId: "comp-1782867583785-113",
       toTerminalId: "pv_pos",
       cableLengthFt: 6,
-      busType: "unknown",
+      busType: "pv_pos",
       calculatedCurrentA: 12,
-      recommendedCableAwg: "18",
-      voltageDropV: 0.919,
-      voltageDropPercent: 2.7,
-      warnings: []
+      recommendedCableAwg: "16",
+      voltageDropV: 0.578,
+      voltageDropPercent: 1.7,
+      warnings: [],
+      recommendedFuseA: 20,
+      errors: []
     },
     {
       id: "conn-1782867640355-230",
@@ -1220,12 +1252,14 @@ const OFFGRID_48V: SystemDesign = {
       toComponentId: "comp-1782867634822-204",
       toTerminalId: "pv_neg",
       cableLengthFt: 6,
-      busType: "unknown",
+      busType: "pv_pos",
       calculatedCurrentA: 12,
-      recommendedCableAwg: "18",
-      voltageDropV: 0.919,
-      voltageDropPercent: 2.7,
-      warnings: []
+      recommendedCableAwg: "16",
+      voltageDropV: 0.578,
+      voltageDropPercent: 1.7,
+      warnings: [],
+      recommendedFuseA: 20,
+      errors: []
     },
     {
       id: "conn-1782867642128-237",
@@ -1253,8 +1287,10 @@ const OFFGRID_48V: SystemDesign = {
       calculatedCurrentA: 12,
       recommendedCableAwg: "16",
       voltageDropV: 0.578,
-      voltageDropPercent: 1.2,
-      warnings: []
+      voltageDropPercent: 1.7,
+      warnings: [],
+      recommendedFuseA: 20,
+      errors: []
     },
     {
       id: "conn-1782867664424-298",
@@ -1263,12 +1299,14 @@ const OFFGRID_48V: SystemDesign = {
       toComponentId: "comp-1782867650658-263",
       toTerminalId: "pv_neg",
       cableLengthFt: 6,
-      busType: "unknown",
+      busType: "pv_pos",
       calculatedCurrentA: 12,
-      recommendedCableAwg: "18",
-      voltageDropV: 0.919,
-      voltageDropPercent: 2.7,
-      warnings: []
+      recommendedCableAwg: "16",
+      voltageDropV: 0.578,
+      voltageDropPercent: 1.7,
+      warnings: [],
+      recommendedFuseA: 20,
+      errors: []
     },
     {
       id: "conn-1782867665355-305",
@@ -1277,12 +1315,14 @@ const OFFGRID_48V: SystemDesign = {
       toComponentId: "comp-1782867650658-264",
       toTerminalId: "pv_neg",
       cableLengthFt: 6,
-      busType: "unknown",
+      busType: "pv_pos",
       calculatedCurrentA: 12,
-      recommendedCableAwg: "18",
-      voltageDropV: 0.919,
-      voltageDropPercent: 2.7,
-      warnings: []
+      recommendedCableAwg: "16",
+      voltageDropV: 0.578,
+      voltageDropPercent: 1.7,
+      warnings: [],
+      recommendedFuseA: 20,
+      errors: []
     },
     {
       id: "conn-1782867666228-312",
@@ -1291,12 +1331,14 @@ const OFFGRID_48V: SystemDesign = {
       toComponentId: "comp-1782867650658-265",
       toTerminalId: "pv_neg",
       cableLengthFt: 6,
-      busType: "unknown",
+      busType: "pv_pos",
       calculatedCurrentA: 12,
-      recommendedCableAwg: "18",
-      voltageDropV: 0.919,
-      voltageDropPercent: 2.7,
-      warnings: []
+      recommendedCableAwg: "16",
+      voltageDropV: 0.578,
+      voltageDropPercent: 1.7,
+      warnings: [],
+      recommendedFuseA: 20,
+      errors: []
     },
     {
       id: "conn-1782867669362-319",
@@ -1305,12 +1347,14 @@ const OFFGRID_48V: SystemDesign = {
       toComponentId: "comp-1782867650658-266",
       toTerminalId: "pv_neg",
       cableLengthFt: 6,
-      busType: "unknown",
+      busType: "pv_pos",
       calculatedCurrentA: 12,
-      recommendedCableAwg: "18",
-      voltageDropV: 0.919,
-      voltageDropPercent: 2.7,
-      warnings: []
+      recommendedCableAwg: "16",
+      voltageDropV: 0.578,
+      voltageDropPercent: 1.7,
+      warnings: [],
+      recommendedFuseA: 20,
+      errors: []
     },
     {
       id: "conn-1782867670567-326",
@@ -1319,12 +1363,14 @@ const OFFGRID_48V: SystemDesign = {
       toComponentId: "comp-1782867650658-267",
       toTerminalId: "pv_neg",
       cableLengthFt: 6,
-      busType: "unknown",
+      busType: "pv_pos",
       calculatedCurrentA: 12,
-      recommendedCableAwg: "18",
-      voltageDropV: 0.919,
-      voltageDropPercent: 2.7,
-      warnings: []
+      recommendedCableAwg: "16",
+      voltageDropV: 0.578,
+      voltageDropPercent: 1.7,
+      warnings: [],
+      recommendedFuseA: 20,
+      errors: []
     },
     {
       id: "conn-1782867672200-333",
@@ -1333,12 +1379,14 @@ const OFFGRID_48V: SystemDesign = {
       toComponentId: "comp-1782867650658-268",
       toTerminalId: "pv_neg",
       cableLengthFt: 6,
-      busType: "unknown",
+      busType: "pv_pos",
       calculatedCurrentA: 12,
-      recommendedCableAwg: "18",
-      voltageDropV: 0.919,
-      voltageDropPercent: 2.7,
-      warnings: []
+      recommendedCableAwg: "16",
+      voltageDropV: 0.578,
+      voltageDropPercent: 1.7,
+      warnings: [],
+      recommendedFuseA: 20,
+      errors: []
     },
     {
       id: "conn-1782867673203-340",
@@ -1347,12 +1395,14 @@ const OFFGRID_48V: SystemDesign = {
       toComponentId: "comp-1782867650658-269",
       toTerminalId: "pv_neg",
       cableLengthFt: 6,
-      busType: "unknown",
+      busType: "pv_pos",
       calculatedCurrentA: 12,
-      recommendedCableAwg: "18",
-      voltageDropV: 0.919,
-      voltageDropPercent: 2.7,
-      warnings: []
+      recommendedCableAwg: "16",
+      voltageDropV: 0.578,
+      voltageDropPercent: 1.7,
+      warnings: [],
+      recommendedFuseA: 20,
+      errors: []
     },
     {
       id: "conn-1782867676780-347",
@@ -1380,8 +1430,9 @@ const OFFGRID_48V: SystemDesign = {
       calculatedCurrentA: 12,
       recommendedCableAwg: "16",
       voltageDropV: 0.578,
-      voltageDropPercent: 1.2,
-      warnings: []
+      voltageDropPercent: 1.7,
+      warnings: [],
+      errors: []
     },
     {
       id: "conn-1782867680799-354",
@@ -1409,8 +1460,10 @@ const OFFGRID_48V: SystemDesign = {
       calculatedCurrentA: 12,
       recommendedCableAwg: "16",
       voltageDropV: 0.578,
-      voltageDropPercent: 1.2,
-      warnings: []
+      voltageDropPercent: 1.7,
+      warnings: [],
+      recommendedFuseA: 20,
+      errors: []
     },
     {
       id: "conn-1782867906434-556",
@@ -1432,11 +1485,12 @@ const OFFGRID_48V: SystemDesign = {
       routeMode: "manual",
       busType: "ac_line2",
       calculatedCurrentA: 30,
-      recommendedFuseA: 40,
-      recommendedCableAwg: "12",
-      voltageDropV: 0.572,
-      voltageDropPercent: 0.24,
-      warnings: []
+      recommendedFuseA: 35,
+      recommendedCableAwg: "10",
+      voltageDropV: 0.36,
+      voltageDropPercent: 0.15,
+      warnings: [],
+      errors: []
     },
     {
       id: "conn-1782867909335-563",
@@ -1458,18 +1512,19 @@ const OFFGRID_48V: SystemDesign = {
       routeMode: "manual",
       busType: "ac_line",
       calculatedCurrentA: 30,
-      recommendedFuseA: 40,
-      recommendedCableAwg: "12",
-      voltageDropV: 0.572,
-      voltageDropPercent: 0.24,
-      warnings: []
+      recommendedFuseA: 35,
+      recommendedCableAwg: "10",
+      voltageDropV: 0.36,
+      voltageDropPercent: 0.15,
+      warnings: [],
+      errors: []
     },
     {
       id: "conn-1782867911464-570",
       fromComponentId: "comp-1782867470682-15",
       fromTerminalId: "ac_gen_l2",
       toComponentId: "comp-1782867851040-440",
-      toTerminalId: "l2_in",
+      toTerminalId: "l2_out",
       cableLengthFt: 6,
       routePoints: [
         {
@@ -1483,18 +1538,20 @@ const OFFGRID_48V: SystemDesign = {
       ],
       routeMode: "manual",
       busType: "ac_line2",
-      calculatedCurrentA: 0,
+      calculatedCurrentA: 40,
       recommendedCableAwg: "10",
-      voltageDropV: 0,
-      voltageDropPercent: 0,
-      warnings: []
+      voltageDropV: 0.48,
+      voltageDropPercent: 0.2,
+      warnings: [],
+      errors: [],
+      recommendedFuseA: 50
     },
     {
       id: "conn-1782867913734-577",
       fromComponentId: "comp-1782867470682-15",
       fromTerminalId: "ac_gen_l1",
       toComponentId: "comp-1782867851040-440",
-      toTerminalId: "l1_in",
+      toTerminalId: "l1_out",
       cableLengthFt: 6,
       routePoints: [
         {
@@ -1508,16 +1565,18 @@ const OFFGRID_48V: SystemDesign = {
       ],
       routeMode: "manual",
       busType: "ac_line",
-      calculatedCurrentA: 0,
+      calculatedCurrentA: 40,
       recommendedCableAwg: "10",
-      voltageDropV: 0,
-      voltageDropPercent: 0,
-      warnings: []
+      voltageDropV: 0.48,
+      voltageDropPercent: 0.2,
+      warnings: [],
+      errors: [],
+      recommendedFuseA: 50
     },
     {
       id: "conn-1782867915172-584",
       fromComponentId: "comp-1782867847805-433",
-      fromTerminalId: "l1_in",
+      fromTerminalId: "l1_out",
       toComponentId: "comp-1782867470682-15",
       toTerminalId: "ac_grid_l1",
       cableLengthFt: 6,
@@ -1533,18 +1592,20 @@ const OFFGRID_48V: SystemDesign = {
       ],
       routeMode: "manual",
       busType: "ac_line",
-      calculatedCurrentA: 0,
+      calculatedCurrentA: 40,
       recommendedCableAwg: "10",
-      voltageDropV: 0,
-      voltageDropPercent: 0,
-      warnings: []
+      voltageDropV: 0.48,
+      voltageDropPercent: 0.2,
+      warnings: [],
+      errors: [],
+      recommendedFuseA: 50
     },
     {
       id: "conn-1782867917896-591",
       fromComponentId: "comp-1782867470682-15",
       fromTerminalId: "ac_grid_l2",
       toComponentId: "comp-1782867847805-433",
-      toTerminalId: "l2_in",
+      toTerminalId: "l2_out",
       cableLengthFt: 6,
       routePoints: [
         {
@@ -1558,11 +1619,13 @@ const OFFGRID_48V: SystemDesign = {
       ],
       routeMode: "manual",
       busType: "ac_line2",
-      calculatedCurrentA: 0,
+      calculatedCurrentA: 40,
       recommendedCableAwg: "10",
-      voltageDropV: 0,
-      voltageDropPercent: 0,
-      warnings: []
+      voltageDropV: 0.48,
+      voltageDropPercent: 0.2,
+      warnings: [],
+      errors: [],
+      recommendedFuseA: 50
     },
     {
       id: "conn-1782867963537-704",
@@ -1580,11 +1643,12 @@ const OFFGRID_48V: SystemDesign = {
       routeMode: "manual",
       busType: "ac_line2",
       calculatedCurrentA: 30,
-      recommendedFuseA: 40,
-      recommendedCableAwg: "12",
-      voltageDropV: 0.572,
-      voltageDropPercent: 0.24,
-      warnings: []
+      recommendedFuseA: 35,
+      recommendedCableAwg: "10",
+      voltageDropV: 0.36,
+      voltageDropPercent: 0.15,
+      warnings: [],
+      errors: []
     },
     {
       id: "conn-1782867965325-711",
@@ -1606,16 +1670,17 @@ const OFFGRID_48V: SystemDesign = {
       routeMode: "manual",
       busType: "ac_line",
       calculatedCurrentA: 30,
-      recommendedFuseA: 40,
-      recommendedCableAwg: "12",
-      voltageDropV: 0.572,
-      voltageDropPercent: 0.24,
-      warnings: []
+      recommendedFuseA: 35,
+      recommendedCableAwg: "10",
+      voltageDropV: 0.36,
+      voltageDropPercent: 0.15,
+      warnings: [],
+      errors: []
     },
     {
       id: "conn-1782867979043-742",
       fromComponentId: "comp-1782867851040-440",
-      fromTerminalId: "l2_out",
+      fromTerminalId: "l2_in",
       toComponentId: "comp-1782867874813-497",
       toTerminalId: "ac_l2",
       cableLengthFt: 6,
@@ -1632,14 +1697,15 @@ const OFFGRID_48V: SystemDesign = {
       recommendedCableAwg: "10",
       voltageDropV: 0.48,
       voltageDropPercent: 0.2,
-      warnings: []
+      warnings: [],
+      errors: []
     },
     {
       id: "conn-1782867980793-749",
       fromComponentId: "comp-1782867874813-497",
       fromTerminalId: "ac_l1",
       toComponentId: "comp-1782867851040-440",
-      toTerminalId: "l1_out",
+      toTerminalId: "l1_in",
       cableLengthFt: 6,
       routePoints: [
         {
@@ -1654,12 +1720,13 @@ const OFFGRID_48V: SystemDesign = {
       recommendedCableAwg: "10",
       voltageDropV: 0.48,
       voltageDropPercent: 0.2,
-      warnings: []
+      warnings: [],
+      errors: []
     },
     {
       id: "conn-1782867982316-756",
       fromComponentId: "comp-1782867847805-433",
-      fromTerminalId: "l2_out",
+      fromTerminalId: "l2_in",
       toComponentId: "comp-1782867869646-470",
       toTerminalId: "ac_l2",
       cableLengthFt: 6,
@@ -1676,14 +1743,15 @@ const OFFGRID_48V: SystemDesign = {
       recommendedCableAwg: "10",
       voltageDropV: 0.48,
       voltageDropPercent: 0.2,
-      warnings: []
+      warnings: [],
+      errors: []
     },
     {
       id: "conn-1782867983843-763",
       fromComponentId: "comp-1782867869646-470",
       fromTerminalId: "ac_l1",
       toComponentId: "comp-1782867847805-433",
-      toTerminalId: "l1_out",
+      toTerminalId: "l1_in",
       cableLengthFt: 6,
       routePoints: [
         {
@@ -1698,7 +1766,8 @@ const OFFGRID_48V: SystemDesign = {
       recommendedCableAwg: "10",
       voltageDropV: 0.48,
       voltageDropPercent: 0.2,
-      warnings: []
+      warnings: [],
+      errors: []
     },
     {
       id: "conn-1782867986280-770",
@@ -1726,8 +1795,9 @@ const OFFGRID_48V: SystemDesign = {
       calculatedCurrentA: 30,
       recommendedCableAwg: "12",
       voltageDropV: 0.572,
-      voltageDropPercent: 0.24,
-      warnings: []
+      voltageDropPercent: 0.48,
+      warnings: [],
+      errors: []
     },
     {
       id: "conn-1782867988467-777",
@@ -1747,7 +1817,11 @@ const OFFGRID_48V: SystemDesign = {
         },
         {
           x: 730,
-          y: -484
+          y: -520
+        },
+        {
+          x: 930,
+          y: -520
         }
       ],
       routeMode: "manual",
@@ -1755,8 +1829,9 @@ const OFFGRID_48V: SystemDesign = {
       calculatedCurrentA: 40,
       recommendedCableAwg: "10",
       voltageDropV: 0.48,
-      voltageDropPercent: 0.2,
-      warnings: []
+      voltageDropPercent: 0.4,
+      warnings: [],
+      errors: []
     },
     {
       id: "conn-1782867991317-784",
@@ -1784,15 +1859,16 @@ const OFFGRID_48V: SystemDesign = {
       calculatedCurrentA: 40,
       recommendedCableAwg: "10",
       voltageDropV: 0.48,
-      voltageDropPercent: 0.2,
-      warnings: []
+      voltageDropPercent: 0.4,
+      warnings: [],
+      errors: []
     }
   ],
   annotations: []
 };
 
-const FULL_12V: SystemDesign = {
-  id: "sys-1783364592775-12",
+export const FULL_12V: SystemDesign = {
+  id: "sys-1783960957666-8",
   name: "24V Medium RV",
   nominalVoltage: 24,
   assumptions: {
@@ -1803,8 +1879,8 @@ const FULL_12V: SystemDesign = {
     continuousLoadMultiplier: 1.25,
     batteryInterconnectMaxLengthFt: 3
   },
-  createdAt: "2026-07-06T19:03:12.775Z",
-  updatedAt: "2026-07-06T19:03:57.675Z",
+  createdAt: "2026-07-13T16:42:37.666Z",
+  updatedAt: "2026-07-13T18:30:42.927Z",
   components: [
     {
       id: "rv24-bat-1",
@@ -1820,8 +1896,8 @@ const FULL_12V: SystemDesign = {
       productId: "discover-aes-lithium-24-100",
       label: "House Battery 2",
       quantity: 1,
-      x: -540,
-      y: 120,
+      x: -420,
+      y: 360,
       includeInBom: true
     },
     {
@@ -1832,7 +1908,12 @@ const FULL_12V: SystemDesign = {
       x: -220,
       y: 120,
       includeInBom: true,
-      fuseSlots: { slot_1: { installed: true, ratingA: 200 } }
+      fuseSlots: {
+        slot_1: {
+          installed: true,
+          ratingA: 175
+        }
+      }
     },
     {
       id: "rv24-pos-bus",
@@ -1866,16 +1947,22 @@ const FULL_12V: SystemDesign = {
       x: 220,
       y: 80,
       includeInBom: true,
-      fuseSlots: { slot_1: { installed: true, ratingA: 175 } }
+      fuseSlots: {
+        slot_1: {
+          installed: true,
+          ratingA: 175
+        }
+      }
     },
     {
       id: "rv24-inverter",
       productId: "inv-vic-mp2-24-3000",
       label: "MultiPlus-II 24/3000",
       quantity: 1,
-      x: 480,
-      y: 120,
-      includeInBom: true
+      x: 520,
+      y: 80,
+      includeInBom: true,
+      imageScale: 2
     },
     {
       id: "rv24-ac-source",
@@ -1913,8 +2000,8 @@ const FULL_12V: SystemDesign = {
       productId: "solar-array-400w",
       label: "Solar Panel 1",
       quantity: 1,
-      x: -520,
-      y: -480,
+      x: 460,
+      y: -500,
       includeInBom: true
     },
     {
@@ -1922,8 +2009,8 @@ const FULL_12V: SystemDesign = {
       productId: "solar-array-400w",
       label: "Solar Panel 2",
       quantity: 1,
-      x: -360,
-      y: -480,
+      x: 600,
+      y: -500,
       includeInBom: true
     },
     {
@@ -1931,8 +2018,8 @@ const FULL_12V: SystemDesign = {
       productId: "solar-array-400w",
       label: "Solar Panel 3",
       quantity: 1,
-      x: -520,
-      y: -340,
+      x: 160,
+      y: -500,
       includeInBom: true
     },
     {
@@ -1940,17 +2027,8 @@ const FULL_12V: SystemDesign = {
       productId: "solar-array-400w",
       label: "Solar Panel 4",
       quantity: 1,
-      x: -360,
-      y: -340,
-      includeInBom: true
-    },
-    {
-      id: "rv24-combiner",
-      productId: "solar-combiner-2-string",
-      label: "PV Combiner",
-      quantity: 1,
-      x: -80,
-      y: -400,
+      x: 300,
+      y: -500,
       includeInBom: true
     },
     {
@@ -1961,7 +2039,12 @@ const FULL_12V: SystemDesign = {
       x: 40,
       y: -120,
       includeInBom: true,
-      fuseSlots: { slot_1: { installed: true, ratingA: 80 } }
+      fuseSlots: {
+        slot_1: {
+          installed: true,
+          ratingA: 80
+        }
+      }
     },
     {
       id: "rv24-alternator",
@@ -1982,7 +2065,13 @@ const FULL_12V: SystemDesign = {
       x: -240,
       y: -80,
       includeInBom: true,
-      fuseSlots: { slot_1: { installed: true, ratingA: 30 } }
+      fuseSlots: {
+        slot_1: {
+          installed: true,
+          ratingA: 40,
+          fuseProductId: "fuse-midi-40a"
+        }
+      }
     },
     {
       id: "rv24-dcdc",
@@ -2001,15 +2090,20 @@ const FULL_12V: SystemDesign = {
       x: 160,
       y: -80,
       includeInBom: true,
-      fuseSlots: { slot_1: { installed: true, ratingA: 30 } }
+      fuseSlots: {
+        slot_1: {
+          installed: true,
+          ratingA: 30
+        }
+      }
     },
     {
       id: "rv24-converter",
       productId: "orion-tr-24-12-30-converter",
       label: "24V to 12V Converter",
       quantity: 1,
-      x: 260,
-      y: 280,
+      x: 320,
+      y: 160,
       includeInBom: true
     },
     {
@@ -2020,7 +2114,12 @@ const FULL_12V: SystemDesign = {
       x: 500,
       y: 280,
       includeInBom: true,
-      fuseSlots: { slot_1: { installed: true, ratingA: 40 } }
+      fuseSlots: {
+        slot_1: {
+          installed: true,
+          ratingA: 40
+        }
+      }
     },
     {
       id: "rv24-dc-load",
@@ -2032,6 +2131,47 @@ const FULL_12V: SystemDesign = {
       includeInBom: true,
       instanceVoltageV: 12,
       instanceMaxCurrentA: 20
+    },
+    {
+      id: "comp-1783960964189-9",
+      productId: "holder-class-t-1pos",
+      label: "Battery Pack Fuse",
+      quantity: 1,
+      x: 160,
+      y: 220,
+      rotationDeg: 0,
+      includeInBom: true,
+      fuseSlots: {
+        slot_1: {
+          installed: true,
+          ratingA: 35
+        }
+      }
+    },
+    {
+      id: "comp-1783967279148-2",
+      productId: "solar-branch-2-1",
+      label: "2-1 PV Branch Connector",
+      quantity: 1,
+      x: 340,
+      y: -300,
+      includeInBom: true,
+      inferredConnectionKind: "pv_power",
+      inferredPolarity: "negative",
+      inferredVoltageClass: "pv_high_voltage"
+    },
+    {
+      id: "comp-1783967366891-6",
+      productId: "solar-branch-2-1",
+      label: "2-1 PV Branch Connector Copy",
+      quantity: 1,
+      x: 420,
+      y: -300,
+      includeInBom: true,
+      locked: false,
+      inferredConnectionKind: "pv_power",
+      inferredPolarity: "positive",
+      inferredVoltageClass: "pv_high_voltage"
     }
   ],
   connections: [
@@ -2043,23 +2183,13 @@ const FULL_12V: SystemDesign = {
       toTerminalId: "dc_pos",
       cableLengthFt: 2,
       busType: "dc_pos",
-      calculatedCurrentA: 145,
-      recommendedFuseA: 200,
-      recommendedCableAwg: "1/0",
-      voltageDropV: 0.057,
-      voltageDropPercent: 0.22,
+      calculatedCurrentA: 72.5,
+      recommendedFuseA: 80,
+      recommendedCableAwg: "1",
+      voltageDropV: 0.036,
+      voltageDropPercent: 0.15,
       warnings: [],
-      routePoints: [
-        {
-          x: -496,
-          y: 50
-        },
-        {
-          x: -376,
-          y: 50
-        }
-      ],
-      routeMode: "manual"
+      errors: []
     },
     {
       id: "rv24-bat-neg-link",
@@ -2069,82 +2199,91 @@ const FULL_12V: SystemDesign = {
       toTerminalId: "dc_neg",
       cableLengthFt: 2,
       busType: "dc_neg",
-      calculatedCurrentA: 145,
-      recommendedCableAwg: "1/0",
-      voltageDropV: 0.057,
-      voltageDropPercent: 0.22,
+      calculatedCurrentA: 72.5,
+      recommendedCableAwg: "1",
+      voltageDropV: 0.036,
+      voltageDropPercent: 0.15,
       warnings: [],
-      routePoints: [
-        {
-          x: -584,
-          y: 40
-        },
-        {
-          x: -464,
-          y: 40
-        }
-      ],
-      routeMode: "manual"
+      errors: []
     },
     {
       id: "rv24-bat-to-pack-fuse",
       fromComponentId: "rv24-bat-1",
       fromTerminalId: "dc_pos",
       toComponentId: "rv24-pack-fuse",
-      toTerminalId: "in",
+      toTerminalId: "in_pos",
       cableLengthFt: 2,
       busType: "dc_pos",
-      calculatedCurrentA: 160,
-      recommendedFuseA: 200,
-      recommendedCableAwg: "1/0",
-      voltageDropV: 0.063,
-      voltageDropPercent: 0.25,
-      warnings: []
+      calculatedCurrentA: 145,
+      recommendedFuseA: 175,
+      recommendedCableAwg: "1",
+      voltageDropV: 0.072,
+      voltageDropPercent: 0.3,
+      warnings: [],
+      errors: []
     },
     {
       id: "rv24-pack-fuse-to-pos-bus",
       fromComponentId: "rv24-pack-fuse",
-      fromTerminalId: "out",
+      fromTerminalId: "out_pos",
       toComponentId: "rv24-pos-bus",
       toTerminalId: "terminal_1",
       cableLengthFt: 2,
       busType: "dc_pos",
-      calculatedCurrentA: 160,
-      recommendedFuseA: 200,
-      recommendedCableAwg: "1/0",
-      voltageDropV: 0.063,
-      voltageDropPercent: 0.26,
-      warnings: []
+      calculatedCurrentA: 145,
+      recommendedFuseA: 175,
+      recommendedCableAwg: "1",
+      voltageDropV: 0.072,
+      voltageDropPercent: 0.3,
+      warnings: [],
+      errors: []
     },
     {
       id: "rv24-pos-bus-to-inv-fuse",
       fromComponentId: "rv24-pos-bus",
       fromTerminalId: "terminal_2",
       toComponentId: "rv24-inv-fuse",
-      toTerminalId: "in",
+      toTerminalId: "in_pos",
       cableLengthFt: 3,
       busType: "dc_pos",
       calculatedCurrentA: 130,
-      recommendedFuseA: 175,
+      recommendedFuseA: 150,
       recommendedCableAwg: "1",
       voltageDropV: 0.097,
       voltageDropPercent: 0.4,
-      warnings: []
+      warnings: [],
+      errors: []
     },
     {
       id: "rv24-inv-fuse-to-inverter",
       fromComponentId: "rv24-inv-fuse",
-      fromTerminalId: "out",
+      fromTerminalId: "out_pos",
       toComponentId: "rv24-inverter",
       toTerminalId: "dc_pos",
       cableLengthFt: 3,
       busType: "dc_pos",
       calculatedCurrentA: 130,
-      recommendedFuseA: 175,
+      recommendedFuseA: 150,
       recommendedCableAwg: "1",
       voltageDropV: 0.097,
       voltageDropPercent: 0.4,
-      warnings: []
+      warnings: [],
+      errors: [],
+      routePoints: [
+        {
+          x: 400,
+          y: 80
+        },
+        {
+          x: 400,
+          y: 240
+        },
+        {
+          x: 470,
+          y: 240
+        }
+      ],
+      routeMode: "manual"
     },
     {
       id: "rv24-inverter-neg",
@@ -2158,7 +2297,8 @@ const FULL_12V: SystemDesign = {
       recommendedCableAwg: "1",
       voltageDropV: 0.193,
       voltageDropPercent: 0.81,
-      warnings: []
+      warnings: [],
+      errors: []
     },
     {
       id: "rv24-pv-s1-series",
@@ -2167,12 +2307,14 @@ const FULL_12V: SystemDesign = {
       toComponentId: "rv24-pv-2",
       toTerminalId: "pv_neg",
       cableLengthFt: 6,
-      busType: "unknown",
+      busType: "pv_pos",
       calculatedCurrentA: 12,
-      recommendedCableAwg: "18",
-      voltageDropV: 0.919,
-      voltageDropPercent: 2.7,
-      warnings: []
+      recommendedFuseA: 20,
+      recommendedCableAwg: "16",
+      voltageDropV: 0.578,
+      voltageDropPercent: 1.7,
+      warnings: [],
+      errors: []
     },
     {
       id: "rv24-pv-s2-series",
@@ -2181,126 +2323,46 @@ const FULL_12V: SystemDesign = {
       toComponentId: "rv24-pv-4",
       toTerminalId: "pv_neg",
       cableLengthFt: 6,
-      busType: "unknown",
-      calculatedCurrentA: 12,
-      recommendedCableAwg: "18",
-      voltageDropV: 0.919,
-      voltageDropPercent: 2.7,
-      warnings: []
-    },
-    {
-      id: "rv24-pv-s1-neg",
-      fromComponentId: "rv24-pv-1",
-      fromTerminalId: "pv_neg",
-      toComponentId: "rv24-combiner",
-      toTerminalId: "string_1_neg",
-      cableLengthFt: 8,
-      busType: "pv_neg",
-      calculatedCurrentA: 12,
-      recommendedCableAwg: "16",
-      voltageDropV: 0.771,
-      voltageDropPercent: 0.51,
-      warnings: []
-    },
-    {
-      id: "rv24-pv-s1-pos",
-      fromComponentId: "rv24-pv-2",
-      fromTerminalId: "pv_pos",
-      toComponentId: "rv24-combiner",
-      toTerminalId: "string_1_pos",
-      cableLengthFt: 8,
       busType: "pv_pos",
       calculatedCurrentA: 12,
+      recommendedFuseA: 20,
       recommendedCableAwg: "16",
-      voltageDropV: 0.771,
-      voltageDropPercent: 0.51,
-      warnings: []
-    },
-    {
-      id: "rv24-pv-s2-neg",
-      fromComponentId: "rv24-pv-3",
-      fromTerminalId: "pv_neg",
-      toComponentId: "rv24-combiner",
-      toTerminalId: "string_2_neg",
-      cableLengthFt: 8,
-      busType: "pv_neg",
-      calculatedCurrentA: 12,
-      recommendedCableAwg: "16",
-      voltageDropV: 0.771,
-      voltageDropPercent: 0.51,
-      warnings: []
-    },
-    {
-      id: "rv24-pv-s2-pos",
-      fromComponentId: "rv24-pv-4",
-      fromTerminalId: "pv_pos",
-      toComponentId: "rv24-combiner",
-      toTerminalId: "string_2_pos",
-      cableLengthFt: 8,
-      busType: "pv_pos",
-      calculatedCurrentA: 12,
-      recommendedCableAwg: "16",
-      voltageDropV: 0.771,
-      voltageDropPercent: 0.51,
-      warnings: []
-    },
-    {
-      id: "rv24-combiner-to-mppt-pos",
-      fromComponentId: "rv24-combiner",
-      fromTerminalId: "out_pos",
-      toComponentId: "rv24-mppt",
-      toTerminalId: "pv_pos",
-      cableLengthFt: 12,
-      busType: "pv_pos",
-      calculatedCurrentA: 24,
-      recommendedCableAwg: "12",
-      voltageDropV: 0.915,
-      voltageDropPercent: 0.61,
-      warnings: []
-    },
-    {
-      id: "rv24-combiner-to-mppt-neg",
-      fromComponentId: "rv24-combiner",
-      fromTerminalId: "out_neg",
-      toComponentId: "rv24-mppt",
-      toTerminalId: "pv_neg",
-      cableLengthFt: 12,
-      busType: "pv_neg",
-      calculatedCurrentA: 24,
-      recommendedCableAwg: "12",
-      voltageDropV: 0.915,
-      voltageDropPercent: 0.61,
-      warnings: []
+      voltageDropV: 0.578,
+      voltageDropPercent: 1.7,
+      warnings: [],
+      errors: []
     },
     {
       id: "rv24-mppt-to-fuse",
       fromComponentId: "rv24-mppt",
       fromTerminalId: "bat_pos",
       toComponentId: "rv24-mppt-fuse",
-      toTerminalId: "in",
+      toTerminalId: "in_pos",
       cableLengthFt: 3,
       busType: "dc_pos",
       calculatedCurrentA: 60,
-      recommendedFuseA: 75,
+      recommendedFuseA: 70,
       recommendedCableAwg: "6",
       voltageDropV: 0.142,
       voltageDropPercent: 0.59,
-      warnings: []
+      warnings: [],
+      errors: []
     },
     {
       id: "rv24-mppt-fuse-to-bus",
       fromComponentId: "rv24-mppt-fuse",
-      fromTerminalId: "out",
+      fromTerminalId: "out_pos",
       toComponentId: "rv24-pos-bus",
       toTerminalId: "terminal_3",
       cableLengthFt: 3,
       busType: "dc_pos",
       calculatedCurrentA: 60,
-      recommendedFuseA: 75,
+      recommendedFuseA: 70,
       recommendedCableAwg: "6",
       voltageDropV: 0.142,
       voltageDropPercent: 0.59,
-      warnings: []
+      warnings: [],
+      errors: []
     },
     {
       id: "rv24-mppt-neg",
@@ -2313,38 +2375,41 @@ const FULL_12V: SystemDesign = {
       calculatedCurrentA: 60,
       recommendedCableAwg: "6",
       voltageDropV: 0.19,
-      voltageDropPercent: 1.58,
-      warnings: []
+      voltageDropPercent: 0.79,
+      warnings: [],
+      errors: []
     },
     {
       id: "rv24-alt-to-input-fuse",
       fromComponentId: "rv24-alternator",
       fromTerminalId: "dc_pos",
       toComponentId: "rv24-dcdc-in-fuse",
-      toTerminalId: "in",
+      toTerminalId: "in_pos",
       cableLengthFt: 3,
       busType: "dc_pos",
-      calculatedCurrentA: 15,
-      recommendedFuseA: 20,
-      recommendedCableAwg: "14",
-      voltageDropV: 0.227,
-      voltageDropPercent: 0.95,
-      warnings: []
+      calculatedCurrentA: 30,
+      recommendedFuseA: 35,
+      recommendedCableAwg: "12",
+      voltageDropV: 0.286,
+      voltageDropPercent: 2.38,
+      warnings: [],
+      errors: []
     },
     {
       id: "rv24-input-fuse-to-dcdc",
       fromComponentId: "rv24-dcdc-in-fuse",
-      fromTerminalId: "out",
+      fromTerminalId: "out_pos",
       toComponentId: "rv24-dcdc",
       toTerminalId: "in_pos",
       cableLengthFt: 3,
       busType: "dc_pos",
-      calculatedCurrentA: 15,
-      recommendedFuseA: 20,
-      recommendedCableAwg: "14",
-      voltageDropV: 0.227,
-      voltageDropPercent: 0.95,
-      warnings: []
+      calculatedCurrentA: 30,
+      recommendedFuseA: 35,
+      recommendedCableAwg: "12",
+      voltageDropV: 0.286,
+      voltageDropPercent: 2.38,
+      warnings: [],
+      errors: []
     },
     {
       id: "rv24-alt-neg-to-dcdc",
@@ -2354,31 +2419,33 @@ const FULL_12V: SystemDesign = {
       toTerminalId: "in_neg",
       cableLengthFt: 6,
       busType: "dc_neg",
-      calculatedCurrentA: 15,
-      recommendedCableAwg: "14",
-      voltageDropV: 0.455,
-      voltageDropPercent: 1.89,
-      warnings: []
+      calculatedCurrentA: 30,
+      recommendedCableAwg: "10",
+      voltageDropV: 0.36,
+      voltageDropPercent: 3,
+      warnings: [],
+      errors: []
     },
     {
       id: "rv24-dcdc-to-output-fuse",
       fromComponentId: "rv24-dcdc",
       fromTerminalId: "out_pos",
       toComponentId: "rv24-dcdc-out-fuse",
-      toTerminalId: "in",
+      toTerminalId: "in_pos",
       cableLengthFt: 3,
       busType: "dc_pos",
       calculatedCurrentA: 15,
       recommendedFuseA: 20,
-      recommendedCableAwg: "14",
-      voltageDropV: 0.227,
-      voltageDropPercent: 0.95,
-      warnings: []
+      recommendedCableAwg: "12",
+      voltageDropV: 0.143,
+      voltageDropPercent: 0.6,
+      warnings: [],
+      errors: []
     },
     {
       id: "rv24-output-fuse-to-bus",
       fromComponentId: "rv24-dcdc-out-fuse",
-      fromTerminalId: "out",
+      fromTerminalId: "out_pos",
       toComponentId: "rv24-pos-bus",
       toTerminalId: "terminal_4",
       cableLengthFt: 3,
@@ -2388,7 +2455,8 @@ const FULL_12V: SystemDesign = {
       recommendedCableAwg: "14",
       voltageDropV: 0.227,
       voltageDropPercent: 0.95,
-      warnings: []
+      warnings: [],
+      errors: []
     },
     {
       id: "rv24-dcdc-neg",
@@ -2399,25 +2467,11 @@ const FULL_12V: SystemDesign = {
       cableLengthFt: 4,
       busType: "dc_neg",
       calculatedCurrentA: 15,
-      recommendedCableAwg: "14",
-      voltageDropV: 0.303,
-      voltageDropPercent: 1.26,
-      warnings: []
-    },
-    {
-      id: "rv24-pos-bus-to-converter",
-      fromComponentId: "rv24-pos-bus",
-      fromTerminalId: "terminal_5",
-      toComponentId: "rv24-converter",
-      toTerminalId: "in_pos",
-      cableLengthFt: 4,
-      busType: "dc_pos",
-      calculatedCurrentA: 30,
-      recommendedFuseA: 40,
-      recommendedCableAwg: "10",
-      voltageDropV: 0.24,
-      voltageDropPercent: 2,
-      warnings: []
+      recommendedCableAwg: "12",
+      voltageDropV: 0.191,
+      voltageDropPercent: 0.79,
+      warnings: [],
+      errors: []
     },
     {
       id: "rv24-converter-neg",
@@ -2427,31 +2481,33 @@ const FULL_12V: SystemDesign = {
       toTerminalId: "in_neg",
       cableLengthFt: 4,
       busType: "dc_neg",
-      calculatedCurrentA: 30,
-      recommendedCableAwg: "10",
-      voltageDropV: 0.24,
-      voltageDropPercent: 2,
-      warnings: []
+      calculatedCurrentA: 15,
+      recommendedCableAwg: "12",
+      voltageDropV: 0.191,
+      voltageDropPercent: 0.79,
+      warnings: [],
+      errors: []
     },
     {
       id: "rv24-converter-to-load-fuse",
       fromComponentId: "rv24-converter",
       fromTerminalId: "out_pos",
       toComponentId: "rv24-converter-fuse",
-      toTerminalId: "in",
+      toTerminalId: "in_pos",
       cableLengthFt: 3,
       busType: "dc_pos",
       calculatedCurrentA: 20,
       recommendedFuseA: 25,
       recommendedCableAwg: "12",
       voltageDropV: 0.191,
-      voltageDropPercent: 0.79,
-      warnings: []
+      voltageDropPercent: 1.59,
+      warnings: [],
+      errors: []
     },
     {
       id: "rv24-load-fuse-to-load",
       fromComponentId: "rv24-converter-fuse",
-      fromTerminalId: "out",
+      fromTerminalId: "out_pos",
       toComponentId: "rv24-dc-load",
       toTerminalId: "dc_pos",
       cableLengthFt: 4,
@@ -2460,8 +2516,9 @@ const FULL_12V: SystemDesign = {
       recommendedFuseA: 25,
       recommendedCableAwg: "12",
       voltageDropV: 0.254,
-      voltageDropPercent: 1.06,
-      warnings: []
+      voltageDropPercent: 2.12,
+      warnings: [],
+      errors: []
     },
     {
       id: "rv24-load-neg",
@@ -2475,7 +2532,8 @@ const FULL_12V: SystemDesign = {
       recommendedCableAwg: "12",
       voltageDropV: 0.254,
       voltageDropPercent: 2.12,
-      warnings: []
+      warnings: [],
+      errors: []
     },
     {
       id: "rv24-ac-source-l",
@@ -2486,11 +2544,12 @@ const FULL_12V: SystemDesign = {
       cableLengthFt: 10,
       busType: "ac_line",
       calculatedCurrentA: 25,
-      recommendedFuseA: 35,
-      recommendedCableAwg: "12",
-      voltageDropV: 0.794,
-      voltageDropPercent: 0.66,
-      warnings: []
+      recommendedFuseA: 30,
+      recommendedCableAwg: "14",
+      voltageDropV: 1.262,
+      voltageDropPercent: 1.05,
+      warnings: [],
+      errors: []
     },
     {
       id: "rv24-ac-source-n",
@@ -2504,7 +2563,8 @@ const FULL_12V: SystemDesign = {
       recommendedCableAwg: "14",
       voltageDropV: 1.262,
       voltageDropPercent: 1.05,
-      warnings: []
+      warnings: [],
+      errors: []
     },
     {
       id: "rv24-ac-load-l",
@@ -2519,7 +2579,8 @@ const FULL_12V: SystemDesign = {
       recommendedCableAwg: "14",
       voltageDropV: 1.515,
       voltageDropPercent: 1.26,
-      warnings: []
+      warnings: [],
+      errors: []
     },
     {
       id: "rv24-ac-load-n",
@@ -2530,39 +2591,239 @@ const FULL_12V: SystemDesign = {
       cableLengthFt: 15,
       busType: "ac_neutral",
       calculatedCurrentA: 20,
-      recommendedCableAwg: "14",
-      voltageDropV: 1.515,
-      voltageDropPercent: 1.26,
-      warnings: []
+      recommendedCableAwg: "16",
+      voltageDropV: 2.41,
+      voltageDropPercent: 2.01,
+      warnings: [],
+      errors: []
     },
     {
-      id: "conn-1783364609961-13",
-      fromComponentId: "rv24-neg-bus",
-      fromTerminalId: "terminal_1",
-      toComponentId: "rv24-bat-2",
-      toTerminalId: "dc_neg",
-      cableLengthFt: 6,
+      id: "conn-1783960964189-10",
+      fromComponentId: "rv24-pos-bus",
+      fromTerminalId: "terminal_5",
+      toComponentId: "comp-1783960964189-9",
+      toTerminalId: "in_pos",
+      cableLengthFt: 2,
       routePoints: [
         {
+          x: 50,
+          y: 150
+        },
+        {
+          x: 50,
+          y: 263
+        }
+      ],
+      busType: "dc_pos",
+      calculatedCurrentA: 15,
+      recommendedFuseA: 20,
+      recommendedCableAwg: "12",
+      voltageDropV: 0.095,
+      voltageDropPercent: 0.4,
+      warnings: [],
+      errors: [],
+      routeMode: "manual"
+    },
+    {
+      id: "conn-1783963287845-13",
+      fromComponentId: "comp-1783960964189-9",
+      fromTerminalId: "out_pos",
+      toComponentId: "rv24-converter",
+      toTerminalId: "in_pos",
+      cableLengthFt: 6,
+      busType: "dc_pos",
+      calculatedCurrentA: 15,
+      recommendedFuseA: 20,
+      recommendedCableAwg: "12",
+      voltageDropV: 0.286,
+      voltageDropPercent: 1.19,
+      warnings: [],
+      errors: []
+    },
+    {
+      id: "conn-1783963587533-14",
+      fromComponentId: "rv24-bat-2",
+      fromTerminalId: "dc_neg",
+      toComponentId: "rv24-neg-bus",
+      toTerminalId: "terminal_1",
+      cableLengthFt: 2,
+      routePoints: [
+        {
+          x: -464,
+          y: 220
+        },
+        {
           x: -52,
-          y: 205
-        },
-        {
-          x: -610,
-          y: 205
-        },
-        {
-          x: -610,
-          y: 73
+          y: 220
         }
       ],
       routeMode: "manual",
       busType: "dc_neg",
-      calculatedCurrentA: 160,
-      recommendedCableAwg: "1/0",
-      voltageDropV: 0.189,
-      voltageDropPercent: 0.74,
-      warnings: []
+      calculatedCurrentA: 145,
+      recommendedCableAwg: "2",
+      voltageDropV: 0.091,
+      voltageDropPercent: 0.38,
+      warnings: [],
+      errors: []
+    },
+    {
+      id: "conn-1783967283232-3",
+      fromComponentId: "rv24-pv-3",
+      fromTerminalId: "pv_neg",
+      toComponentId: "comp-1783967279148-2",
+      toTerminalId: "in_1",
+      cableLengthFt: 6,
+      routePoints: [
+        {
+          x: 135,
+          y: -370
+        },
+        {
+          x: 330,
+          y: -370
+        }
+      ],
+      routeMode: "manual",
+      busType: "pv_neg",
+      calculatedCurrentA: 12,
+      recommendedCableAwg: "16",
+      voltageDropV: 0.578,
+      voltageDropPercent: 1.7,
+      warnings: [],
+      errors: []
+    },
+    {
+      id: "conn-1783967358557-4",
+      fromComponentId: "rv24-pv-1",
+      fromTerminalId: "pv_neg",
+      toComponentId: "comp-1783967279148-2",
+      toTerminalId: "in_2",
+      cableLengthFt: 6,
+      routePoints: [
+        {
+          x: 435,
+          y: -370
+        },
+        {
+          x: 350,
+          y: -370
+        }
+      ],
+      routeMode: "manual",
+      busType: "pv_neg",
+      calculatedCurrentA: 12,
+      recommendedCableAwg: "16",
+      voltageDropV: 0.578,
+      voltageDropPercent: 1.7,
+      warnings: [],
+      errors: []
+    },
+    {
+      id: "conn-1783967360895-5",
+      fromComponentId: "comp-1783967279148-2",
+      fromTerminalId: "out",
+      toComponentId: "rv24-mppt",
+      toTerminalId: "pv_neg",
+      cableLengthFt: 6,
+      routePoints: [
+        {
+          x: 340,
+          y: -190
+        },
+        {
+          x: 246,
+          y: -190
+        }
+      ],
+      routeMode: "manual",
+      busType: "pv_neg",
+      calculatedCurrentA: 24,
+      recommendedCableAwg: "12",
+      voltageDropV: 0.457,
+      voltageDropPercent: 1.35,
+      warnings: [],
+      errors: []
+    },
+    {
+      id: "conn-1783967372081-7",
+      fromComponentId: "rv24-pv-4",
+      fromTerminalId: "pv_pos",
+      toComponentId: "comp-1783967366891-6",
+      toTerminalId: "in_1",
+      cableLengthFt: 6,
+      routePoints: [
+        {
+          x: 325,
+          y: -380
+        },
+        {
+          x: 410,
+          y: -380
+        }
+      ],
+      routeMode: "manual",
+      busType: "pv_pos",
+      calculatedCurrentA: 12,
+      recommendedFuseA: 20,
+      recommendedCableAwg: "16",
+      voltageDropV: 0.578,
+      voltageDropPercent: 1.7,
+      warnings: [],
+      errors: []
+    },
+    {
+      id: "conn-1783967374420-8",
+      fromComponentId: "rv24-pv-2",
+      fromTerminalId: "pv_pos",
+      toComponentId: "comp-1783967366891-6",
+      toTerminalId: "in_2",
+      cableLengthFt: 6,
+      routePoints: [
+        {
+          x: 625,
+          y: -370
+        },
+        {
+          x: 430,
+          y: -370
+        }
+      ],
+      routeMode: "manual",
+      busType: "pv_pos",
+      calculatedCurrentA: 12,
+      recommendedFuseA: 20,
+      recommendedCableAwg: "16",
+      voltageDropV: 0.578,
+      voltageDropPercent: 1.7,
+      warnings: [],
+      errors: []
+    },
+    {
+      id: "conn-1783967376565-9",
+      fromComponentId: "comp-1783967366891-6",
+      fromTerminalId: "out",
+      toComponentId: "rv24-mppt",
+      toTerminalId: "pv_pos",
+      cableLengthFt: 6,
+      routePoints: [
+        {
+          x: 420,
+          y: -210
+        },
+        {
+          x: 255,
+          y: -210
+        }
+      ],
+      routeMode: "manual",
+      busType: "pv_pos",
+      calculatedCurrentA: 24,
+      recommendedFuseA: 40,
+      recommendedCableAwg: "12",
+      voltageDropV: 0.457,
+      voltageDropPercent: 1.35,
+      warnings: [],
+      errors: []
     }
   ],
   annotations: []

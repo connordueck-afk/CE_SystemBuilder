@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-40 -25 80 50">
+  <defs>
+    <linearGradient id="body" x1="0" y1="-25" x2="0" y2="25" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#2a2e35"/>
+      <stop offset="100%" stop-color="#181c22"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Body -->
+  <rect x="-38" y="-23" width="76" height="46" rx="5" fill="url(#body)" stroke="#3975c5" stroke-width="1.5"/>
+
+  <!-- Top edge highlight -->
+  <rect x="-36" y="-22" width="72" height="3" rx="1.5" fill="#3a3e45" opacity="0.5"/>
+
+  <!-- Port terminals (bottom edge) -->
+  <circle cx="-24" cy="23" r="3" fill="#1a1e25" stroke="#3975c5" stroke-width="1.2"/>
+  <circle cx="-8" cy="23" r="3" fill="#1a1e25" stroke="#3975c5" stroke-width="1.2"/>
+  <circle cx="8" cy="23" r="3" fill="#1a1e25" stroke="#3975c5" stroke-width="1.2"/>
+  <circle cx="24" cy="23" r="3" fill="#1a1e25" stroke="#3975c5" stroke-width="1.2"/>
+
+  <!-- Port labels -->
+  <text x="-24" y="15" text-anchor="middle" font-size="4.5" font-family="sans-serif" fill="#8899aa">A</text>
+  <text x="-8" y="15" text-anchor="middle" font-size="4.5" font-family="sans-serif" fill="#8899aa">B</text>
+  <text x="8" y="15" text-anchor="middle" font-size="4.5" font-family="sans-serif" fill="#8899aa">C</text>
+  <text x="24" y="15" text-anchor="middle" font-size="4.5" font-family="sans-serif" fill="#8899aa">D</text>
+
+  <!-- Label -->
+  <text x="0" y="1" text-anchor="middle" font-size="6.5" font-family="sans-serif" font-weight="700" fill="#3975c5">CAN SPLITTER</text>
+</svg>

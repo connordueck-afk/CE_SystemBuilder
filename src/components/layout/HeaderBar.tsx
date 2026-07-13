@@ -6,15 +6,33 @@ import { BUS_COLOR_OPTIONS, DEFAULT_BUS_COLORS } from '../../utils/busColors';
 import { fmt } from '../../utils/priceCalculations';
 import { CURRENT_APP_VERSION } from '../../utils/storage';
 import { getProductBuilderUrl } from '../../utils/productBuilderLinks';
+import {
+  IconChevronDown,
+  IconChevronRight,
+  IconSun,
+  IconMoon,
+  IconSettings,
+  IconSave,
+  IconFolderOpen,
+  IconShare,
+  IconFileDown,
+  IconRotateCcw,
+  IconPalette,
+  IconBug,
+  IconCheckCircle,
+} from '../icons';
 
 interface Props {
   systemName: string;
   voltageFilter: NominalVoltage | 'all';
+  resolvedDcVoltages: number[];
   totalMsrp: number;
   warnings: SystemWarning[];
   busColors: BusColorMap;
   themeMode: 'light' | 'dark';
   debugMode: boolean;
+  saveStatus: 'idle' | 'saving' | 'saved' | 'error';
+  lastSavedAt: Date | null;
   onNameChange: (name: string) => void;
   onVoltageChange: (v: NominalVoltage | 'all') => void;
   onBusColorChange: (busType: BusType, color: string) => void;
@@ -39,11 +57,14 @@ function voltageOptionLabel(v: NominalVoltage | 'all'): string {
 export function HeaderBar({
   systemName,
   voltageFilter,
+  resolvedDcVoltages,
   totalMsrp,
   warnings,
   busColors,
   themeMode,
   debugMode,
+  saveStatus,
+  lastSavedAt,
   onNameChange,
   onVoltageChange,
   onBusColorChange,
@@ -122,7 +143,12 @@ export function HeaderBar({
         rel="noreferrer"
         title="Discover Energy Systems website"
       >
-        <img className="header-logo-mark" src={`${import.meta.env.BASE_URL}brand/des-logo.png`} alt="" aria-hidden="true" />
+        <img
+          className="header-logo-mark"
+          src={`${import.meta.env.BASE_URL}brand/des-mark.png`}
+          alt=""
+          aria-hidden="true"
+        />
         <span className="header-logo-copy">
           <span className="header-logo-text">Discover Energy</span>
           <span className="header-logo-sub">System Builder</span>
@@ -137,11 +163,11 @@ export function HeaderBar({
         <button
           className="header-dropdown-btn"
           onClick={() => setVoltageOpen((o) => !o)}
-          title="Select system voltage"
+          title="Filter the product catalog by voltage"
         >
-          <span className="header-field-label">System V</span>
+          <span className="header-field-label">Catalog</span>
           <span className="header-dropdown-value">{voltageOptionLabel(voltageFilter)}</span>
-          <span className="header-dropdown-arrow">▾</span>
+          <IconChevronDown className="header-dropdown-arrow" size={12} />
         </button>
         {voltageOpen && (
           <div className="header-dropdown-menu">
@@ -161,6 +187,13 @@ export function HeaderBar({
         )}
       </div>
 
+      <div className="header-domain-summary" title="DC voltage domains inferred from connected ports and sources">
+        <span className="header-field-label">DC domains</span>
+        <span className="header-domain-values">
+          {resolvedDcVoltages.length > 0 ? resolvedDcVoltages.map((voltage) => `${voltage}V`).join(' / ') : 'Unresolved'}
+        </span>
+      </div>
+
       {/* BOM widget — kept as-is */}
       <button className="header-price" onClick={onOpenBom} title="Open BOM summary">
         <span className="header-field-label">BOM Total</span>
@@ -168,15 +201,36 @@ export function HeaderBar({
       </button>
 
       {/* Warnings badge */}
-      {(errorCount > 0 || warnCount > 0) && (
-        <div className="header-warnings">
-          {errorCount > 0 && <span className="badge-error">{errorCount} error{errorCount !== 1 ? 's' : ''}</span>}
-          {warnCount > 0 && <span className="badge-warn">{warnCount} warning{warnCount !== 1 ? 's' : ''}</span>}
-        </div>
-      )}
+      <div className="header-warnings" role="status" aria-label="System validation status">
+        {errorCount > 0 || warnCount > 0 ? (
+          <>
+            {errorCount > 0 && <span className="badge-error">{errorCount} error{errorCount !== 1 ? 's' : ''}</span>}
+            {warnCount > 0 && <span className="badge-warn">{warnCount} warning{warnCount !== 1 ? 's' : ''}</span>}
+          </>
+        ) : (
+          <span className="badge-ok"><IconCheckCircle size={13} /> System clear</span>
+        )}
+      </div>
 
       {/* Right-aligned group: name input + settings */}
       <div className="header-actions">
+        <div
+          className={`header-save-status header-save-status-${saveStatus}`}
+          role="status"
+          aria-live="polite"
+          title={lastSavedAt ? `Last autosaved at ${lastSavedAt.toLocaleString()}` : 'Autosave status'}
+        >
+          <span className="header-save-status-dot" aria-hidden="true" />
+          <span>
+            {saveStatus === 'saving'
+              ? 'Saving...'
+              : saveStatus === 'error'
+              ? 'Save failed'
+              : lastSavedAt
+              ? `Saved ${lastSavedAt.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`
+              : 'Autosave ready'}
+          </span>
+        </div>
         <input
           className="header-name-input"
           value={systemName}
@@ -192,8 +246,8 @@ export function HeaderBar({
           onClick={() => setSettingsOpen((o) => !o)}
           title="Settings"
         >
-          <span className="header-dropdown-value">Settings</span>
-          <span className="header-dropdown-arrow">▾</span>
+          <IconSettings size={15} className="header-dropdown-icon" />
+          <span className="header-dropdown-arrow"><IconChevronDown size={12} /></span>
         </button>
         {settingsOpen && (
           <div className="header-dropdown-menu header-dropdown-menu-right header-dropdown-menu-scroll">
@@ -204,22 +258,27 @@ export function HeaderBar({
             >
               <span>{themeMode === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>
               <span className={`menu-theme-icon ${themeMode === 'dark' ? 'menu-theme-icon-dark' : ''}`}>
-                <span className="menu-theme-sun">☀</span>
-                <span className="menu-theme-moon">☾</span>
+                <span className="menu-theme-sun"><IconSun size={12} /></span>
+                <span className="menu-theme-moon"><IconMoon size={12} /></span>
                 <span className="menu-theme-knob" />
               </span>
             </button>
 
-            <div className="header-dropdown-divider" />
+            {import.meta.env.DEV && (
+              <>
+                <div className="header-dropdown-divider" />
 
-            <label className="header-dropdown-item header-dropdown-checkbox-row">
-              <input
-                type="checkbox"
-                checked={debugMode}
-                onChange={onToggleDebugMode}
-              />
-              <span>Debugging</span>
-            </label>
+                <label className="header-dropdown-item header-dropdown-checkbox-row">
+                  <input
+                    type="checkbox"
+                    checked={debugMode}
+                    onChange={onToggleDebugMode}
+                  />
+                  <IconBug size={15} />
+                  <span>Debugging</span>
+                </label>
+              </>
+            )}
 
             {debugMode && import.meta.env.DEV && (
               <a
@@ -236,11 +295,11 @@ export function HeaderBar({
             <div className="header-dropdown-divider" />
 
             {/* File actions */}
-            <button className="header-dropdown-item" onClick={() => { onSave(); setSettingsOpen(false); }}>Save</button>
-            <button className="header-dropdown-item" onClick={() => { onLoad(); setSettingsOpen(false); }}>Load</button>
-            <button className="header-dropdown-item" onClick={async () => { await handleShareClick(); }}>{shareCopied ? 'Copied!' : 'Share'}</button>
-            <button className="header-dropdown-item" onClick={() => { onExportPdf(); setSettingsOpen(false); }}>Export PDF</button>
-            <button className="header-dropdown-item header-dropdown-item-danger" onClick={() => { onReset(); setSettingsOpen(false); }}>Reset</button>
+            <button className="header-dropdown-item" onClick={() => { onSave(); setSettingsOpen(false); }}><IconSave size={14} className="header-dropdown-item-icon" /> Save</button>
+            <button className="header-dropdown-item" onClick={() => { onLoad(); setSettingsOpen(false); }}><IconFolderOpen size={14} className="header-dropdown-item-icon" /> Load</button>
+            <button className="header-dropdown-item" onClick={async () => { await handleShareClick(); }}><IconShare size={14} className="header-dropdown-item-icon" /> {shareCopied ? 'Copied!' : 'Share'}</button>
+            <button className="header-dropdown-item" onClick={() => { onExportPdf(); setSettingsOpen(false); }}><IconFileDown size={14} className="header-dropdown-item-icon" /> Export PDF</button>
+            <button className="header-dropdown-item header-dropdown-item-danger" onClick={() => { onReset(); setSettingsOpen(false); }}><IconRotateCcw size={14} className="header-dropdown-item-icon" /> Reset</button>
 
             {debugMode && onSetDefault && (
               <>
@@ -272,8 +331,9 @@ export function HeaderBar({
               className="header-dropdown-item header-dropdown-collapse-btn"
               onClick={() => setBusColorsExpanded((o) => !o)}
             >
+              <IconPalette size={14} className="header-dropdown-item-icon" />
               <span>Bus Colours</span>
-              <span className="header-dropdown-collapse-arrow">{busColorsExpanded ? '▾' : '▸'}</span>
+              <span className="header-dropdown-collapse-arrow">{busColorsExpanded ? <IconChevronDown size={12} /> : <IconChevronRight size={12} />}</span>
             </button>
             {busColorsExpanded && (
               <div className="header-dropdown-bus-colors">
@@ -301,6 +361,12 @@ export function HeaderBar({
                 </button>
               </div>
             )}
+
+            <div className="header-dropdown-divider" />
+            <div className="header-dropdown-about" role="note">
+              <strong>DES System Builder v{CURRENT_APP_VERSION}</strong>
+              <span>Preliminary design aid &mdash; not certified engineering</span>
+            </div>
           </div>
         )}
       </div>

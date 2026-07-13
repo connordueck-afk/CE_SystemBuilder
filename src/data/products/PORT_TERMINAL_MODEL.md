@@ -38,7 +38,8 @@ Put these on the port:
 - `direction`: `input`, `output`, or `bidirectional`
 - Voltage specs: `voltageClass`, `nominalVoltageV`, `voltageMinV`, `voltageMaxV`
 - Current/power specs: `maxCurrentA`, `maxPowerW`, `maxPowerByVoltageW`
-- AC specs: `phases`
+- AC specs: `phases`, `acService` (`configuration`, L-N voltage, L-L voltage,
+  and optional operating ranges)
 - Communication specs: `supportedProtocols`, `configuredProtocol`, `isConfigurable`,
   `commTopology`
 - Physical communication connector specs live on terminals: `connectorType`, `gender`
@@ -231,6 +232,43 @@ terminalGroups: [
   },
 ],
 ```
+
+Breakers additionally declare `breakerDefinition`. Do not infer electrical poles
+from terminal names: each pole explicitly pairs its input and output terminal
+groups. Put AC, DC, and PV voltage/interrupt ratings in separate
+`ratingProfiles`; `protectionRatings` remains only the backward-compatible
+summary. Multi-pole breakers declare common/independent trip linkage, and a
+profile says how many poles it requires and whether they switch independent
+conductors, a bipolar DC circuit, or series poles on one conductor.
+
+Dual-rated products may retain a DC pass-through port as their unconfigured
+connection seed. Once placed, the selected or wiring-inferred breaker profile
+resolves the effective terminal medium and AC phase polarities.
+
+### AC Services
+
+AC ports should declare `acService` when the service topology is known. Keep
+conductor identity on terminal groups (`line`, `line2`, `line3`, `neutral`) and
+put service voltage bases on the port:
+
+```ts
+acService: {
+  configuration: 'split_phase',
+  lineToNeutralVoltageV: 120,
+  lineToLineVoltageV: 240,
+}
+```
+
+Do not treat `nominalVoltageV` on each conductor as the voltage-drop basis.
+Split-phase L1/L2 feeders use the L-L basis while L-N branches and neutral use
+the L-N basis. A 230V single-phase L-N port is not the same topology as a
+120/240V split-phase port, even if both use the legacy `ac_240v` class.
+
+Passive protection/distribution products do not contribute nominal voltage
+evidence. Their `protectionRatings.voltageRatingV`, busbar rating, port maximum,
+and integrated-protection voltage limits are checked after the domain resolves.
+Set `SystemComponent.availableFaultCurrentA` when prospective fault current is
+known so fuse/breaker interrupt ratings can be verified.
 
 ### MPPT
 

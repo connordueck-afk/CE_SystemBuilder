@@ -40,12 +40,16 @@ import { isVerticalOrientation } from './utils/componentOrientation';
 import { clampComponentScale, componentScale, scaledProductSize } from './utils/componentScale';
 import { buildBuilderIssues } from './utils/builderIssues';
 import { sanitizeSystemDesign } from './utils/systemSanitization';
+import { resolvedDcVoltageDomains } from './utils/voltageDomains';
+import { breakerCompatibility, breakerMediumForBusType, breakerPoles, breakerRatingProfiles } from './utils/breakerSemantics';
 import { HeaderBar } from './components/layout/HeaderBar';
 import { LeftPartSidebar } from './components/layout/LeftPartSidebar';
 import { RightInspector } from './components/layout/RightInspector';
 import { BomSummaryModal } from './components/layout/BomSummaryModal';
 import { NewSystemModal } from './components/layout/NewSystemModal';
 import { StartupModal } from './components/layout/StartupModal';
+import { AppDialog, type AppDialogRequest } from './components/layout/AppDialog';
+import { useModalAccessibility } from './components/layout/useModalAccessibility';
 import { SchematicCanvas } from './components/schematic/SchematicCanvas';
 import { InlineFuseInsertModal } from './components/parts/InlineFuseInsertModal';
 import { FusePickerModal } from './components/parts/FusePickerModal';
@@ -71,6 +75,7 @@ const HISTORY_LIMIT = 50;
 const THEME_STORAGE_KEY = 'system-builder-theme';
 
 type ThemeMode = 'light' | 'dark';
+type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 
 function loadThemeMode(): ThemeMode {
   if (typeof window === 'undefined') return 'light';
@@ -129,7 +134,8 @@ function numberedLabel(baseLabel: string, components: SystemComponent[]): string
 function defaultComponentLabel(product: Product, components: SystemComponent[]): string {
   if (product.productType === 'fuse') return numberedLabel('Fuse', components);
   if (product.productType === 'breaker') {
-    return numberedLabel(product.protectionRatings?.acDcCompatibility === 'ac' ? 'AC Breaker' : 'Breaker', components);
+    const compatibility = breakerCompatibility(product);
+    return numberedLabel(compatibility === 'ac' ? 'AC Breaker' : compatibility === 'dc' ? 'DC Breaker' : 'AC/DC Breaker', components);
   }
   return product.name;
 }
@@ -143,13 +149,6 @@ function normalizeCardinalRotation(value: number): 0 | 90 | 180 | 270 {
 function routePointsFromSplit(points: Array<{ x: number; y: number }>): Array<{ x: number; y: number }> | undefined {
   const routePoints = points.slice(1, -1);
   return routePoints.length > 0 ? routePoints : undefined;
-}
-
-function voltageCompatible(productId: string, systemVoltage: NominalVoltage): boolean {
-  const product = PRODUCT_MAP.get(productId);
-  if (!product?.nominalVoltage) return true;
-  const voltages = Array.isArray(product.nominalVoltage) ? product.nominalVoltage : [product.nominalVoltage];
-  return voltages.includes(systemVoltage);
 }
 
 function withTimestamp(system: SystemDesign): SystemDesign {
@@ -307,6 +306,7 @@ export function App() {
   const [focusedConnectionId, setFocusedConnectionId] = useState<string | null>(null);
   const [focusConnectionRequestId, setFocusConnectionRequestId] = useState(0);
   const [canvasCancelRequestId, setCanvasCancelRequestId] = useState(0);
+  const [fitDiagramRequestId, setFitDiagramRequestId] = useState(0);
   const [canvasViewportCenter, setCanvasViewportCenter] = useState({ x: 600, y: 380 });
   const [busColors, setBusColors] = useState<BusColorMap>(DEFAULT_BUS_COLORS);
   const [bomModalOpen, setBomModalOpen] = useState(false);
@@ -317,17 +317,25 @@ export function App() {
   const [pendingProtectionInsert, setPendingProtectionInsert] = useState<PendingProtectionInsert | null>(null);
   const [fusePickerSlot, setFusePickerSlot] = useState<{ componentId: string; slotId: string } | null>(null);
   const [showLoadModal, setShowLoadModal] = useState(false);
+  const loadModalRef = useModalAccessibility(showLoadModal, () => setShowLoadModal(false));
   const [savedSystems, setSavedSystems] = useState(() => loadSavedSystems());
   const [themeMode, setThemeMode] = useState<ThemeMode>(loadThemeMode);
   const [debugMode, setDebugMode] = useState(false);
-  const [voltageFilter, setVoltageFilter] = useState<NominalVoltage | 'all'>(system.nominalVoltage);
+  const [voltageFilter, setVoltageFilter] = useState<NominalVoltage | 'all'>('all');
   const [startupModalOpen, setStartupModalOpen] = useState(() => INITIAL_SHARE_PARAM === null);
   const [hasCachedSystem] = useState(() => loadCurrentSystem() !== null);
   const [shareToast, setShareToast] = useState<string | null>(null);
+  const [appDialog, setAppDialog] = useState<AppDialogRequest | null>(null);
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
+  const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
 
   // Derived
   const bomRows = useMemo(() => buildBom(system, PRODUCT_MAP), [system]);
   const systemDesignAnalysis = useMemo(() => analyzeSystemDesign(system, PRODUCT_MAP), [system]);
+  const resolvedDcVoltages = useMemo(
+    () => resolvedDcVoltageDomains(systemDesignAnalysis.graph),
+    [systemDesignAnalysis]
+  );
   const cableSummary = useMemo(
     () => buildCableLengthSummary(system.connections, systemDesignAnalysis.connections),
     [system.connections, systemDesignAnalysis]
@@ -346,15 +354,31 @@ export function App() {
   );
   const protectionRecommendations = systemDesignAnalysis.legacy.protectionRecommendations;
 
+  // Storage migrations normally run in the state initializer. Re-apply them to
+  // the live design as well so an already-open dev session is repaired after
+  // Fast Refresh without requiring the user to reload or discard the drawing.
+  useEffect(() => {
+    setSystem((current) => normalizeSystem(current));
+  }, []);
+
   // Auto-save whenever system changes (not while startup modal is open)
   useEffect(() => {
     if (startupModalOpen) return;
-    const timer = setTimeout(() => saveCurrentSystem(system), 800);
+    setSaveStatus('saving');
+    const timer = setTimeout(() => {
+      const saved = saveCurrentSystem(system);
+      setSaveStatus(saved ? 'saved' : 'error');
+      if (saved) setLastSavedAt(new Date());
+    }, 800);
     return () => clearTimeout(timer);
   }, [system, startupModalOpen]);
 
   useEffect(() => {
-    window.localStorage.setItem(THEME_STORAGE_KEY, themeMode);
+    try {
+      window.localStorage.setItem(THEME_STORAGE_KEY, themeMode);
+    } catch {
+      // Theme persistence is optional; autosave status covers design-storage failures.
+    }
   }, [themeMode]);
 
   // Load shared design from URL param on first mount
@@ -419,10 +443,7 @@ export function App() {
 
   const handleVoltageChange = useCallback((v: NominalVoltage | 'all') => {
     setVoltageFilter(v);
-    if (v !== 'all') {
-      updateSystem((s) => ({ ...s, nominalVoltage: v }));
-    }
-  }, [updateSystem]);
+  }, []);
 
   const handleBusColorChange = useCallback((busType: BusType, color: string) => {
     setBusColors((current) => ({ ...current, [busType]: color }));
@@ -435,8 +456,6 @@ export function App() {
   const handleAddProduct = useCallback((productId: string, options?: { voltageV?: number; maxCurrentA?: number }) => {
     const product = getProduct(productId);
     if (!product) return;
-    if (voltageFilter !== 'all' && !voltageCompatible(productId, system.nominalVoltage)) return;
-
     const occupied = new Set(system.components.map((c) => `${c.x},${c.y}`));
     let x = snapPlacement(canvasViewportCenter.x);
     let y = snapPlacement(canvasViewportCenter.y);
@@ -468,7 +487,7 @@ export function App() {
     if (slots && slots.length > 0) {
       setFusePickerSlot({ componentId: comp.id, slotId: slots[0].id });
     }
-  }, [canvasViewportCenter.x, canvasViewportCenter.y, system.components, system.nominalVoltage, updateSystem]);
+  }, [canvasViewportCenter.x, canvasViewportCenter.y, system.components, updateSystem]);
 
   const handleAddTextAnnotation = useCallback(() => {
     const annotation: SystemTextAnnotation = {
@@ -617,6 +636,15 @@ export function App() {
       ...s,
       components: s.components.map((c) =>
         c.id === id ? { ...c, instanceMaxCurrentA: currentA } : c
+      ),
+    }));
+  }, [updateSystem]);
+
+  const handleUpdateAvailableFaultCurrent = useCallback((id: string, currentA: number | undefined) => {
+    updateSystem((s) => ({
+      ...s,
+      components: s.components.map((c) =>
+        c.id === id ? { ...c, availableFaultCurrentA: currentA } : c
       ),
     }));
   }, [updateSystem]);
@@ -793,7 +821,11 @@ export function App() {
         PRODUCT_MAP
       );
       if (!validation.valid) {
-        alert(`Invalid connection: ${validation.message ?? 'These terminals are not compatible.'}`);
+        setAppDialog({
+          title: 'Connection not allowed',
+          message: validation.message ?? 'These terminals are not compatible.',
+          tone: 'danger',
+        });
         return;
       }
 
@@ -979,9 +1011,21 @@ export function App() {
     }));
   }, [updateSystem]);
 
+  const handleUpdateBreakerConfiguration = useCallback((id: string, breakerConfigurationId: string | undefined) => {
+    updateSystem((s) => ({
+      ...s,
+      components: s.components.map((component) => (
+        component.id === id ? { ...component, breakerConfigurationId } : component
+      )),
+    }));
+  }, [updateSystem]);
+
   const handleInsertProtection = useCallback((recommendation: ProtectionRecommendation, marker: PathMarker) => {
-    if (recommendation.busType !== 'dc_pos' && recommendation.busType !== 'ac_line' && recommendation.busType !== 'ac_line2') {
-      alert('Inline protection insertion is currently available for DC positive and AC line conductors.');
+    if (recommendation.busType !== 'dc_pos' && recommendation.busType !== 'ac_line' && recommendation.busType !== 'ac_line2' && recommendation.busType !== 'ac_line3') {
+      setAppDialog({
+        title: 'Protection cannot be inserted here',
+        message: 'Inline protection insertion is currently available for DC positive and AC line conductors.',
+      });
       return;
     }
     setPendingProtectionInsert({ recommendation, marker });
@@ -1027,6 +1071,112 @@ export function App() {
     const fuseSlots = product.productType === 'fuse_holder' && slotId && slotRatingA != null
       ? { [slotId]: { installed: true, ratingA: slotRatingA } }
       : undefined;
+
+    if (product.productType === 'breaker') {
+      const medium = breakerMediumForBusType(pending.recommendation.busType);
+      const matchingProfiles = medium
+        ? breakerRatingProfiles(product).filter((profile) => profile.medium === medium)
+        : [];
+      const profile = matchingProfiles.length === 1 ? matchingProfiles[0] : undefined;
+      if (profile && profile.polesRequired > 1) {
+        const requiredBusTypes: BusType[] = profile.medium === 'ac'
+          ? (['ac_line', 'ac_line2', 'ac_line3'] as BusType[]).slice(0, profile.polesRequired)
+          : profile.wiring === 'bipolar'
+            ? ['dc_pos', 'dc_neg']
+            : [];
+        const sameEndpointPair = (connection: SystemConnection) => (
+          (connection.fromComponentId === original.fromComponentId && connection.toComponentId === original.toComponentId) ||
+          (connection.fromComponentId === original.toComponentId && connection.toComponentId === original.fromComponentId)
+        );
+        const bundledConnections = requiredBusTypes.map((busType) => system.connections.find((connection) => (
+          sameEndpointPair(connection) &&
+          (connection.busType ?? systemDesignAnalysis.connections[connection.id]?.busType) === busType
+        )));
+
+        if (requiredBusTypes.length !== profile.polesRequired || bundledConnections.some((connection) => !connection)) {
+          setAppDialog({
+            title: 'Matching conductors required',
+            message: `The ${profile.label ?? profile.id} configuration needs ${profile.polesRequired} matching conductors between the same two components. Add or connect those conductors first, then insert the breaker again.`,
+          });
+          return;
+        }
+
+        const rotationDeg = normalizeCardinalRotation(pending.marker.angleDeg);
+        const bounded = clampComponentPosition(pending.marker.point.x, pending.marker.point.y, product, rotationDeg);
+        const protectionComponent: SystemComponent = {
+          id: insertedComponentId,
+          productId: product.id,
+          label: pending.recommendation.defaultComponentLabel ?? defaultComponentLabel(product, system.components),
+          quantity: 1,
+          x: bounded.x,
+          y: bounded.y,
+          rotationDeg,
+          includeInBom: true,
+          breakerConfigurationId: profile.id,
+        };
+        const poles = breakerPoles(product).slice(0, profile.polesRequired);
+        const replacementConnections: SystemConnection[] = [];
+        const candidateComponents = [...system.components, protectionComponent];
+
+        for (let index = 0; index < bundledConnections.length; index += 1) {
+          const connection = bundledConnections[index]!;
+          const pole = poles[index];
+          const inTerminal = product.terminals.find((terminal) => terminal.terminalGroupId === pole.inputTerminalGroupId);
+          const outTerminal = product.terminals.find((terminal) => terminal.terminalGroupId === pole.outputTerminalGroupId);
+          if (!inTerminal || !outTerminal) return;
+          const first = Math.max(0.1, connection.cableLengthFt / 2);
+          const second = Math.max(0.1, connection.cableLengthFt - first);
+          const shared = {
+            designCurrentOverrideA: connection.designCurrentOverrideA,
+            manualCableAwg: connection.manualCableAwg,
+            autoGenerated: connection.autoGenerated,
+          };
+          const buildPair = (reverse: boolean): [SystemConnection, SystemConnection] => [{
+            ...shared,
+            id: genId('conn'),
+            fromComponentId: connection.fromComponentId,
+            fromTerminalId: connection.fromTerminalId,
+            toComponentId: protectionComponent.id,
+            toTerminalId: reverse ? outTerminal.id : inTerminal.id,
+            cableLengthFt: first,
+          }, {
+            ...shared,
+            id: genId('conn'),
+            fromComponentId: protectionComponent.id,
+            fromTerminalId: reverse ? inTerminal.id : outTerminal.id,
+            toComponentId: connection.toComponentId,
+            toTerminalId: connection.toTerminalId,
+            cableLengthFt: second,
+          }];
+          const forwardPair = buildPair(false);
+          const forwardValid = forwardPair.every((candidate) => validateSystemConnection(candidate, candidateComponents, PRODUCT_MAP).valid);
+          const pair = forwardValid ? forwardPair : buildPair(true);
+          if (!pair.every((candidate) => validateSystemConnection(candidate, candidateComponents, PRODUCT_MAP).valid)) {
+            setAppDialog({
+              title: 'Breaker insertion failed',
+              message: `The selected breaker cannot be inserted on ${requiredBusTypes[index]} with the current terminal rules.`,
+              tone: 'danger',
+            });
+            return;
+          }
+          replacementConnections.push(...pair);
+        }
+
+        const replacedIds = new Set(bundledConnections.map((connection) => connection!.id));
+        updateSystem((s) => ({
+          ...s,
+          components: [...s.components, protectionComponent],
+          connections: [...s.connections.filter((connection) => !replacedIds.has(connection.id)), ...replacementConnections],
+        }), { recordHistory: true });
+        setPendingProtectionInsert(null);
+        setSelectedComponentId(protectionComponent.id);
+        setSelectedConnectionId(null);
+        setSelectedAnnotationId(null);
+        setFocusedComponentId(protectionComponent.id);
+        setFocusRequestId((current) => current + 1);
+        return;
+      }
+    }
 
     const buildCandidate = (mapping: 'forward' | 'reverse') => {
       const rotationDeg = normalizeCardinalRotation(
@@ -1087,7 +1237,11 @@ export function App() {
       validateSystemConnection(selected.after, selectedComponents, PRODUCT_MAP).valid;
 
     if (!selectedValid) {
-      alert('That protection device cannot be inserted into this connection with the current terminal rules.');
+      setAppDialog({
+        title: 'Protection insertion failed',
+        message: 'That protection device cannot be inserted into this connection with the current terminal rules.',
+        tone: 'danger',
+      });
       return;
     }
 
@@ -1353,8 +1507,10 @@ export function App() {
   const handleLoadSystem = useCallback((loadedSystem: SystemDesign) => {
     const normalized = normalizeSystem(loadedSystem);
     setSystem(normalized);
-    setVoltageFilter(normalized.nominalVoltage);
-    saveCurrentSystem(normalized);
+    setVoltageFilter('all');
+    const saved = saveCurrentSystem(normalized);
+    setSaveStatus(saved ? 'saved' : 'error');
+    if (saved) setLastSavedAt(new Date());
     setSavedSystems(loadSavedSystems());
     undoStackRef.current = [];
     redoStackRef.current = [];
@@ -1366,10 +1522,13 @@ export function App() {
     setSelectedComponentIds([]);
     setSelectedConnectionId(null);
     setSelectedAnnotationId(null);
+    setFitDiagramRequestId((prev) => prev + 1);
   }, []);
 
   const handleSave = useCallback(() => {
-    saveCurrentSystem(system);
+    const saved = saveCurrentSystem(system);
+    setSaveStatus(saved ? 'saved' : 'error');
+    if (saved) setLastSavedAt(new Date());
     setSavedSystems(loadSavedSystems());
 
     const saveFile = createSystemSaveFile(system);
@@ -1402,7 +1561,7 @@ export function App() {
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unable to load that save file.';
-      alert(message);
+      setAppDialog({ title: 'Could not load design', message, tone: 'danger' });
     }
   }, [handleLoadSystem]);
 
@@ -1410,8 +1569,7 @@ export function App() {
     setNewSystemModalOpen(true);
   }, []);
 
-  const handleSetDefault = import.meta.env.DEV ? async (target: string, label: string) => {
-    if (!confirm(`Write the current drawing to "${label}"?`)) return;
+  const writeDefaultSystem = import.meta.env.DEV ? async (target: string, label: string) => {
     try {
       const r = await fetch('/__dev/set-default-system', {
         method: 'POST',
@@ -1419,8 +1577,26 @@ export function App() {
         body: JSON.stringify({ system, target }),
       });
       if (!r.ok) throw new Error((await r.json()).error);
-      alert(`"${label}" updated — changes will apply on next Reset or fresh load.`);
-    } catch (e) { alert(`Failed: ${e}`); }
+      setAppDialog({
+        title: 'Default system updated',
+        message: `"${label}" was updated. Changes will apply on the next reset or fresh load.`,
+      });
+    } catch (error) {
+      setAppDialog({
+        title: 'Default update failed',
+        message: error instanceof Error ? error.message : String(error),
+        tone: 'danger',
+      });
+    }
+  } : undefined;
+
+  const handleSetDefault = import.meta.env.DEV && writeDefaultSystem ? (target: string, label: string) => {
+    setAppDialog({
+      title: 'Update default system?',
+      message: `Write the current drawing to "${label}"? This changes the development default.`,
+      confirmLabel: 'Update default',
+      onConfirm: () => { void writeDefaultSystem(target, label); },
+    });
   } : undefined;
 
   const handleNewSystemSelect = useCallback((template: SystemDesign | null) => {
@@ -1430,7 +1606,7 @@ export function App() {
     const fresh = { ...base, id: genId('sys'), createdAt: new Date().toISOString() };
     const normalized = normalizeSystem(fresh);
     setSystem(normalized);
-    setVoltageFilter(normalized.nominalVoltage);
+    setVoltageFilter('all');
     undoStackRef.current = [];
     redoStackRef.current = [];
     copiedComponentRef.current = null;
@@ -1439,6 +1615,7 @@ export function App() {
     setSelectedComponentIds([]);
     setSelectedConnectionId(null);
     setSelectedAnnotationId(null);
+    setFitDiagramRequestId((prev) => prev + 1);
   }, []);
 
   const handleExportCsv = useCallback(() => {
@@ -1473,8 +1650,12 @@ export function App() {
       if (copied) {
         setShareToast('Link copied to clipboard — paste it anywhere to share this design. Anyone with the link can open it in their browser.');
       } else {
-        // Last resort: show the URL so the user can copy it manually
-        prompt('Copy this link to share your design:', url);
+        setAppDialog({
+          title: 'Copy share link',
+          message: 'Automatic clipboard access is unavailable. Select and copy this link manually.',
+          copyText: url,
+          cancelLabel: 'Done',
+        });
       }
       setTimeout(() => setShareToast(null), 6000);
     } catch {
@@ -1547,11 +1728,14 @@ export function App() {
       <HeaderBar
         systemName={system.name}
         voltageFilter={voltageFilter}
+        resolvedDcVoltages={resolvedDcVoltages}
         totalMsrp={priceSummary.totalMsrp}
         warnings={warnings}
         busColors={busColors}
         themeMode={themeMode}
         debugMode={debugMode}
+        saveStatus={saveStatus}
+        lastSavedAt={lastSavedAt}
         onNameChange={handleNameChange}
         onVoltageChange={handleVoltageChange}
         onBusColorChange={handleBusColorChange}
@@ -1600,6 +1784,7 @@ export function App() {
         onToggleDetailMode={() => setLeftDetailOpen((open) => !open)}
         collapsed={leftCollapsed}
         onToggleCollapsed={() => setLeftCollapsed((collapsed) => !collapsed)}
+        debugMode={debugMode}
       />
 
       <main className="canvas-area">
@@ -1617,6 +1802,7 @@ export function App() {
           focusedConnectionId={focusedConnectionId}
           focusConnectionRequestId={focusConnectionRequestId}
           cancelInteractionRequestId={canvasCancelRequestId}
+          fitDiagramRequestId={fitDiagramRequestId}
           onViewportCenterChange={setCanvasViewportCenter}
           onSelectComponent={handleSelectComponent}
           onSelectConnection={handleSelectConnection}
@@ -1671,6 +1857,7 @@ export function App() {
         onUpdateInstanceVoltage={handleUpdateInstanceVoltage}
         onUpdateDcBusNominalVoltage={handleUpdateDcBusNominalVoltage}
         onUpdateInstanceMaxCurrent={handleUpdateInstanceMaxCurrent}
+        onUpdateAvailableFaultCurrent={handleUpdateAvailableFaultCurrent}
         onUpdateComponentMaxCableAwg={handleUpdateComponentMaxCableAwg}
         onUpdateComponentImageScale={handleUpdateComponentImageScale}
         onUpdateBusPolarity={handleUpdateBusPolarity}
@@ -1690,6 +1877,7 @@ export function App() {
         onUpdateConnectionPremanufacturedCable={handleUpdateConnectionPremanufacturedCable}
         onUpdateConfiguredProtocol={handleUpdateConfiguredProtocol}
         onUpdateSourceType={handleUpdateSourceType}
+        onUpdateBreakerConfiguration={handleUpdateBreakerConfiguration}
         onResetConnectionRoute={handleResetConnectionRoute}
         onUpdateTextAnnotation={handleUpdateTextAnnotation}
         onUpdateShapeAnnotation={handleUpdateShapeAnnotation}
@@ -1700,10 +1888,20 @@ export function App() {
         onSelectConnection={handleFocusConnection}
       />
 
+      <footer className="app-footer" aria-label="Design disclaimer">
+        <span className="app-footer-mark" aria-hidden="true" />
+        <span>Preliminary design aid &mdash; not certified engineering</span>
+        <span className="app-footer-context">Internal working copy</span>
+      </footer>
+
       {shareToast && (
         <div className="share-toast" role="status">
           {shareToast}
         </div>
+      )}
+
+      {appDialog && (
+        <AppDialog request={appDialog} onClose={() => setAppDialog(null)} />
       )}
 
       {startupModalOpen && (
@@ -1719,6 +1917,7 @@ export function App() {
             setStartupModalOpen(false);
             setNewSystemModalOpen(true);
           }}
+          onDismiss={() => setStartupModalOpen(false)}
         />
       )}
 
@@ -1748,7 +1947,10 @@ export function App() {
         <InlineFuseInsertModal
           recommendation={pendingProtectionInsert.recommendation}
           products={PRODUCT_MAP}
-          systemVoltage={system.nominalVoltage}
+          systemVoltage={(() => {
+            const voltageV = systemDesignAnalysis.connections[pendingProtectionInsert.recommendation.connectionId]?.voltageV;
+            return voltageV === 12 || voltageV === 24 || voltageV === 48 ? voltageV : system.nominalVoltage;
+          })()}
           onCancel={() => setPendingProtectionInsert(null)}
           onConfirm={handleConfirmInlineProtection}
         />
@@ -1781,8 +1983,16 @@ export function App() {
       {/* Load System Modal */}
       {showLoadModal && (
         <div className="modal-overlay" onClick={() => setShowLoadModal(false)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-title">Load Saved System</div>
+          <div
+            ref={loadModalRef}
+            className="modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="load-system-dialog-title"
+            tabIndex={-1}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="modal-title" id="load-system-dialog-title">Load Saved System</div>
             {savedSystems.length === 0 ? (
               <div style={{ color: '#6d7b90', fontSize: 12 }}>No saved systems found.</div>
             ) : (

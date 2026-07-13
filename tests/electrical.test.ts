@@ -12,6 +12,8 @@
 // ============================================================
 
 import assert from 'node:assert/strict';
+import { existsSync } from 'node:fs';
+import { resolve } from 'node:path';
 
 import { PRODUCT_MAP, ALL_PRODUCTS } from '../src/data/products';
 import { validateCatalog } from '../src/data/products/helpers/validation';
@@ -27,6 +29,9 @@ import { DEFAULT_SYSTEM } from '../src/data/defaultSystem';
 import { SYSTEM_PRESETS } from '../src/data/presetSystems';
 import { sanitizeSystemDesign } from '../src/utils/systemSanitization';
 import { inlineProtectionTerminalIds } from '../src/utils/inlineProtection';
+import { productMatchesVoltageFilter } from '../src/data/products/helpers/catalogUtils';
+import { getProductDisplayImageUrl } from '../src/utils/productImages';
+import { breakerCompatibility, breakerPoleCount, breakerRatingProfiles } from '../src/utils/breakerSemantics';
 import type { Product, SystemDesign } from '../src/types/system';
 
 // ---- tiny test runner -------------------------------------------------------
@@ -109,6 +114,173 @@ test('inline AC breaker insertion resolves L1 and L2 pole terminals', () => {
     inId: 'l2_in',
     outId: 'l2_out',
   });
+  const dualRated = PRODUCT_MAP.get('breaker-ac-dc-din-2p-30a');
+  assert.ok(dualRated);
+  assert.deepEqual(inlineProtectionTerminalIds(dualRated!, 'ac_line2'), { inId: 'l2_in', outId: 'l2_out' });
+  assert.deepEqual(inlineProtectionTerminalIds(dualRated!, 'dc_neg'), { inId: 'l2_in', outId: 'l2_out' });
+});
+
+test('breaker catalog exposes explicit poles and distinct AC/DC rating profiles', () => {
+  const dual = PRODUCT_MAP.get('breaker-ac-dc-din-2p-30a');
+  assert.ok(dual, 'dual-rated 2P breaker must be in the active catalog');
+  assert.equal(breakerCompatibility(dual!), 'both');
+  assert.equal(breakerPoleCount(dual!), 2);
+  assert.deepEqual(new Set(breakerRatingProfiles(dual!).map((profile) => profile.medium)), new Set(['ac', 'dc']));
+
+  const acL2 = getEffectiveTerminal(dual!, 'l2_in', {
+    id: 'dual', productId: dual!.id, quantity: 1, x: 0, y: 0, breakerConfigurationId: 'ac-480v-2p',
+  });
+  const dcPole2 = getEffectiveTerminal(dual!, 'l2_in', {
+    id: 'dual', productId: dual!.id, quantity: 1, x: 0, y: 0, breakerConfigurationId: 'dc-60v-bipolar',
+  });
+  assert.equal(acL2?.kind, 'ac_power');
+  assert.equal(acL2?.polarity, 'line2');
+  assert.equal(dcPole2?.kind, 'dc_power');
+  assert.equal(dcPole2?.polarity, 'negative');
+});
+
+test('three-pole breaker represents L1, L2, and L3 as separate conductors', () => {
+  const breaker = PRODUCT_MAP.get('breaker-ac-din-3p-30a');
+  assert.ok(breaker, '3P breaker must be in the active catalog');
+  assert.equal(getEffectiveTerminal(breaker!, 'l1_in')?.polarity, 'line');
+  assert.equal(getEffectiveTerminal(breaker!, 'l2_in')?.polarity, 'line2');
+  assert.equal(getEffectiveTerminal(breaker!, 'l3_in')?.polarity, 'line3');
+  assert.equal(breaker!.ports?.[0]?.phases, 3);
+});
+
+test('Smart BatteryProtect is an electronic disconnect, not verified breaker OCP', () => {
+  const product = PRODUCT_MAP.get('breaker-smart-batteryprotect-100a');
+  assert.ok(product);
+  assert.equal(product!.productType, 'dcDisconnect');
+  assert.notEqual(product!.protectionRatings?.protectionType, 'breaker');
+});
+
+test('mobile breaker catalog includes a verified 48V marine family', () => {
+  const product = PRODUCT_MAP.get('breaker-blue-sea-285-80a');
+  assert.ok(product);
+  assert.equal(product!.manufacturer, 'Blue Sea Systems');
+  assert.equal(product!.partNumber, '7186');
+  assert.equal(product!.protectionRatings?.interruptRatingA, 3000);
+  assert.deepEqual(product!.breakerDefinition?.applicationTags, ['mobile', 'marine', 'rv']);
+});
+
+test('breaker service validation rejects a DC domain above its rating', () => {
+  const system: SystemDesign = {
+    ...base,
+    id: 'breaker-overvoltage', name: 'breaker overvoltage', nominalVoltage: 48,
+    components: [
+      { id: 'src', productId: 'generic-alternator-source', label: '120V DC Source', quantity: 1, x: -160, y: 0, instanceVoltageV: 120, instanceMaxCurrentA: 20 },
+      { id: 'breaker', productId: 'breaker-dc-breaker-30a', label: '48V Breaker', quantity: 1, x: 0, y: -30 },
+      { id: 'load', productId: 'acc-dc-load-generic', label: '120V Load', quantity: 1, x: 160, y: 0, instanceVoltageV: 120, instanceMaxCurrentA: 20 },
+    ],
+    connections: [
+      { id: 'pos-in', fromComponentId: 'src', fromTerminalId: 'dc_pos', toComponentId: 'breaker', toTerminalId: 'in', cableLengthFt: 2 },
+      { id: 'pos-out', fromComponentId: 'breaker', fromTerminalId: 'out', toComponentId: 'load', toTerminalId: 'dc_pos', cableLengthFt: 2 },
+      { id: 'neg', fromComponentId: 'src', fromTerminalId: 'dc_neg', toComponentId: 'load', toTerminalId: 'dc_neg', cableLengthFt: 4 },
+    ],
+  };
+  const analysis = analyzeSystemDesign(system, PRODUCT_MAP);
+  assert.ok(analysis.warnings.some((warning) => warning.code === 'BREAKER_VOLTAGE_EXCEEDED'));
+  assert.ok(analysis.warnings.some((warning) => warning.code === 'BREAKER_INTERRUPT_RATING_UNKNOWN'));
+});
+
+test('breaker interrupt rating is compared with configured available fault current', () => {
+  const system: SystemDesign = {
+    ...base,
+    id: 'breaker-interrupt-rating',
+    name: 'breaker interrupt rating',
+    nominalVoltage: 48,
+    components: [
+      { id: 'src', productId: 'generic-alternator-source', label: '48V Source', quantity: 1, x: -160, y: 0, instanceVoltageV: 48, instanceMaxCurrentA: 20, availableFaultCurrentA: 5000 },
+      { id: 'breaker', productId: 'breaker-blue-sea-285-80a', label: '3kA Breaker', quantity: 1, x: 0, y: -30 },
+      { id: 'load', productId: 'acc-dc-load-generic', label: '48V Load', quantity: 1, x: 160, y: 0, instanceVoltageV: 48, instanceMaxCurrentA: 20 },
+    ],
+    connections: [
+      { id: 'pos-in', fromComponentId: 'src', fromTerminalId: 'dc_pos', toComponentId: 'breaker', toTerminalId: 'in', cableLengthFt: 2 },
+      { id: 'pos-out', fromComponentId: 'breaker', fromTerminalId: 'out', toComponentId: 'load', toTerminalId: 'dc_pos', cableLengthFt: 2 },
+      { id: 'neg', fromComponentId: 'src', fromTerminalId: 'dc_neg', toComponentId: 'load', toTerminalId: 'dc_neg', cableLengthFt: 4 },
+    ],
+  };
+  const analysis = analyzeSystemDesign(system, PRODUCT_MAP);
+  assert.ok(analysis.warnings.some((warning) => warning.code === 'INTERRUPT_RATING_EXCEEDED' && warning.componentId === 'breaker'));
+});
+
+test('known breaker rating remains visibly unverified when source fault current is unknown', () => {
+  const system: SystemDesign = {
+    ...base,
+    id: 'breaker-fault-current-unknown',
+    name: 'breaker fault current unknown',
+    nominalVoltage: 48,
+    components: [
+      { id: 'src', productId: 'generic-alternator-source', label: '48V Source', quantity: 1, x: -160, y: 0, instanceVoltageV: 48, instanceMaxCurrentA: 20 },
+      { id: 'breaker', productId: 'breaker-blue-sea-285-80a', label: '3kA Breaker', quantity: 1, x: 0, y: -30 },
+      { id: 'load', productId: 'acc-dc-load-generic', label: '48V Load', quantity: 1, x: 160, y: 0, instanceVoltageV: 48, instanceMaxCurrentA: 20 },
+    ],
+    connections: [
+      { id: 'pos-in', fromComponentId: 'src', fromTerminalId: 'dc_pos', toComponentId: 'breaker', toTerminalId: 'in', cableLengthFt: 2 },
+      { id: 'pos-out', fromComponentId: 'breaker', fromTerminalId: 'out', toComponentId: 'load', toTerminalId: 'dc_pos', cableLengthFt: 2 },
+      { id: 'neg', fromComponentId: 'src', fromTerminalId: 'dc_neg', toComponentId: 'load', toTerminalId: 'dc_neg', cableLengthFt: 4 },
+    ],
+  };
+  const analysis = analyzeSystemDesign(system, PRODUCT_MAP);
+  assert.ok(analysis.warnings.some((warning) => warning.code === 'FAULT_CURRENT_UNKNOWN' && warning.componentId === 'breaker'));
+});
+
+test('configured AC source fault current verifies the shipped AC breaker interrupt ratings', () => {
+  const preset = SYSTEM_PRESETS.find((item) => item.id === 'offgrid-48v')?.system;
+  assert.ok(preset, '48V preset must exist');
+
+  const configured: SystemDesign = {
+    ...preset!,
+    components: preset!.components.map((component) => (
+      PRODUCT_MAP.get(component.productId)?.productType === 'shorePowerInlet'
+        ? { ...component, availableFaultCurrentA: 5000 }
+        : component
+    )),
+  };
+  const analysis = analyzeSystemDesign(configured, PRODUCT_MAP);
+
+  assert.ok(
+    !analysis.warnings.some((warning) => warning.code === 'FAULT_CURRENT_UNKNOWN'),
+    'configured AC source fault current should clear unknown-fault-current warnings',
+  );
+  assert.ok(
+    !analysis.warnings.some((warning) => warning.code === 'INTERRUPT_RATING_EXCEEDED'),
+    '5kA available fault current should remain below the shipped 6kA breaker ratings',
+  );
+});
+
+function fuseVoltageSystem(fuseProductId: string): SystemDesign {
+  return {
+    ...base,
+    id: `fuse-voltage-${fuseProductId}`,
+    name: 'Fuse voltage validation',
+    nominalVoltage: 48,
+    components: [
+      { id: 'src', productId: 'generic-alternator-source', label: '48V Source', quantity: 1, x: -160, y: 0, instanceVoltageV: 48, instanceMaxCurrentA: 20 },
+      { id: 'fuse', productId: fuseProductId, label: 'Branch Fuse', quantity: 1, x: 0, y: -30, inferredConnectionKind: 'dc_power', inferredPolarity: 'positive', inferredVoltageClass: 'dc_low_voltage' },
+      { id: 'load', productId: 'acc-dc-load-generic', label: '48V Load', quantity: 1, x: 160, y: 0, instanceVoltageV: 48, instanceMaxCurrentA: 20 },
+    ],
+    connections: [
+      { id: 'pos-in', fromComponentId: 'src', fromTerminalId: 'dc_pos', toComponentId: 'fuse', toTerminalId: 'in', cableLengthFt: 2 },
+      { id: 'pos-out', fromComponentId: 'fuse', fromTerminalId: 'out', toComponentId: 'load', toTerminalId: 'dc_pos', cableLengthFt: 2 },
+      { id: 'neg', fromComponentId: 'src', fromTerminalId: 'dc_neg', toComponentId: 'load', toTerminalId: 'dc_neg', cableLengthFt: 4 },
+    ],
+  };
+}
+
+test('32V fuse is rejected on a resolved 48V DC domain', () => {
+  const analysis = analyzeSystemDesign(fuseVoltageSystem('fuse-mega-generic-32v-60a'), PRODUCT_MAP);
+  assert.ok(analysis.warnings.some((warning) => (
+    warning.code === 'COMPONENT_VOLTAGE_RATING_EXCEEDED' && warning.componentId === 'fuse'
+  )));
+});
+
+test('58V fuse is accepted on a resolved 48V DC domain', () => {
+  const analysis = analyzeSystemDesign(fuseVoltageSystem('fuse-mega-generic-58v-60a'), PRODUCT_MAP);
+  assert.ok(!analysis.warnings.some((warning) => (
+    warning.code === 'COMPONENT_VOLTAGE_RATING_EXCEEDED' && warning.componentId === 'fuse'
+  )));
 });
 
 // ============================================================
@@ -122,6 +294,17 @@ test('active product catalog passes strict data validation', () => {
     .map((issue) => `[${issue.code}] ${issue.productId}${issue.field ? ` ${issue.field}` : ''}: ${issue.message}`);
   assert.equal(result.errorCount, 0, errors.join('\n'));
   assert.equal(result.warningCount, 0, 'active catalog should not emit validation warnings');
+});
+
+test('active product display images resolve to public assets', () => {
+  const missing = ALL_PRODUCTS.flatMap((product) => {
+    const imageUrl = getProductDisplayImageUrl(product);
+    if (!imageUrl?.startsWith('/product-images/')) return [];
+    const publicPath = resolve(process.cwd(), 'public', imageUrl.replace(/^\/+/, ''));
+    return existsSync(publicPath) ? [] : [`${product.id}: ${imageUrl}`];
+  });
+
+  assert.deepEqual(missing, [], `missing product display images:\n${missing.join('\n')}`);
 });
 
 test('Helios resolves explicit DC commons (400A internal bus) with 250A posts', () => {
@@ -1035,6 +1218,78 @@ test('Custom Solar Array MPPT limit checks use voltage, current, and power ratin
   assert.ok(power.warnings.some((warning) => warning.code === 'MPPT_PV_POWER_EXCEEDED'));
 });
 
+function customArrayThroughBreakerToMppt(
+  breakerProductId: string,
+  ratings: SystemDesign['components'][number]['customSolarArrayRatings']
+): SystemDesign {
+  return {
+    ...base,
+    id: 'custom-array-breaker-mppt',
+    name: 'custom array through breaker to mppt',
+    nominalVoltage: 48,
+    components: [
+      {
+        id: 'array',
+        productId: 'custom-solar-array',
+        label: 'Custom PV Array',
+        quantity: 1,
+        x: -240,
+        y: 0,
+        includeInBom: false,
+        customSolarArrayRatings: ratings,
+      },
+      {
+        id: 'breaker',
+        productId: breakerProductId,
+        label: 'PV Breaker',
+        quantity: 1,
+        x: -80,
+        y: 0,
+        // A generic breaker has no fixed kind of its own — this mirrors what
+        // App.tsx's dynamic-conductor inference stamps onto the component once
+        // it is actually wired into a PV string in the UI.
+        inferredConnectionKind: 'pv_power',
+        inferredPolarity: 'positive',
+        inferredVoltageClass: 'pv_high_voltage',
+      },
+      { id: 'mppt', productId: 'mppt-150-35', label: 'MPPT', quantity: 1, x: 160, y: 0 },
+    ],
+    connections: [
+      { id: 'pv-pos-in', fromComponentId: 'array', fromTerminalId: 'pv_pos', toComponentId: 'breaker', toTerminalId: 'in', cableLengthFt: 6 },
+      { id: 'pv-pos-out', fromComponentId: 'breaker', fromTerminalId: 'out', toComponentId: 'mppt', toTerminalId: 'pv_pos', cableLengthFt: 6 },
+      { id: 'pv-neg', fromComponentId: 'array', fromTerminalId: 'pv_neg', toComponentId: 'mppt', toTerminalId: 'pv_neg', cableLengthFt: 12 },
+    ],
+  };
+}
+
+test('Generic DC breaker under-rated for PV string Voc triggers PROTECTION_PV_VOLTAGE_EXCEEDED', () => {
+  const analysis = analyzeSystemDesign(
+    customArrayThroughBreakerToMppt('breaker-dc-breaker-30a', { vocV: 140, coldVocV: 160, vmpV: 120, iscA: 20, impA: 18, powerW: 2160 }),
+    PRODUCT_MAP
+  );
+  assert.ok(analysis.warnings.some((warning) => warning.code === 'PROTECTION_PV_VOLTAGE_EXCEEDED'));
+});
+
+test('600V-rated PV breaker on the same string reports no over-voltage warning', () => {
+  const analysis = analyzeSystemDesign(
+    customArrayThroughBreakerToMppt('breaker-dc-breaker-600v-30a', { vocV: 140, coldVocV: 160, vmpV: 120, iscA: 20, impA: 18, powerW: 2160 }),
+    PRODUCT_MAP
+  );
+  assert.ok(!analysis.warnings.some((warning) => warning.code === 'PROTECTION_PV_VOLTAGE_EXCEEDED'));
+  assert.ok(!analysis.warnings.some((warning) => warning.code === 'PROTECTION_PV_VOLTAGE_MARGIN'));
+});
+
+test('Regression: MPPT Voc check still sees through a PV breaker in series', () => {
+  // Before the isPvPassThroughProduct fix, a breaker sitting between the array
+  // and the MPPT would stop the upstream walk, silently hiding the array from
+  // the MPPT's own MPPT_PV_VOLTAGE_EXCEEDED check.
+  const analysis = analyzeSystemDesign(
+    customArrayThroughBreakerToMppt('breaker-dc-breaker-600v-30a', { vocV: 140, coldVocV: 160, vmpV: 120, iscA: 20, impA: 18, powerW: 2160 }),
+    PRODUCT_MAP
+  );
+  assert.ok(analysis.warnings.some((warning) => warning.code === 'MPPT_PV_VOLTAGE_EXCEEDED'));
+});
+
 test('Custom Solar Array PV positive uses Isc and PV negative matches it', () => {
   const analysis = analyzeSystemDesign(customArrayToMppt({ vocV: 120, vmpV: 100, iscA: 22, impA: 18, powerW: 1800 }), PRODUCT_MAP);
   assert.equal(analysis.connections['pv-pos'].designCurrentA, 22);
@@ -1216,6 +1471,206 @@ test('48V preset PV input branches stay paired to their own tracker inputs', () 
     assert.equal(positiveTerminal.overCurrent, false);
     assert.equal(negativeTerminal.overCurrent, false);
   }
+});
+
+test('Release gate: default and shipped presets contain no electrical errors', () => {
+  const systems = [
+    { id: 'default', system: DEFAULT_SYSTEM },
+    ...SYSTEM_PRESETS.map((preset) => ({ id: preset.id, system: preset.system })),
+  ];
+  for (const { id, system } of systems) {
+    const analysis = analyzeSystemDesign(system, PRODUCT_MAP);
+    const errors = analysis.warnings.filter((warning) => warning.severity === 'error');
+    assert.deepEqual(errors, [], `${id}:\n${errors.map((warning) => `${warning.code}: ${warning.message}`).join('\n')}`);
+  }
+});
+
+test('Release gate: energized active conductors never silently resolve to zero current', () => {
+  const activeBusTypes = new Set(['dc_pos', 'pv_pos', 'ac_line', 'ac_line2', 'ac_line3']);
+  const systems = [
+    { id: 'default', system: DEFAULT_SYSTEM },
+    ...SYSTEM_PRESETS.map((preset) => ({ id: preset.id, system: preset.system })),
+  ];
+  for (const { id, system } of systems) {
+    const analysis = analyzeSystemDesign(system, PRODUCT_MAP);
+    const zeroCurrent = system.connections.filter((connection) => {
+      if (connection.busLink || connection.wireKind === 'communication') return false;
+      const result = analysis.connections[connection.id];
+      return result && activeBusTypes.has(result.busType) && result.designCurrentA <= 0;
+    });
+    assert.deepEqual(
+      zeroCurrent.map((connection) => connection.id),
+      [],
+      `${id} contains active conductors with unresolved zero current`
+    );
+  }
+});
+
+test('Release gate: every connected power domain resolves a voltage basis', () => {
+  const powerBusTypes = new Set([
+    'dc_pos', 'dc_neg', 'pv_pos', 'pv_neg',
+    'ac_line', 'ac_line2', 'ac_line3', 'ac_neutral',
+  ]);
+  const systems = [
+    { id: 'default', system: DEFAULT_SYSTEM },
+    ...SYSTEM_PRESETS.map((preset) => ({ id: preset.id, system: preset.system })),
+  ];
+  for (const { id, system } of systems) {
+    const connectedKeys = new Set(system.connections.flatMap((connection) => [
+      `${connection.fromComponentId}:${connection.fromTerminalId}`,
+      `${connection.toComponentId}:${connection.toTerminalId}`,
+    ]));
+    const analysis = analyzeSystemDesign(system, PRODUCT_MAP);
+    const unresolved = analysis.powerDomains.filter((domain) => (
+      powerBusTypes.has(domain.busType) &&
+      domain.terminalKeys.some((key) => connectedKeys.has(key)) &&
+      domain.nominalVoltageV == null
+    ));
+    assert.deepEqual(
+      unresolved.map((domain) => domain.id),
+      [],
+      `${id} contains connected power domains without a voltage basis`
+    );
+  }
+});
+
+test('48V preset AC services resolve at 240V with source-side breaker orientation', () => {
+  const preset = SYSTEM_PRESETS.find((item) => item.id === 'offgrid-48v')?.system;
+  assert.ok(preset, '48V preset must exist');
+
+  const analysis = analyzeSystemDesign(preset, PRODUCT_MAP);
+  const voltageErrors = [
+    ...analysis.warnings.filter((warning) => warning.code === 'NET_VOLTAGE_CONFLICT'),
+    ...analysis.issues.filter((issue) => issue.code === 'net_voltage_conflict'),
+  ];
+  assert.deepEqual(voltageErrors, []);
+
+  const acDomains = analysis.powerDomains.filter((domain) => domain.busType.startsWith('ac_'));
+  assert.ok(acDomains.length > 0, '48V preset must contain AC electrical domains');
+  assert.ok(acDomains.every((domain) => domain.nominalVoltageV === 120 && !domain.hasVoltageConflict));
+
+  for (const connection of Object.values(analysis.connections)) {
+    if (connection.busType === 'ac_line' || connection.busType === 'ac_line2') {
+      assert.equal(connection.voltageV, 240, `${connection.connectionId} must use the split-phase line-to-line voltage basis`);
+    } else if (connection.busType === 'ac_neutral') {
+      assert.equal(connection.voltageV, 120, `${connection.connectionId} neutral must use the line-to-neutral voltage basis`);
+    }
+  }
+
+  const componentById = new Map(preset.components.map((component) => [component.id, component]));
+  assert.equal(componentById.get('comp-1782867869646-470')?.label, 'Grid');
+  assert.equal(componentById.get('comp-1782867874813-497')?.label, 'Generator');
+
+  const connectionById = new Map(preset.connections.map((connection) => [connection.id, connection]));
+  assert.equal(connectionById.get('conn-1782867906434-556')?.toTerminalId, 'l2_in');
+  assert.equal(connectionById.get('conn-1782867909335-563')?.toTerminalId, 'l1_in');
+  assert.equal(connectionById.get('conn-1782867911464-570')?.toTerminalId, 'l2_out');
+  assert.equal(connectionById.get('conn-1782867913734-577')?.toTerminalId, 'l1_out');
+  assert.equal(connectionById.get('conn-1782867915172-584')?.fromTerminalId, 'l1_out');
+  assert.equal(connectionById.get('conn-1782867917896-591')?.toTerminalId, 'l2_out');
+  assert.equal(connectionById.get('conn-1782867979043-742')?.fromTerminalId, 'l2_in');
+  assert.equal(connectionById.get('conn-1782867980793-749')?.toTerminalId, 'l1_in');
+  assert.equal(connectionById.get('conn-1782867982316-756')?.fromTerminalId, 'l2_in');
+  assert.equal(connectionById.get('conn-1782867983843-763')?.toTerminalId, 'l1_in');
+
+  const acConnectionErrors = preset.connections
+    .filter((connection) => connection.busType?.startsWith('ac_'))
+    .flatMap((connection) => analysis.connections[connection.id]?.errors ?? []);
+  assert.deepEqual(acConnectionErrors, []);
+
+  for (const connectionId of [
+    'conn-1782867911464-570',
+    'conn-1782867913734-577',
+    'conn-1782867915172-584',
+    'conn-1782867917896-591',
+  ]) {
+    assert.equal(
+      analysis.connections[connectionId]?.designCurrentA,
+      40,
+      `${connectionId} must inherit the configured 40A grid/generator service current through its breaker`
+    );
+    assert.ok(
+      !analysis.connections[connectionId]?.errors.some((issue) => issue.code === 'ANALYSIS_CURRENT_UNRESOLVED'),
+      `${connectionId} must not silently resolve to zero current`
+    );
+  }
+});
+
+test('saved copies of the legacy 48V preset migrate to the corrected AC model', () => {
+  const preset = SYSTEM_PRESETS.find((item) => item.id === 'offgrid-48v')?.system;
+  assert.ok(preset, '48V preset must exist');
+  const legacyLabels: Record<string, string> = {
+    'comp-1782867869646-470': 'Generator',
+    'comp-1782867874813-497': 'Grid',
+  };
+  const legacyConnectionTerminals: Record<string, { from?: string; to?: string }> = {
+    'conn-1782867911464-570': { to: 'l2_in' },
+    'conn-1782867913734-577': { to: 'l1_in' },
+    'conn-1782867915172-584': { from: 'l1_in' },
+    'conn-1782867917896-591': { to: 'l2_in' },
+    'conn-1782867979043-742': { from: 'l2_out' },
+    'conn-1782867980793-749': { to: 'l1_out' },
+    'conn-1782867982316-756': { from: 'l2_out' },
+    'conn-1782867983843-763': { to: 'l1_out' },
+  };
+  const legacy: SystemDesign = {
+    ...preset,
+    id: 'saved-copy-of-legacy-48v-preset',
+    components: preset.components.map((component) => (
+      component.id in legacyLabels
+        ? { ...component, label: legacyLabels[component.id], instanceVoltageV: 120 }
+        : component.id === 'comp-1782867890071-533'
+          ? { ...component, instanceVoltageV: 120 }
+          : component
+    )),
+    connections: preset.connections.map((connection) => {
+      const terminals = legacyConnectionTerminals[connection.id];
+      return terminals ? {
+        ...connection,
+        fromTerminalId: terminals.from ?? connection.fromTerminalId,
+        toTerminalId: terminals.to ?? connection.toTerminalId,
+      } : connection;
+    }),
+  };
+
+  const migrated = sanitizeSystemDesign(legacy, PRODUCT_MAP);
+  const migratedById = new Map(migrated.components.map((component) => [component.id, component]));
+  assert.equal(migratedById.get('comp-1782867869646-470')?.label, 'Grid');
+  assert.equal(migratedById.get('comp-1782867874813-497')?.label, 'Generator');
+  for (const id of ['comp-1782867869646-470', 'comp-1782867874813-497', 'comp-1782867890071-533']) {
+    assert.equal(migratedById.get(id)?.instanceVoltageV, undefined);
+  }
+
+  const analysis = analyzeSystemDesign(migrated, PRODUCT_MAP);
+  assert.ok(!analysis.warnings.some((warning) => warning.code === 'NET_VOLTAGE_CONFLICT'));
+  assert.ok(analysis.powerDomains
+    .filter((domain) => domain.busType.startsWith('ac_'))
+    .every((domain) => domain.nominalVoltageV === 120 && !domain.hasVoltageConflict));
+});
+
+test('builder issue cards deduplicate voltage-domain warning adapters', () => {
+  const preset = SYSTEM_PRESETS.find((item) => item.id === 'offgrid-48v')?.system;
+  assert.ok(preset, '48V preset must exist');
+  const gridId = 'comp-1782867869646-470';
+  const conflicted: SystemDesign = {
+    ...preset,
+    components: preset.components.map((component) =>
+      component.id === gridId ? { ...component, instanceVoltageV: 120 } : component
+    ),
+  };
+
+  const analysis = analyzeSystemDesign(conflicted, PRODUCT_MAP);
+  const rawFindings = [
+    ...analysis.warnings.filter((warning) => warning.code === 'NET_VOLTAGE_CONFLICT'),
+    ...analysis.issues.filter((issue) => issue.code === 'net_voltage_conflict'),
+  ];
+  assert.ok(rawFindings.length > 2, 'split-phase conductors should reproduce repeated adapter findings');
+
+  const cards = buildBuilderIssues(conflicted, PRODUCT_MAP, analysis).filter(
+    (issue) => issue.code.toUpperCase() === 'NET_VOLTAGE_CONFLICT'
+  );
+  assert.equal(cards.length, 2, cards.map((issue) => `${issue.componentId}: ${issue.message}`).join('\n'));
+  assert.equal(new Set(cards.map((issue) => issue.componentId)).size, 2);
 });
 
 function directBatteryInverter(withMppt = false): SystemDesign {
@@ -1551,6 +2006,63 @@ test('AC split-phase: voltage derivation returns 240V for line→line2 and 120V 
   assert.ok(l1VoltageV !== undefined, 'L1 connection must have voltage');
   assert.ok(l2VoltageV !== undefined, 'L2 connection must have voltage');
   assert.ok(nVoltageV !== undefined, 'neutral connection must have voltage');
+  assert.equal(l1VoltageV, 240);
+  assert.equal(l2VoltageV, 240);
+  assert.equal(nVoltageV, 120);
+});
+
+test('AC service compatibility distinguishes 240V split-phase L-N from 230V single-phase L-N', () => {
+  const system: SystemDesign = {
+    ...base,
+    id: 'split-phase-to-230v',
+    name: 'split phase to 230V',
+    components: [
+      { id: 'grid', productId: 'generic-grid-source-240v', quantity: 1, x: -160, y: 0 },
+      { id: 'inverter', productId: 'multiplus-ii-48-3000-230v', quantity: 1, x: 160, y: 0 },
+    ],
+    connections: [
+      { id: 'line', fromComponentId: 'grid', fromTerminalId: 'ac_l1', toComponentId: 'inverter', toTerminalId: 'ac_in_l', cableLengthFt: 10 },
+      { id: 'neutral', fromComponentId: 'grid', fromTerminalId: 'ac_n', toComponentId: 'inverter', toTerminalId: 'ac_in_n', cableLengthFt: 10 },
+    ],
+  };
+  const analysis = analyzeSystemDesign(system, PRODUCT_MAP);
+  assert.ok(analysis.warnings.some((warning) => warning.code === 'NET_VOLTAGE_CONFLICT'));
+  assert.equal(analysis.connections.line.voltageV, 120, 'L1-N on a 120/240V split-phase source is a 120V circuit');
+});
+
+test('AC service compatibility accepts 230V and 240V single-phase equipment in one class', () => {
+  const baseSource = PRODUCT_MAP.get('generic-grid-source');
+  assert.ok(baseSource);
+  const source240: Product = {
+    ...baseSource!,
+    id: 'test-single-phase-source-240v',
+    name: 'Test single-phase 240V source',
+    ports: baseSource!.ports?.map((port) => port.kind === 'ac' ? {
+      ...port,
+      voltageClass: 'ac_240v',
+      nominalVoltageV: 240,
+      phases: 1,
+      acService: { configuration: 'single_phase_line_neutral', lineToNeutralVoltageV: 240 },
+    } : port),
+  };
+  const products = new Map(PRODUCT_MAP);
+  products.set(source240.id, source240);
+  const system: SystemDesign = {
+    ...base,
+    id: 'single-phase-230-240',
+    name: 'single phase 230/240',
+    components: [
+      { id: 'source', productId: source240.id, quantity: 1, x: -160, y: 0 },
+      { id: 'inverter', productId: 'multiplus-ii-48-3000-230v', quantity: 1, x: 160, y: 0 },
+    ],
+    connections: [
+      { id: 'line', fromComponentId: 'source', fromTerminalId: 'ac_l', toComponentId: 'inverter', toTerminalId: 'ac_in_l', cableLengthFt: 10 },
+      { id: 'neutral', fromComponentId: 'source', fromTerminalId: 'ac_n', toComponentId: 'inverter', toTerminalId: 'ac_in_n', cableLengthFt: 10 },
+    ],
+  };
+  const analysis = analyzeSystemDesign(system, products);
+  assert.ok(!analysis.warnings.some((warning) => warning.code === 'NET_VOLTAGE_CONFLICT'));
+  assert.equal(analysis.connections.line.voltageV, 240);
 });
 
 // ============================================================
@@ -1685,6 +2197,127 @@ test('Regression: fuse_holder input lead is recognized as protected by its own s
   );
   const rec = analysis.legacy.protectionRecommendations.find((item) => item.connectionId === 'bat-to-holder');
   assert.equal(rec, undefined, 'no missing-protection recommendation should fire on a lead that already terminates at an installed fuse');
+});
+
+test('24V Medium RV resolves independent 12V and 24V DC domains through Orion converters', () => {
+  const preset = SYSTEM_PRESETS.find((item) => item.voltage === 24)?.system;
+  assert.ok(preset, '24V Medium RV preset must exist');
+
+  const analysis = analyzeSystemDesign(preset, PRODUCT_MAP);
+  const dcVoltages = [...new Set(
+    analysis.powerDomains
+      .filter((domain) => (domain.busType === 'dc_pos' || domain.busType === 'dc_neg') && domain.voltageClassV != null)
+      .map((domain) => domain.voltageClassV)
+  )].sort((a, b) => a! - b!);
+
+  assert.deepEqual(dcVoltages, [12, 24]);
+  assert.equal(analysis.connections['rv24-alt-to-input-fuse']?.voltageV, 12);
+  assert.equal(analysis.connections['rv24-alt-to-input-fuse']?.designCurrentA, 30);
+  assert.equal(analysis.connections['rv24-dcdc-to-output-fuse']?.voltageV, 24);
+  assert.equal(analysis.connections['rv24-dcdc-to-output-fuse']?.designCurrentA, 15);
+  assert.equal(analysis.connections['rv24-pos-bus-to-converter']?.voltageV, 24);
+  assert.equal(analysis.connections['rv24-pos-bus-to-converter']?.designCurrentA, 15);
+  assert.equal(analysis.connections['rv24-converter-to-load-fuse']?.voltageV, 12);
+  assert.equal(analysis.connections['rv24-converter-to-load-fuse']?.designCurrentA, 20);
+  assert.ok(
+    !analysis.warnings.some((warning) =>
+      warning.code === 'VOLTAGE_MISMATCH' ||
+      (warning.code === 'PORT_VOLTAGE_INCOMPATIBLE' && (warning.componentId === 'rv24-dcdc' || warning.componentId === 'rv24-converter'))
+    ),
+    analysis.warnings.filter((warning) => warning.code.includes('VOLTAGE')).map((warning) => warning.message).join('\n')
+  );
+});
+
+test('Voltage validation uses connected port domains instead of the legacy primary default', () => {
+  const preset = SYSTEM_PRESETS.find((item) => item.voltage === 24)?.system;
+  assert.ok(preset, '24V Medium RV preset must exist');
+
+  const analysis = analyzeSystemDesign({ ...preset, nominalVoltage: 48 }, PRODUCT_MAP);
+  assert.equal(analysis.connections['rv24-pos-bus-to-converter']?.voltageV, 24);
+  assert.equal(analysis.connections['rv24-converter-to-load-fuse']?.voltageV, 12);
+  assert.ok(!analysis.warnings.some((warning) => warning.code === 'PORT_VOLTAGE_INCOMPATIBLE'));
+});
+
+test('Voltage validation rejects a source outside a DC-DC input port range', () => {
+  const preset = SYSTEM_PRESETS.find((item) => item.voltage === 24)?.system;
+  assert.ok(preset, '24V Medium RV preset must exist');
+  const invalid: SystemDesign = {
+    ...preset,
+    components: preset.components.map((component) =>
+      component.id === 'rv24-alternator' ? { ...component, instanceVoltageV: 48 } : component
+    ),
+  };
+
+  const analysis = analyzeSystemDesign(invalid, PRODUCT_MAP);
+  assert.ok(
+    analysis.warnings.some((warning) => warning.code === 'PORT_VOLTAGE_INCOMPATIBLE' && warning.componentId === 'rv24-dcdc'),
+    'the Orion 12V input must reject a connected 48V source domain'
+  );
+});
+
+test('Catalog voltage filtering includes both sides of a multi-voltage converter', () => {
+  const converter = PRODUCT_MAP.get('orion-tr-24-12-30-converter');
+  assert.ok(converter);
+  assert.equal(productMatchesVoltageFilter(converter, 12), true);
+  assert.equal(productMatchesVoltageFilter(converter, 24), true);
+  assert.equal(productMatchesVoltageFilter(converter, 48), false);
+});
+
+test('Regression: passive fuse holder does not propagate an unrelated inverter load into a DC-DC branch', () => {
+  const preset = SYSTEM_PRESETS.find((item) => item.voltage === 24)?.system;
+  assert.ok(preset, '24V Medium RV preset must exist');
+
+  const system: SystemDesign = {
+    ...preset,
+    components: [
+      ...preset.components,
+      {
+        id: 'converter-input-fuse',
+        productId: 'holder-class-t-1pos',
+        label: 'DC-DC Converter Input Fuse',
+        quantity: 1,
+        x: 100,
+        y: 280,
+        fuseSlots: { slot_1: { installed: true, ratingA: 35 } },
+      },
+    ],
+    connections: [
+      ...preset.connections.filter((connection) => connection.id !== 'rv24-pos-bus-to-converter'),
+      {
+        id: 'bus-to-converter-input-fuse',
+        fromComponentId: 'rv24-pos-bus',
+        fromTerminalId: 'terminal_5',
+        toComponentId: 'converter-input-fuse',
+        toTerminalId: 'in_pos',
+        cableLengthFt: 2,
+      },
+      {
+        id: 'converter-input-fuse-to-converter',
+        fromComponentId: 'converter-input-fuse',
+        fromTerminalId: 'out_pos',
+        toComponentId: 'rv24-converter',
+        toTerminalId: 'in_pos',
+        cableLengthFt: 2,
+      },
+    ],
+  };
+
+  const analysis = analyzeSystemDesign(system, PRODUCT_MAP);
+  const inverterBranch = analysis.connections['rv24-pos-bus-to-inv-fuse'];
+  const fuseInput = analysis.connections['bus-to-converter-input-fuse'];
+  const fuseOutput = analysis.connections['converter-input-fuse-to-converter'];
+
+  assert.equal(inverterBranch?.designCurrentA, 130, 'the inverter branch should retain its own 130A design current');
+  assert.equal(fuseOutput?.designCurrentA, 15, 'the 360W converter input should resolve to 15A on its 24V input domain');
+  assert.equal(
+    fuseInput?.designCurrentA,
+    fuseOutput?.designCurrentA,
+    'a passive fuse holder must carry the same branch current on both sides'
+  );
+  assert.ok(
+    !fuseInput?.errors.some((error) => error.code === 'SELECTED_FUSE_UNDER_BRANCH_CURRENT'),
+    'the 35A converter fuse must not be compared against the unrelated 130A inverter branch'
+  );
 });
 
 // ---- summary ----------------------------------------------------------------

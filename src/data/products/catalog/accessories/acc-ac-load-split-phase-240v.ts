@@ -86,6 +86,7 @@ const product: Product = {
       label: "AC Input",
       voltageClass: "ac_240v",
       nominalVoltageV: 240,
+      acService: { configuration: "split_phase", lineToNeutralVoltageV: 120, lineToLineVoltageV: 240 },
       maxCurrentA: 40,
       maxPowerW: 9600,
       phases: 2,

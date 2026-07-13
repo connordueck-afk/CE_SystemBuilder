@@ -1,6 +1,7 @@
-import { useMemo, useState } from 'react';
+import { useId, useMemo, useState } from 'react';
 import type { PremanufacturedCable, SystemConnection } from '../../types/system';
 import { PREMANUFACTURED_CABLES } from '../../data/products/cableAssemblies';
+import { useModalAccessibility } from '../layout/useModalAccessibility';
 
 interface Props {
   connection: SystemConnection;
@@ -23,6 +24,8 @@ function gaugeAtLeastAsHeavy(assemblyGauge: string, requiredGauge: string): bool
 
 export function PremanufacturedCableSelector({ connection, requiredGauge, onSelect, onClose }: Props) {
   const [selectedId, setSelectedId] = useState<string | null>(connection.premanufacturedCableId ?? null);
+  const titleId = useId();
+  const dialogRef = useModalAccessibility(true, onClose);
 
   const requiredLengthFt = connection.cableLengthFt;
 
@@ -73,6 +76,11 @@ export function PremanufacturedCableSelector({ connection, requiredGauge, onSele
       onClick={onClose}
     >
       <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        tabIndex={-1}
         style={{
           background: 'var(--surface)', borderRadius: 10, padding: 24, maxWidth: 680, width: '95vw',
           maxHeight: '80vh', display: 'flex', flexDirection: 'column', boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
@@ -81,7 +89,7 @@ export function PremanufacturedCableSelector({ connection, requiredGauge, onSele
       >
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
           <div>
-            <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>Select Pre-manufactured Cable</div>
+            <div id={titleId} style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>Select Pre-manufactured Cable</div>
             {requiredGauge && (
               <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 3 }}>
                 Required: {requiredGauge} · {requiredLengthFt.toFixed(1)} ft minimum
@@ -89,6 +97,7 @@ export function PremanufacturedCableSelector({ connection, requiredGauge, onSele
             )}
           </div>
           <button
+            aria-label="Close cable selector"
             style={{ background: 'none', border: 'none', fontSize: 18, cursor: 'pointer', color: 'var(--muted)' }}
             onClick={onClose}
           >

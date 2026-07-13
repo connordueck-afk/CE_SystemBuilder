@@ -12,6 +12,7 @@ import type { Product, TerminalDefinition } from '../../../types/system';
 import { getProductTypeDefinition } from '../productTypes';
 import { getFuseRating } from '../../../utils/fuseSelection';
 import { getTerminalPortId } from '../../../utils/portSpecs';
+import { breakerCompatibility, breakerPoles, breakerRatingProfiles } from '../../../utils/breakerSemantics';
 
 // -----------------------------------------------------------
 // Validation result types
@@ -353,6 +354,74 @@ function validateProtectionRatings(product: Product): CatalogValidationIssue[] {
         code: 'PROTECTION_PORT_RATING_MISMATCH',
         message: `Protection port "${port.id}" maxCurrentA (${port.maxCurrentA ?? 'missing'}) must match the ${ratingA}A protection rating.`,
       });
+    }
+  }
+
+  if (product.productType === 'breaker') {
+    const definition = product.breakerDefinition;
+    const poles = breakerPoles(product);
+    const profiles = breakerRatingProfiles(product);
+    const groupIds = new Set((product.terminalGroups ?? []).map((group) => group.id));
+    if (!definition) {
+      issues.push({
+        productId: product.id,
+        field: 'breakerDefinition',
+        severity: 'error',
+        code: 'BREAKER_DEFINITION_MISSING',
+        message: 'Breaker must declare explicit poles and medium-specific rating profiles.',
+      });
+    } else if (definition.poleCount !== poles.length) {
+      issues.push({
+        productId: product.id,
+        field: 'breakerDefinition.poles',
+        severity: 'error',
+        code: 'BREAKER_POLE_COUNT_MISMATCH',
+        message: `Breaker declares ${definition.poleCount} poles but defines ${poles.length}.`,
+      });
+    }
+
+    const usedGroups = new Set<string>();
+    for (const pole of poles) {
+      for (const [field, groupId] of [
+        ['inputTerminalGroupId', pole.inputTerminalGroupId],
+        ['outputTerminalGroupId', pole.outputTerminalGroupId],
+      ] as const) {
+        if (!groupIds.has(groupId)) {
+          issues.push({ productId: product.id, field: `breakerDefinition.poles.${pole.id}.${field}`, severity: 'error', code: 'BREAKER_POLE_UNKNOWN_GROUP', message: `Breaker pole "${pole.id}" references unknown terminal group "${groupId}".` });
+        }
+        if (usedGroups.has(groupId)) {
+          issues.push({ productId: product.id, field: `breakerDefinition.poles.${pole.id}.${field}`, severity: 'error', code: 'BREAKER_POLE_GROUP_REUSED', message: `Terminal group "${groupId}" is assigned to more than one breaker pole.` });
+        }
+        usedGroups.add(groupId);
+      }
+      if (pole.inputTerminalGroupId === pole.outputTerminalGroupId) {
+        issues.push({ productId: product.id, field: `breakerDefinition.poles.${pole.id}`, severity: 'error', code: 'BREAKER_POLE_NOT_PASS_THROUGH', message: `Breaker pole "${pole.id}" input and output must be distinct groups.` });
+      }
+    }
+
+    if (profiles.length === 0) {
+      issues.push({ productId: product.id, field: 'breakerDefinition.ratingProfiles', severity: 'error', code: 'BREAKER_PROFILE_MISSING', message: 'Breaker must define at least one AC, DC, or PV rating profile.' });
+    }
+    const profileIds = new Set<string>();
+    for (const profile of profiles) {
+      if (profileIds.has(profile.id)) {
+        issues.push({ productId: product.id, field: `breakerDefinition.ratingProfiles.${profile.id}`, severity: 'error', code: 'BREAKER_PROFILE_DUPLICATE', message: `Duplicate breaker rating profile "${profile.id}".` });
+      }
+      profileIds.add(profile.id);
+      if (!(profile.maxVoltageV > 0)) {
+        issues.push({ productId: product.id, field: `breakerDefinition.ratingProfiles.${profile.id}.maxVoltageV`, severity: 'error', code: 'BREAKER_PROFILE_NO_VOLTAGE', message: `Breaker profile "${profile.id}" needs a positive voltage rating.` });
+      }
+      if (definition && profile.polesRequired > definition.poleCount) {
+        issues.push({ productId: product.id, field: `breakerDefinition.ratingProfiles.${profile.id}.polesRequired`, severity: 'error', code: 'BREAKER_PROFILE_TOO_MANY_POLES', message: `Breaker profile "${profile.id}" requires more poles than the device has.` });
+      }
+      if (profile.interruptRatingA == null) {
+        issues.push({ productId: product.id, field: `breakerDefinition.ratingProfiles.${profile.id}.interruptRatingA`, severity: 'info', code: 'BREAKER_INTERRUPT_RATING_UNKNOWN', message: `Breaker profile "${profile.id}" has no verified interrupt rating.` });
+      }
+    }
+
+    const compatibility = breakerCompatibility(product);
+    if (product.protectionRatings?.acDcCompatibility && compatibility !== product.protectionRatings.acDcCompatibility) {
+      issues.push({ productId: product.id, field: 'protectionRatings.acDcCompatibility', severity: 'error', code: 'BREAKER_COMPATIBILITY_MISMATCH', message: `Legacy compatibility "${product.protectionRatings.acDcCompatibility}" does not match breaker rating profiles "${compatibility}".` });
     }
   }
 

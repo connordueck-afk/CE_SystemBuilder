@@ -3,11 +3,11 @@ import type { Product } from '../../../../types/system';
 const product: Product = {
   id: "breaker-dc-breaker",
   manufacturer: "Generic",
-  name: "DC Breaker",
+  name: "Mobile DC Manual-Reset Breaker",
   productType: "breaker",
-  category: "DC Breaker",
-  description: "Generic DC circuit breaker for DC protection.",
-  source: "Catalog estimate: DC circuit breakers",
+  category: "Mobile DC Breaker",
+  description: "Generic surface-mount manual-reset DC breaker for mobile, marine, and RV branch protection. Verify manufacturer voltage and interrupt ratings.",
+  source: "Generic mobile breaker placeholder - manufacturer verification required",
   dataQuality: "placeholder",
   imageUrl: "/product-images/breaker-dc-breaker.svg",
   width: 80,
@@ -58,8 +58,17 @@ const product: Product = {
     currentRatingA: 0,
     voltageRatingV: 48,
     acDcCompatibility: "dc",
-    breakerStyle: "DC Breaker",
+    breakerStyle: "Mobile DC Manual Reset",
     protectionType: "breaker"
+  },
+  breakerDefinition: {
+    poleCount: 1,
+    tripLinkage: "independent",
+    poles: [{ id: "pole1", inputTerminalGroupId: "in", outputTerminalGroupId: "out" }],
+    ratingProfiles: [{ id: "dc-48v-1p", label: "48 VDC, 1 pole", medium: "dc", maxVoltageV: 48, polesRequired: 1, wiring: "independent_conductors" }],
+    mounting: "surface",
+    applicationTags: ["mobile", "marine", "rv"],
+    resetType: "manual_reset"
   },
   variants: [
     {

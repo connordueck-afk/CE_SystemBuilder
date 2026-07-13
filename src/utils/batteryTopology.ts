@@ -116,24 +116,6 @@ function sameStringSignature(left: BatteryStringAnalysis, right: BatteryStringAn
     (left.capacityAh ?? -1) === (right.capacityAh ?? -1);
 }
 
-function nominalVoltageBand(nominalVoltage: SystemDesign['nominalVoltage']): { minV: number; maxV: number } {
-  switch (nominalVoltage) {
-    case 12:
-      return { minV: 10, maxV: 16 };
-    case 24:
-      return { minV: 20, maxV: 32 };
-    case 48:
-      return { minV: 40, maxV: 64 };
-    default:
-      return { minV: nominalVoltage * 0.8, maxV: nominalVoltage * 1.35 };
-  }
-}
-
-function voltageInNominalBand(voltageV: number, nominalVoltage: SystemDesign['nominalVoltage']): boolean {
-  const band = nominalVoltageBand(nominalVoltage);
-  return voltageV >= band.minV && voltageV <= band.maxV;
-}
-
 function getOrCreateSet(map: Map<string, Set<string>>, key: string): Set<string> {
   if (!map.has(key)) map.set(key, new Set([key]));
   return map.get(key)!;
@@ -345,18 +327,6 @@ export function analyzeBatteryTopology(
     packs.push(pack);
     for (const id of batteryIds) packByBatteryId.set(id, pack);
     for (const id of outputConnectionIds) packByOutputConnectionId.set(id, pack);
-  }
-
-  for (const pack of packs) {
-    if (!voltageInNominalBand(pack.voltageV, system.nominalVoltage)) {
-      const band = nominalVoltageBand(system.nominalVoltage);
-      warn(
-        'error',
-        `Battery pack ${pack.seriesCount}S${pack.parallelCount}P is ${pack.voltageV.toFixed(1)} V, outside the ${system.nominalVoltage} V system range (${band.minV}-${band.maxV} V)`,
-        'BATTERY_PACK_VOLTAGE_MISMATCH',
-        pack.batteryComponentIds[0]
-      );
-    }
   }
 
   for (const id of parallelConnectionIds) internalConnectionIds.add(id);

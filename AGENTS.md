@@ -42,6 +42,9 @@ test runner can touch paths outside the repo.
   `analyzeSystemDesign` from `src/utils/analysis`.
 - `src/utils/`: Supporting calculation, validation, storage, CSV, terminal,
   solar, BOM, price, and legacy-compatible analysis helpers.
+- `src/utils/voltageDomains.ts`: Resolves voltage per connected electrical
+  domain from port/source evidence, bridges passive protection boundaries, and
+  validates each port against its connected domain.
 - `src/data/defaultSystem.ts`: Default sample system loaded/reset into the app.
 - `src/data/products.ts`: Compatibility re-export for the product catalog.
 - `src/data/products/`: Product catalog, helpers, validation, schemas, and local
@@ -175,8 +178,28 @@ Resolve port/terminal electrical facts through helpers such as
 - `src/utils/solarCalculations.ts` handles solar array/product configuration.
 - `src/utils/communicationNetworks.ts` models communication at protocol level,
   not individual CAN-H/CAN-L conductors.
+- Voltage is a per-net/domain fact. Product port nominal/min/max voltage and
+  connected source evidence are authoritative. `SystemDesign.nominalVoltage`
+  is retained as a legacy primary-DC fallback only; do not use it for global
+  product compatibility checks. The header voltage selector is a catalog
+  filter and must not mutate the system design.
+- AC conductor nets and AC circuit voltage are separate facts. `acService`
+  identifies single-phase, split-phase, wye, or delta service and its L-N/L-L
+  bases. L1/L2/L3/neutral remain separate nets; connection analysis uses the
+  paired circuit voltage (for example 240V L-L and 120V L-N on split phase).
+- Passive devices do not define a domain voltage, but their voltage/medium
+  ratings are validated after the connected domain resolves. Known interrupt
+  ratings are compared with `availableFaultCurrentA` when supplied; otherwise
+  fault-current suitability remains visibly unverified.
 - Pass-through and bus behavior must stay synchronized across product metadata,
   port topology, connection rules, analysis, BOM, and summaries.
+- Breakers remain one `breaker` product type. `breakerDefinition` owns explicit
+  pole pairs, common-trip linkage, mounting/application metadata, and separate
+  AC/DC/PV rating profiles. Do not infer new breaker poles from terminal names or
+  split breaker product types by electrical medium.
+- `Smart BatteryProtect` is modeled as an electronic `dcDisconnect`, not verified
+  branch overcurrent protection. Unknown breaker interrupt ratings must remain
+  visible as unverified rather than being silently assumed.
 
 Core design philosophy:
 

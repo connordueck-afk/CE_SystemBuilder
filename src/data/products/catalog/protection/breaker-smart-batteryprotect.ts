@@ -3,10 +3,10 @@ import type { Product } from '../../../../types/system';
 const product: Product = {
   id: "breaker-smart-batteryprotect",
   manufacturer: "Generic",
-  name: "Smart BatteryProtect",
-  productType: "breaker",
-  category: "Smart BatteryProtect",
-  description: "Smart BatteryProtect DC protection device.",
+  name: "Smart BatteryProtect Electronic Disconnect",
+  productType: "dcDisconnect",
+  category: "Disconnects",
+  description: "Electronic low-voltage battery disconnect. It is not counted as branch overcurrent protection.",
   source: "Victron 2025",
   dataQuality: "placeholder",
   imageUrl: "/product-images/generic-breaker.svg",
@@ -58,8 +58,7 @@ const product: Product = {
     currentRatingA: 0,
     voltageRatingV: 34,
     acDcCompatibility: "dc",
-    breakerStyle: "Smart BatteryProtect",
-    protectionType: "breaker"
+    breakerStyle: "Electronic Battery Disconnect"
   },
   variants: [
     {

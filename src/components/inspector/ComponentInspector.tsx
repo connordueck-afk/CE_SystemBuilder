@@ -26,6 +26,7 @@ import { getTerminalPortId, terminalKind, terminalRole } from '../../utils/portS
 import { getFuseRating } from '../../utils/fuseSelection';
 import { getEffectiveTerminals } from '../../utils/effectiveTerminals';
 import type { SystemDesignAnalysis } from '../../utils/analysis';
+import { componentPortNominalVoltageV } from '../../utils/voltageDomains';
 import {
   COMPONENT_SCALE_MAX,
   COMPONENT_SCALE_MIN,
@@ -34,6 +35,8 @@ import {
   componentScale,
 } from '../../utils/componentScale';
 import { getProductBuilderUrl } from '../../utils/productBuilderLinks';
+import { breakerPoleCount, breakerRatingProfiles } from '../../utils/breakerSemantics';
+import { IconPlus, IconMinus } from '../icons';
 
 type SourceLoadKind = 'dc_source' | 'ac_source' | 'dc_load' | 'ac_load';
 
@@ -70,6 +73,7 @@ interface Props {
   onUpdateInstanceVoltage: (id: string, voltageV: number | undefined) => void;
   onUpdateDcBusNominalVoltage: (id: string, voltageV: number | undefined) => void;
   onUpdateInstanceMaxCurrent: (id: string, currentA: number | undefined) => void;
+  onUpdateAvailableFaultCurrent: (id: string, currentA: number | undefined) => void;
   onUpdateComponentMaxCableAwg: (id: string, awg: string | undefined) => void;
   onUpdateComponentImageScale: (id: string, scale: number) => void;
   onUpdateBusPolarity: (id: string, busPolarity: SystemComponent['busPolarity']) => void;
@@ -79,6 +83,7 @@ interface Props {
   onUpdateCustomSolarArrayRatings: (id: string, ratings: CustomSolarArrayRatings) => void;
   onUpdateConfiguredProtocol?: (id: string, portId: string, protocol: CommunicationProtocol | undefined) => void;
   onUpdateSourceType?: (id: string, sourceType: DcSourceType | AcSourceType | undefined) => void;
+  onUpdateBreakerConfiguration?: (id: string, profileId: string | undefined) => void;
   onRemove: (id: string) => void;
 }
 
@@ -164,7 +169,10 @@ function PortSummarySection({
   const groupDefs = product.terminalGroups?.filter((group) => group.portId === port.id) ?? [];
   const maxTerminalCurrentA = Math.max(0, ...effectiveTerminals.map((terminal) => terminal.maxCurrentA ?? 0));
   const currentLimitA = port.maxCurrentA ?? (maxTerminalCurrentA > 0 ? maxTerminalCurrentA : undefined);
-  const maxPowerW = port.maxPowerByVoltageW?.[systemVoltage] ?? port.maxPowerW;
+  const domainVoltageV = analysis
+    ? componentPortNominalVoltageV(analysis.graph, component.id, port.id)
+    : undefined;
+  const maxPowerW = port.maxPowerByVoltageW?.[domainVoltageV ?? systemVoltage] ?? port.maxPowerW;
   const terminalIssueKeys = new Set(effectiveTerminals.map((terminal) => `${component.id}:${terminal.id}`));
   const groupIssueKeys = new Set(groupDefs.map((group) => `${component.id}:${group.id}`));
   const portIssues = analysis?.issues.filter((issue) =>
@@ -213,7 +221,7 @@ function PortSummarySection({
               aria-label={`${collapsed ? 'Expand' : 'Collapse'} ${port.label ?? port.id}`}
               onClick={onToggleCollapsed}
             >
-              <span className="port-summary-toggle-icon" aria-hidden="true">{collapsed ? '+' : '-'}</span>
+              <span className="port-summary-toggle-icon" aria-hidden="true">{collapsed ? <IconPlus size={12} /> : <IconMinus size={12} />}</span>
             </button>
           </div>
         </div>
@@ -280,9 +288,10 @@ function PortSummarySection({
 
       {collapsed ? null : (
         <>
-          {(port.kind === 'dc' || port.kind === 'ac') && (
-            <div className="port-summary-subsection">
-              <div className="port-summary-subtitle">Port Ratings</div>
+           {(port.kind === 'dc' || port.kind === 'ac') && (
+             <div className="port-summary-subsection">
+               <div className="port-summary-subtitle">Port Ratings</div>
+               {domainVoltageV != null && <SpecRow label="Connected Domain" value={fmtUnit(domainVoltageV, 'V')} />}
               {port.nominalVoltageV != null && <SpecRow label="Voltage" value={fmtUnit(port.nominalVoltageV, 'V')} />}
               {voltageRange != null && <SpecRow label="Allowed Voltage" value={voltageRange} />}
               {voltageRange == null && port.voltageMinV != null && <SpecRow label="Minimum Voltage" value={fmtUnit(port.voltageMinV, 'V')} />}
@@ -365,6 +374,7 @@ export function ComponentInspector({
   onUpdateInstanceVoltage,
   onUpdateDcBusNominalVoltage,
   onUpdateInstanceMaxCurrent,
+  onUpdateAvailableFaultCurrent,
   onUpdateComponentMaxCableAwg,
   onUpdateComponentImageScale,
   onUpdateBusPolarity,
@@ -374,10 +384,17 @@ export function ComponentInspector({
   onUpdateCustomSolarArrayRatings,
   onUpdateConfiguredProtocol,
   onUpdateSourceType,
+  onUpdateBreakerConfiguration,
   onRemove,
 }: Props) {
   const [collapsedPorts, setCollapsedPorts] = useState<Record<string, boolean>>({});
   const sourceLoadKind = getSourceLoadKind(product);
+  const sourceLoadDefaultVoltageV = sourceLoadKind
+    ? product.ports?.find((port) => port.kind === (sourceLoadKind.startsWith('ac_') ? 'ac' : 'dc'))?.nominalVoltageV
+      ?? (typeof product.nominalVoltage === 'number' ? product.nominalVoltage : undefined)
+      ?? (sourceLoadKind.startsWith('ac_') ? 120 : systemVoltage)
+    : undefined;
+  const sourceLoadVoltageV = component.instanceVoltageV ?? sourceLoadDefaultVoltageV;
   const effectiveMsrp = component.customPriceUsd ?? product.msrpUsd ?? null;
   const capacityKwh = product.capacityWh
     ? (product.capacityWh / 1000).toFixed(2)
@@ -504,6 +521,35 @@ export function ComponentInspector({
         </div>
       )}
 
+      {product.productType === 'breaker' && product.breakerDefinition && (
+        <div className="inspector-section">
+          <div className="inspector-label">Breaker configuration</div>
+          <SpecRow label="Poles" value={`${breakerPoleCount(product)}P`} />
+          <SpecRow label="Trip linkage" value={compactLabel(product.breakerDefinition.tripLinkage)} />
+          {breakerRatingProfiles(product).length > 1 && onUpdateBreakerConfiguration ? (
+            <select
+              className="inspector-input"
+              value={component.breakerConfigurationId ?? ''}
+              onChange={(e) => onUpdateBreakerConfiguration(component.id, e.target.value || undefined)}
+            >
+              <option value="">Auto-detect from wiring</option>
+              {breakerRatingProfiles(product).map((profile) => (
+                <option key={profile.id} value={profile.id}>{profile.label ?? profile.id}</option>
+              ))}
+            </select>
+          ) : null}
+          {breakerRatingProfiles(product).map((profile) => (
+            <div className="port-summary-card" key={profile.id}>
+              <div className="port-summary-title">{profile.label ?? profile.id}</div>
+              <SpecRow label="Service" value={profile.medium.toUpperCase()} />
+              <SpecRow label="Voltage rating" value={`${profile.maxVoltageV} V`} />
+              <SpecRow label="Interrupt rating" value={profile.interruptRatingA != null ? `${profile.interruptRatingA.toLocaleString()} A` : 'Not verified'} />
+              <SpecRow label="Pole wiring" value={compactLabel(profile.wiring)} />
+            </div>
+          ))}
+        </div>
+      )}
+
       {product.productType === 'custom_solar_array' && (
         <div className="inspector-section">
           <div className="inspector-label">Aggregate PV Ratings</div>
@@ -620,11 +666,7 @@ export function ComponentInspector({
                 className="spec-row-input"
                 min={1}
                 value={component.instanceVoltageV ?? ''}
-                placeholder={
-                  sourceLoadKind === 'ac_source' || sourceLoadKind === 'ac_load'
-                    ? '120'
-                    : String(systemVoltage)
-                }
+                placeholder={sourceLoadDefaultVoltageV != null ? String(sourceLoadDefaultVoltageV) : ''}
                 onChange={(e) => {
                   const v = parseFloat(e.target.value);
                   onUpdateInstanceVoltage(component.id, isNaN(v) ? undefined : v);
@@ -644,8 +686,8 @@ export function ComponentInspector({
                 placeholder={
                   product.maxCurrentA != null
                     ? String(product.maxCurrentA)
-                    : product.continuousPowerW && (component.instanceVoltageV ?? (sourceLoadKind === 'ac_source' || sourceLoadKind === 'ac_load' ? 120 : systemVoltage))
-                    ? String(Math.round(product.continuousPowerW / (component.instanceVoltageV ?? (sourceLoadKind === 'ac_source' || sourceLoadKind === 'ac_load' ? 120 : systemVoltage))))
+                    : product.continuousPowerW && sourceLoadVoltageV
+                    ? String(Math.round(product.continuousPowerW / sourceLoadVoltageV))
                     : ''
                 }
                 onChange={(e) => {
@@ -654,6 +696,30 @@ export function ComponentInspector({
                 }}
               />
               <span className="spec-row-unit">A</span>
+            </div>
+          </>
+        )}
+        {sourceLoadKind === 'ac_source' && (
+          <>
+            <div className="spec-row spec-row-editable">
+              <span className="spec-row-label">Available Fault Current</span>
+              <input
+                type="number"
+                className="spec-row-input"
+                min={0}
+                step={100}
+                value={component.availableFaultCurrentA ?? ''}
+                placeholder="Unknown"
+                title="Prospective short-circuit current available from this source at its terminals"
+                onChange={(e) => {
+                  const value = parseFloat(e.target.value);
+                  onUpdateAvailableFaultCurrent(component.id, Number.isFinite(value) && value > 0 ? value : undefined);
+                }}
+              />
+              <span className="spec-row-unit">A</span>
+            </div>
+            <div style={{ color: 'var(--muted)', fontSize: 11, lineHeight: 1.35, marginTop: 4 }}>
+              Compared with connected breaker and fuse interrupt ratings. Leave blank when unknown.
             </div>
           </>
         )}

@@ -6,6 +6,7 @@ const product: Product = {
   name: "RJ45 Coupler",
   productType: "commAccessory",
   category: "Communication",
+  imageUrl: "/product-images/comm-rj45-coupler.svg",
   msrpUsd: 0,
   description: "Inline RJ45 coupler for extending communication cables.",
   dataQuality: "placeholder",

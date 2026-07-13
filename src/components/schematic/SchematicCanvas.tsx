@@ -1,4 +1,4 @@
-import { memo, useRef, useState, useCallback, useEffect, useMemo } from 'react';
+import { memo, useRef, useState, useCallback, useEffect, useId, useMemo } from 'react';
 import type { SystemDesign, SystemComponent, Product } from '../../types/system';
 import { ComponentNode } from './ComponentNode';
 import { ConnectionLayer } from './ConnectionLayer';
@@ -15,6 +15,8 @@ import { isVerticalOrientation, transformOrientationOffset } from '../../utils/c
 import { clampComponentScale, componentScale, scaledProductSize, scaledTerminalOffset } from '../../utils/componentScale';
 import { validateSystemConnection } from '../../utils/connectionRules';
 import { isTerminalFull } from '../../utils/connectorLimits';
+import { IconMaximize, IconMinus, IconPlus, IconRoute } from '../icons';
+import { useModalAccessibility } from '../layout/useModalAccessibility';
 
 interface DragState {
   componentId: string;
@@ -136,6 +138,7 @@ interface Props {
   focusedConnectionId: string | null;
   focusConnectionRequestId: number;
   cancelInteractionRequestId: number;
+  fitDiagramRequestId: number;
   onViewportCenterChange: (center: { x: number; y: number }) => void;
   onSelectComponent: (id: string | null) => void;
   onSelectConnection: (id: string | null) => void;
@@ -440,6 +443,7 @@ export function SchematicCanvas({
   focusedConnectionId,
   focusConnectionRequestId,
   cancelInteractionRequestId,
+  fitDiagramRequestId,
   onViewportCenterChange,
   onSelectComponent,
   onSelectConnection,
@@ -488,6 +492,8 @@ export function SchematicCanvas({
   const [canvasSize, setCanvasSize] = useState<CanvasSize>({ width: VIEW_W, height: VIEW_H });
   const [selectionBox, setSelectionBox] = useState<SelectionBox | null>(null);
   const [showAutoRouteDialog, setShowAutoRouteDialog] = useState(false);
+  const autoRouteTitleId = useId();
+  const autoRouteDialogRef = useModalAccessibility(showAutoRouteDialog, () => setShowAutoRouteDialog(false));
   const [componentMovePreview, setComponentMovePreview] = useState<ComponentMovePreview[] | null>(null);
   const [componentScalePreview, setComponentScalePreview] = useState<ComponentScalePreview | null>(null);
   const [componentRotationPreview, setComponentRotationPreview] = useState<ComponentRotationPreview | null>(null);
@@ -499,6 +505,7 @@ export function SchematicCanvas({
   const handledFocusRequestIdRef = useRef(0);
   const handledFocusConnectionRequestIdRef = useRef(0);
   const handledCancelInteractionRequestIdRef = useRef(0);
+  const handledFitDiagramRequestIdRef = useRef(-1); // fire on initial mount too
   const mouseClientRef = useRef<{ x: number; y: number } | null>(null);
   const autoScrollRafRef = useRef<number | null>(null);
   const componentMovePreviewRef = useRef<ComponentMovePreview[] | null>(null);
@@ -709,6 +716,16 @@ export function SchematicCanvas({
       y: (fromComp.y + toComp.y) / 2,
     }, zoom, canvasSize));
   }, [canvasSize, focusConnectionRequestId, focusedConnectionId, system.connections, system.components, zoom]);
+
+  // Auto-fit diagram when a new system is loaded or reset
+  useEffect(() => {
+    if (fitDiagramRequestId === handledFitDiagramRequestIdRef.current) return;
+    handledFitDiagramRequestIdRef.current = fitDiagramRequestId;
+    // Defer so the canvas has a chance to reflow with new components
+    const timer = setTimeout(() => fitDiagram(), 0);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fitDiagramRequestId]);
 
   useEffect(() => {
     if (!dragging && !panning && !scrollDragging && !scaleDragging && !selectionBox) return;
@@ -1503,44 +1520,41 @@ export function SchematicCanvas({
   return (
     <div ref={canvasRef} className="canvas-shell">
       <div className="canvas-zoom-controls" aria-label="Canvas zoom controls">
-        <button type="button" className="canvas-zoom-btn" onClick={() => updateZoom(-ZOOM_STEP)} title="Zoom out">
-          -
-        </button>
-        <button type="button" className="canvas-zoom-value" onClick={resetZoom} title="Reset zoom">
-          {Math.round(zoom * 100)}%
-        </button>
-        <button type="button" className="canvas-zoom-btn" onClick={() => updateZoom(ZOOM_STEP)} title="Zoom in">
-          +
-        </button>
-        <button type="button" className="canvas-zoom-btn canvas-fit-btn" onClick={fitDiagram} title="Fit diagram to screen">
-          Fit
-        </button>
-        <button type="button" className="canvas-zoom-btn canvas-full-btn" onClick={onEnterFullView} title="Collapse side panels">
-          Full
-        </button>
+        <div className="canvas-control-group">
+          <button type="button" className="canvas-zoom-btn" onClick={() => updateZoom(-ZOOM_STEP)} title="Zoom out" aria-label="Zoom out">
+            <IconMinus size={14} />
+          </button>
+          <button type="button" className="canvas-zoom-value" onClick={resetZoom} title="Reset zoom">
+            {Math.round(zoom * 100)}%
+          </button>
+          <button type="button" className="canvas-zoom-btn" onClick={() => updateZoom(ZOOM_STEP)} title="Zoom in" aria-label="Zoom in">
+            <IconPlus size={14} />
+          </button>
+        </div>
+        <div className="canvas-control-group">
+          <button type="button" className="canvas-zoom-btn canvas-fit-btn" onClick={fitDiagram} title="Fit diagram to screen">
+            Fit
+          </button>
+          <button type="button" className="canvas-zoom-btn canvas-full-btn" onClick={onEnterFullView} title="Collapse side panels" aria-label="Collapse side panels">
+            <IconMaximize size={14} />
+          </button>
+        </div>
         <button
           type="button"
-          className="canvas-zoom-btn"
+          className="canvas-zoom-btn canvas-route-btn"
           onClick={() => setShowAutoRouteDialog(true)}
           title="Auto-route all connections"
-          style={{ marginLeft: 8, fontSize: 12, padding: '3px 10px' }}
         >
-          Auto-Route
+          <IconRoute size={14} />
+          <span>Auto-route</span>
         </button>
       </div>
       {pendingConn && (
-        <div style={{
-          position: 'absolute', top: 8, left: '50%', transform: 'translateX(-50%)',
-          background: '#eaf4ff', color: '#1769d2', padding: '6px 14px',
-          borderRadius: 8, fontSize: 13, fontWeight: 600, zIndex: 10, pointerEvents: 'none',
-          border: '1px solid #cfe1f8',
-          boxShadow: '0 8px 20px rgb(30 45 70 / 8%)',
-          whiteSpace: 'nowrap',
-        }}>
+        <div className="canvas-connection-hint">
           {pendingConnLabel && (
-            <span style={{ marginRight: 10, color: '#0f4fa8' }}>{pendingConnLabel}</span>
+            <span className="canvas-connection-hint-source">{pendingConnLabel}</span>
           )}
-          <span style={{ fontWeight: 500, color: '#3d6baa' }}>
+          <span className="canvas-connection-hint-copy">
             Click a terminal to connect · Esc or click canvas to cancel
           </span>
         </div>
@@ -1662,7 +1676,7 @@ export function SchematicCanvas({
         )}
 
         {fusePrompt && (() => {
-          const label = (fusePrompt.recommendation.busType === 'ac_line' || fusePrompt.recommendation.busType === 'ac_line2') ? 'Add Breaker' : 'Add Fuse';
+          const label = (fusePrompt.recommendation.busType === 'ac_line' || fusePrompt.recommendation.busType === 'ac_line2' || fusePrompt.recommendation.busType === 'ac_line3') ? 'Add Breaker' : 'Add Protection';
 
           return (
             <g
@@ -1808,24 +1822,24 @@ export function SchematicCanvas({
 
       {showAutoRouteDialog && (
         <div
-          style={{
-            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.35)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000,
-          }}
+          className="modal-overlay canvas-confirm-overlay"
           onPointerDown={() => setShowAutoRouteDialog(false)}
         >
           <div
-            style={{
-              background: 'var(--bg-primary, #fff)', borderRadius: 12, padding: '28px 32px',
-              maxWidth: 420, width: '90%', boxShadow: '0 16px 48px rgba(0,0,0,0.22)',
-            }}
+            ref={autoRouteDialogRef}
+            className="modal canvas-confirm-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={autoRouteTitleId}
+            tabIndex={-1}
             onPointerDown={(e) => e.stopPropagation()}
           >
-            <h3 style={{ margin: '0 0 12px', fontSize: 16, fontWeight: 700 }}>Auto-route all connections?</h3>
-            <p style={{ margin: '0 0 24px', fontSize: 14, color: 'var(--text-secondary, #555)', lineHeight: 1.5 }}>
+            <div className="canvas-confirm-icon" aria-hidden="true"><IconRoute size={20} /></div>
+            <h3 className="canvas-confirm-title" id={autoRouteTitleId}>Auto-route all connections?</h3>
+            <p className="canvas-confirm-copy">
               This will recalculate routes for all connections and may overwrite manually adjusted cable paths. Continue?
             </p>
-            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+            <div className="canvas-confirm-actions">
               <button
                 type="button"
                 className="btn-secondary"

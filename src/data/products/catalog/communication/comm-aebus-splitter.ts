@@ -6,6 +6,7 @@ const product: Product = {
   name: "AEbus Splitter",
   productType: "commAccessory",
   category: "Communication",
+  imageUrl: "/product-images/comm-aebus-splitter.svg",
   msrpUsd: 0,
   description: "Passive AEbus communication splitter for parallel battery networks.",
   dataQuality: "placeholder",

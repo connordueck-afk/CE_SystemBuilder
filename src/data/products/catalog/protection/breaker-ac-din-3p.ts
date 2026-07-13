@@ -34,7 +34,7 @@ const product: Product = {
       portId: "main",
       label: "L2 In",
       groupType: "power_conductor",
-      polarity: "line",
+      polarity: "line2",
       internallyCommon: false
     },
     {
@@ -42,7 +42,7 @@ const product: Product = {
       portId: "main",
       label: "L2 Out",
       groupType: "power_conductor",
-      polarity: "line",
+      polarity: "line2",
       internallyCommon: false
     },
     {
@@ -50,7 +50,7 @@ const product: Product = {
       portId: "main",
       label: "L3 In",
       groupType: "power_conductor",
-      polarity: "line",
+      polarity: "line3",
       internallyCommon: false
     },
     {
@@ -58,7 +58,7 @@ const product: Product = {
       portId: "main",
       label: "L3 Out",
       groupType: "power_conductor",
-      polarity: "line",
+      polarity: "line3",
       internallyCommon: false
     }
   ],
@@ -144,6 +144,19 @@ const product: Product = {
     breakerStyle: "AC DIN 3P",
     protectionType: "breaker"
   },
+  breakerDefinition: {
+    poleCount: 3,
+    tripLinkage: "common",
+    poles: [
+      { id: "l1", inputTerminalGroupId: "l1_in", outputTerminalGroupId: "l1_out" },
+      { id: "l2", inputTerminalGroupId: "l2_in", outputTerminalGroupId: "l2_out" },
+      { id: "l3", inputTerminalGroupId: "l3_in", outputTerminalGroupId: "l3_out" }
+    ],
+    ratingProfiles: [{ id: "ac-480v-3p", label: "480 VAC, 3 pole", medium: "ac", maxVoltageV: 480, interruptRatingA: 6000, polesRequired: 3, wiring: "independent_conductors", phases: 3 }],
+    mounting: "din",
+    applicationTags: ["industrial"],
+    resetType: "toggle"
+  },
   variants: [
     {
       id: "breaker-ac-din-3p-6a",
@@ -220,7 +233,8 @@ const product: Product = {
       role: "pass_through",
       direction: "bidirectional",
       label: "Main",
-      voltageClass: "ac_120v",
+      voltageClass: "ac_480v",
+      phases: 3,
       maxCurrentA: 0,
       voltageMaxV: 480
     }

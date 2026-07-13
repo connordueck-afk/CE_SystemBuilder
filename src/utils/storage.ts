@@ -135,7 +135,7 @@ export function systemSaveFilename(system: SystemDesign): string {
   return `${safeName}.system-builder.json`;
 }
 
-export function saveCurrentSystem(system: SystemDesign): void {
+export function saveCurrentSystem(system: SystemDesign): boolean {
   try {
     const sanitized = sanitizeSystemDesign(system, PRODUCT_MAP);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(sanitized));
@@ -147,8 +147,10 @@ export function saveCurrentSystem(system: SystemDesign): void {
       saved.push(sanitized);
     }
     localStorage.setItem(SAVED_SYSTEMS_KEY, JSON.stringify(saved));
+    return true;
   } catch {
     console.warn('Failed to save system to localStorage');
+    return false;
   }
 }
 

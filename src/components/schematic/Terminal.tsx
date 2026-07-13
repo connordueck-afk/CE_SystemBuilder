@@ -43,6 +43,9 @@ export function Terminal({ terminal, componentId, componentLabel, isHighlighted,
 
   return (
     <g
+      data-terminal-component-id={componentId}
+      data-terminal-id={terminal.id}
+      data-terminal-label={terminal.label}
       transform={`translate(${terminal.offsetX}, ${terminal.offsetY})`}
       style={{
         cursor: cursorStyle,

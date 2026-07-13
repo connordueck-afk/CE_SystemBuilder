@@ -104,6 +104,18 @@ const product: Product = {
     breakerStyle: "AC DIN 2P",
     protectionType: "breaker"
   },
+  breakerDefinition: {
+    poleCount: 2,
+    tripLinkage: "common",
+    poles: [
+      { id: "l1", inputTerminalGroupId: "l1_in", outputTerminalGroupId: "l1_out" },
+      { id: "l2", inputTerminalGroupId: "l2_in", outputTerminalGroupId: "l2_out" }
+    ],
+    ratingProfiles: [{ id: "ac-480v-2p", label: "480 VAC, 2 pole", medium: "ac", maxVoltageV: 480, interruptRatingA: 6000, polesRequired: 2, wiring: "independent_conductors", phases: 2 }],
+    mounting: "din",
+    applicationTags: ["industrial"],
+    resetType: "toggle"
+  },
   variants: [
     {
       id: "breaker-ac-din-2p-6a",
@@ -181,6 +193,7 @@ const product: Product = {
       direction: "bidirectional",
       label: "Main",
       voltageClass: "ac_240v",
+      phases: 2,
       maxCurrentA: 0,
       voltageMaxV: 480
     }

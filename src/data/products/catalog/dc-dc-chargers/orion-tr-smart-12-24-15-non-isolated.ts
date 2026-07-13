@@ -21,6 +21,7 @@ const product: Product = {
   dcDcChargerRatings: {
     inputVoltageMinV: 9,
     inputVoltageMaxV: 17,
+    inputCurrentA: 30,
     outputVoltageV: 24,
     outputCurrentA: 15,
     outputPowerW: 360,
@@ -34,7 +35,7 @@ const product: Product = {
       groupType: "power_conductor",
       polarity: "positive",
       internallyCommon: false,
-      maxCurrentA: 15,
+      maxCurrentA: 30,
       requiresOvercurrentProtection: true
     },
     {
@@ -44,7 +45,7 @@ const product: Product = {
       groupType: "power_conductor",
       polarity: "negative",
       internallyCommon: false,
-      maxCurrentA: 15
+      maxCurrentA: 30
     },
     {
       id: "out_pos",
@@ -74,7 +75,7 @@ const product: Product = {
       side: "bottom",
       offsetX: -16,
       offsetY: 24,
-      maxCurrentA: 15,
+      maxCurrentA: 30,
       connector: {
         kind: "screw_terminal"
       }
@@ -86,7 +87,7 @@ const product: Product = {
       side: "bottom",
       offsetX: -5,
       offsetY: 24,
-      maxCurrentA: 15,
+      maxCurrentA: 30,
       connector: {
         kind: "screw_terminal"
       }
@@ -125,7 +126,7 @@ const product: Product = {
       voltageClass: "dc_low_voltage",
       voltageMinV: 9,
       voltageMaxV: 17,
-      maxCurrentA: 15,
+      maxCurrentA: 30,
       role: "sink",
       direction: "input"
     },

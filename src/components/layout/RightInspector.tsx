@@ -18,10 +18,19 @@ import { ConnectionInspector } from '../inspector/ConnectionInspector';
 import { TextAnnotationInspector } from '../inspector/TextAnnotationInspector';
 import { ShapeAnnotationInspector } from '../inspector/ShapeAnnotationInspector';
 import { WarningList } from '../inspector/WarningList';
+import { isUserFacingIssue } from '../../utils/builderIssues';
 import { findSolarArrayFeedingComponent, getEffectiveProductForComponent } from '../../utils/solarCalculations';
 import type { SystemDesignAnalysis } from '../../utils/analysis';
 import type { ProtectionRecommendation } from '../../utils/protectionRecommendations';
 import { selectBestFuseProduct, ampacityForAwg } from '../../utils/fuseSelection';
+import {
+  IconPanelRightClose,
+  IconPanelRightOpen,
+  IconAlertTriangle,
+  IconAlertCircle,
+  IconInfo,
+  IconCheckCircle,
+} from '../icons';
 
 interface Props {
   selectedComponentId: string | null;
@@ -44,6 +53,7 @@ interface Props {
   onUpdateInstanceVoltage: (id: string, voltageV: number | undefined) => void;
   onUpdateDcBusNominalVoltage: (id: string, voltageV: number | undefined) => void;
   onUpdateInstanceMaxCurrent: (id: string, currentA: number | undefined) => void;
+  onUpdateAvailableFaultCurrent: (id: string, currentA: number | undefined) => void;
   onUpdateComponentMaxCableAwg: (id: string, awg: string | undefined) => void;
   onUpdateComponentImageScale: (id: string, scale: number) => void;
   onUpdateBusPolarity: (id: string, busPolarity: SystemComponent['busPolarity']) => void;
@@ -63,6 +73,7 @@ interface Props {
   onUpdateConnectionPremanufacturedCable: (id: string, cableId: string | undefined) => void;
   onUpdateConfiguredProtocol: (componentId: string, portId: string, protocol: import('../../types/system').CommunicationProtocol | undefined) => void;
   onUpdateSourceType: (id: string, sourceType: DcSourceType | AcSourceType | undefined) => void;
+  onUpdateBreakerConfiguration: (id: string, profileId: string | undefined) => void;
   onResetConnectionRoute: (id: string) => void;
   onUpdateTextAnnotation: (id: string, patch: Partial<SystemTextAnnotation>) => void;
   onUpdateShapeAnnotation: (id: string, patch: Partial<SystemShapeAnnotation>) => void;
@@ -94,6 +105,7 @@ export function RightInspector({
   onUpdateInstanceVoltage,
   onUpdateDcBusNominalVoltage,
   onUpdateInstanceMaxCurrent,
+  onUpdateAvailableFaultCurrent,
   onUpdateComponentMaxCableAwg,
   onUpdateComponentImageScale,
   onUpdateBusPolarity,
@@ -113,6 +125,7 @@ export function RightInspector({
   onUpdateConnectionPremanufacturedCable,
   onUpdateConfiguredProtocol,
   onUpdateSourceType,
+  onUpdateBreakerConfiguration,
   onResetConnectionRoute,
   onUpdateTextAnnotation,
   onUpdateShapeAnnotation,
@@ -140,11 +153,12 @@ export function RightInspector({
     ? components.find((c) => c.id === selectedConnection.toComponentId)
     : undefined;
 
+  const userFacingIssues = issues.filter((issue) => isUserFacingIssue(issue, debugMode));
   const componentIssues = selectedComponentId
-    ? issues.filter((issue) => issue.componentId === selectedComponentId)
+    ? userFacingIssues.filter((issue) => issue.componentId === selectedComponentId)
     : [];
   const connectionIssues = selectedConnectionId
-    ? issues.filter((issue) => issue.connectionId === selectedConnectionId)
+    ? userFacingIssues.filter((issue) => issue.connectionId === selectedConnectionId)
     : [];
   const connectionProtectionRecommendations = selectedConnectionId
     ? protectionRecommendations.filter((recommendation) => recommendation.connectionId === selectedConnectionId)
@@ -153,7 +167,7 @@ export function RightInspector({
     ? componentIssues
     : selectedConnectionId
     ? connectionIssues
-    : issues;
+    : userFacingIssues;
   const errorCount = visibleIssues.filter((issue) => issue.severity === 'error').length;
   const warnCount = visibleIssues.filter((issue) => issue.severity === 'warning').length;
   const infoCount = visibleIssues.filter((issue) => issue.severity === 'info').length;
@@ -233,7 +247,7 @@ export function RightInspector({
           onClick={onToggleCollapsed}
           title={collapsed ? 'Expand inspector' : 'Collapse inspector'}
         >
-          {collapsed ? '<' : '>'}
+          {collapsed ? <IconPanelRightOpen size={16} /> : <IconPanelRightClose size={16} />}
         </button>
       </div>
 
@@ -244,25 +258,25 @@ export function RightInspector({
           </div>
           {errorCount > 0 && (
             <div className="inspector-rail-badge inspector-rail-badge-error" title={`${errorCount} errors`}>
-              !
+              <IconAlertCircle size={14} />
               <span>{errorCount}</span>
             </div>
           )}
           {warnCount > 0 && (
             <div className="inspector-rail-badge inspector-rail-badge-warning" title={`${warnCount} warnings`}>
-              !
+              <IconAlertTriangle size={14} />
               <span>{warnCount}</span>
             </div>
           )}
           {infoCount > 0 && (
             <div className="inspector-rail-badge inspector-rail-badge-info" title={`${infoCount} notices`}>
-              i
+              <IconInfo size={14} />
               <span>{infoCount}</span>
             </div>
           )}
           {visibleIssues.length === 0 && (
             <div className="inspector-rail-badge inspector-rail-badge-ok" title="No issues detected">
-              ok
+              <IconCheckCircle size={14} />
             </div>
           )}
         </div>
@@ -272,15 +286,23 @@ export function RightInspector({
         <>
       {!selectedComponent && !selectedConnection && !selectedAnnotation && (
         <div className="inspector-content">
-          <div style={{ color: '#6d7b90', fontSize: 13, fontWeight: 700, marginBottom: 12 }}>
-            Select a component or connection to inspect.
+          <div className="inspector-empty-state">
+            <div className="inspector-empty-glyph" aria-hidden="true">I</div>
+            <div>
+              <div className="inspector-empty-title">Nothing selected</div>
+              <div className="inspector-empty-copy">Select a component, connection, or annotation to inspect it.</div>
+            </div>
           </div>
           <div className="inspector-section">
-            <div className="inspector-label">System Issues</div>
+            <div className="inspector-section-heading">
+              <span>System issues</span>
+              <span className="inspector-section-count">{userFacingIssues.length}</span>
+            </div>
             <WarningList
               issues={issues}
               onSelectComponent={onSelectComponent}
               onSelectConnection={onSelectConnection}
+              debugMode={debugMode}
             />
           </div>
         </div>
@@ -288,9 +310,12 @@ export function RightInspector({
 
       {selectedComponent && selectedProduct && (
         <>
-          <div style={{ padding: '8px 16px 8px 8px', borderBottom: '1px solid #dbe2ec' }}>
-            <div style={{ color: '#6d7b90', fontSize: 11, fontWeight: 700, marginBottom: 6 }}>Issues</div>
-            <WarningList issues={componentIssues} />
+          <div className="inspector-issues-block">
+            <div className="inspector-section-heading inspector-section-heading-compact">
+              <span>Issues</span>
+              <span className="inspector-section-count">{componentIssues.length}</span>
+            </div>
+            <WarningList issues={componentIssues} debugMode={debugMode} />
           </div>
           <ComponentInspector
             component={selectedComponent}
@@ -312,6 +337,7 @@ export function RightInspector({
             onUpdateInstanceVoltage={onUpdateInstanceVoltage}
             onUpdateDcBusNominalVoltage={onUpdateDcBusNominalVoltage}
             onUpdateInstanceMaxCurrent={onUpdateInstanceMaxCurrent}
+            onUpdateAvailableFaultCurrent={onUpdateAvailableFaultCurrent}
             onUpdateComponentMaxCableAwg={onUpdateComponentMaxCableAwg}
             onUpdateComponentImageScale={onUpdateComponentImageScale}
             onUpdateBusPolarity={onUpdateBusPolarity}
@@ -321,6 +347,7 @@ export function RightInspector({
             onUpdateCustomSolarArrayRatings={onUpdateCustomSolarArrayRatings}
             onUpdateConfiguredProtocol={onUpdateConfiguredProtocol}
             onUpdateSourceType={onUpdateSourceType}
+            onUpdateBreakerConfiguration={onUpdateBreakerConfiguration}
             onRemove={onRemoveComponent}
           />
         </>
@@ -328,9 +355,12 @@ export function RightInspector({
 
       {selectedConnection && (
         <>
-          <div style={{ padding: '8px 16px 8px 8px', borderBottom: '1px solid #dbe2ec' }}>
-            <div style={{ color: '#6d7b90', fontSize: 11, fontWeight: 700, marginBottom: 6 }}>Issues</div>
-            <WarningList issues={connectionIssues} />
+          <div className="inspector-issues-block">
+            <div className="inspector-section-heading inspector-section-heading-compact">
+              <span>Issues</span>
+              <span className="inspector-section-count">{connectionIssues.length}</span>
+            </div>
+            <WarningList issues={connectionIssues} debugMode={debugMode} />
           </div>
           <ConnectionInspector
             connection={selectedConnection}

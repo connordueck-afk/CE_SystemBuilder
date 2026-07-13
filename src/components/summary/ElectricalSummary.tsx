@@ -1,4 +1,5 @@
 import type { ElectricalSummary } from '../../utils/systemSummary';
+import { IconAlertCircle } from '../icons';
 
 interface Props {
   summary: ElectricalSummary;
@@ -74,7 +75,7 @@ export function ElectricalSummaryPanel({ summary }: Props) {
               </div>
               {node.hasBusTypeConflict ? (
                 <div className="issue-card issue-card-error" style={{ marginBottom: 6 }}>
-                  <span className="issue-icon">!</span>
+                  <span className="issue-icon"><IconAlertCircle size={14} /></span>
                   <span className="issue-message">
                     Conflicting wiring: this bus has terminals wired to more than one
                     electrical type. Bus/current/protection readings below are unreliable
@@ -82,8 +83,15 @@ export function ElectricalSummaryPanel({ summary }: Props) {
                   </span>
                 </div>
               ) : null}
+              {node.hasVoltageConflict ? (
+                <div className="issue-card issue-card-error" style={{ marginBottom: 6 }}>
+                  <span className="issue-icon"><IconAlertCircle size={14} /></span>
+                  <span className="issue-message">Conflicting voltages are connected to this electrical domain.</span>
+                </div>
+              ) : null}
               <Row label="Net" value={node.netId} />
               <Row label="Bus" value={node.hasBusTypeConflict ? `${busLabel(node.busType)} (conflicted)` : busLabel(node.busType)} />
+              <Row label="Voltage" value={node.nominalVoltageV != null ? `${fmtNumber(node.nominalVoltageV)} V` : 'Unresolved'} />
               <Row label="Terminals" value={`${node.terminalCount}`} />
               <Row label="Current" value={`${fmtNumber(node.operatingCurrentA)} A`} />
               {node.protectedBy && <Row label="Protected By" value={node.protectedBy} />}

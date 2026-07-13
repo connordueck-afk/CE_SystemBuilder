@@ -390,7 +390,7 @@
 
 @media print {
   .print-page::after {
-    content: attr(data-name) '  ·  ' counter(page) ' / ' counter(pages);
+    content: 'Preliminary design aid \2014  not certified engineering  \00B7  ' counter(page);
     display: block;
     position: fixed;
     bottom: 8mm;

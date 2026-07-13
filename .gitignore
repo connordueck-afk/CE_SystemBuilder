@@ -2,6 +2,8 @@ node_modules/
 dist/
 .local-node/
 tests/.*.out.mjs
+playwright-report/
+test-results/
 
 dev-server*.log
 *.log

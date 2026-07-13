@@ -83,8 +83,8 @@ const product: Product = {
       "terminalGroupId": "pv_neg",
       "label": "PV-",
       "side": "bottom",
-      "offsetX": -33,
-      "offsetY": 38,
+      "offsetX": 6,
+      "offsetY": 36,
       "maxCurrentA": 35,
       "connector": {
         "kind": "screw_terminal"
@@ -96,8 +96,8 @@ const product: Product = {
       "terminalGroupId": "pv_pos",
       "label": "PV+",
       "side": "bottom",
-      "offsetX": -11,
-      "offsetY": 38,
+      "offsetX": 15,
+      "offsetY": 36,
       "maxCurrentA": 35,
       "connector": {
         "kind": "screw_terminal"
@@ -109,8 +109,8 @@ const product: Product = {
       "terminalGroupId": "bat_pos",
       "label": "BAT+",
       "side": "bottom",
-      "offsetX": 11,
-      "offsetY": 38,
+      "offsetX": -15,
+      "offsetY": 36,
       "maxCurrentA": 30,
       "connector": {
         "kind": "screw_terminal"
@@ -122,8 +122,8 @@ const product: Product = {
       "terminalGroupId": "bat_neg",
       "label": "BAT-",
       "side": "bottom",
-      "offsetX": 33,
-      "offsetY": 38,
+      "offsetX": -6,
+      "offsetY": 36,
       "maxCurrentA": 30,
       "connector": {
         "kind": "screw_terminal"
@@ -135,16 +135,16 @@ const product: Product = {
       "terminalGroupId": "ve_can",
       "label": "VE.Can",
       "side": "top",
-      "offsetX": -46,
-      "offsetY": -38,
+      "offsetX": 26,
+      "offsetY": 36,
     },
     {
       "id": "ve_direct",
       "terminalGroupId": "ve_direct",
       "label": "VE.Direct",
       "side": "top",
-      "offsetX": 46,
-      "offsetY": -38,
+      "offsetX": 36,
+      "offsetY": 36,
     }
   ],
   "mpptRatings": {

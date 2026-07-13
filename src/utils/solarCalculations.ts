@@ -310,12 +310,19 @@ function calculateSeriesClusterStats(
   };
 }
 
-function isPvPassThroughProduct(product: Product): boolean {
+function isPvPassThroughProduct(product: Product, component?: SystemComponent): boolean {
   return (
     product.productType === 'solar_combiner' ||
     (
       product.productType === 'dcDisconnect' &&
       product.terminals.some((terminal) => terminalKind(product, terminal) === 'pv_power')
+    ) ||
+    // Generic breakers/fuses are dynamic single-conductor products with no fixed
+    // kind of their own — a breaker only "becomes" a PV breaker once wired into
+    // a PV string, recorded per-instance on inferredConnectionKind.
+    (
+      (product.productType === 'breaker' || product.productType === 'fuse') &&
+      component?.inferredConnectionKind === 'pv_power'
     )
   );
 }
@@ -367,7 +374,7 @@ export function findSolarArrayFeedingComponent(
         continue;
       }
 
-      if (isPvPassThroughProduct(otherProduct) && !visitedPassThrough.has(otherId)) {
+      if (isPvPassThroughProduct(otherProduct, otherComponent) && !visitedPassThrough.has(otherId)) {
         visitedPassThrough.add(otherId);
         walkUpstream(otherId);
       }
@@ -426,7 +433,7 @@ export function findSolarArrayFeedingPort(
         continue;
       }
 
-      if (isPvPassThroughProduct(otherProduct) && !visitedPassThrough.has(otherId)) {
+      if (isPvPassThroughProduct(otherProduct, otherComponent) && !visitedPassThrough.has(otherId)) {
         visitedPassThrough.add(otherId);
         walkUpstream(otherId);
       }

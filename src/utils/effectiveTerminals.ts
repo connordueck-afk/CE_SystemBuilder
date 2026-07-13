@@ -18,6 +18,7 @@ import {
   terminalRole,
   terminalVoltageClass,
 } from './portSpecs';
+import { breakerPoles, breakerRatingProfiles, selectedBreakerProfile } from './breakerSemantics';
 
 export function isGenericBusbar(product: Product): boolean {
   return product.productType === 'busbar' && product.manufacturer === 'Generic';
@@ -36,6 +37,9 @@ function terminalGroupFor(product: Product, terminal: TerminalDefinition) {
 export function isDynamicSingleConductorProduct(product: Product): boolean {
   if (isPvBranchConnector(product) || isGenericBusbar(product)) return true;
   if (['fuse', 'breaker', 'dcDisconnect', 'relay', 'contactor'].includes(product.productType)) {
+    if (product.productType === 'breaker' && new Set(breakerRatingProfiles(product).map((profile) => profile.medium)).size > 1) {
+      return true;
+    }
     const powerTerminals = product.terminals.filter((terminal) => ['dc_power', 'pv_power'].includes(terminalKind(product, terminal)));
     if (powerTerminals.length < 2) return false;
     return new Set(powerTerminals.map((terminal) => terminalGroupFor(product, terminal)?.polarity).filter(Boolean)).size <= 1;
@@ -64,6 +68,8 @@ function polaritySuffix(polarity: ConnectionPolarity | undefined): string {
   if (polarity === 'positive') return '+';
   if (polarity === 'negative') return '-';
   if (polarity === 'line') return ' L';
+  if (polarity === 'line2') return ' L2';
+  if (polarity === 'line3') return ' L3';
   if (polarity === 'neutral') return ' N';
   if (polarity === 'ground') return ' G';
   return '';
@@ -145,6 +151,43 @@ export function getEffectiveTerminals(product: Product, component?: SystemCompon
         voltageClass: isAssigned ? component.inferredVoltageClass ?? terminalVoltageClass(product, terminal) : terminalVoltageClass(product, terminal),
       })
     ));
+  }
+
+  if (component && product.productType === 'breaker' && product.breakerDefinition) {
+    const inferredMedium = component.inferredConnectionKind === 'ac_power'
+      ? 'ac'
+      : component.inferredConnectionKind === 'pv_power'
+        ? 'pv'
+        : component.inferredConnectionKind === 'dc_power'
+          ? 'dc'
+          : undefined;
+    const profile = selectedBreakerProfile(product, component, inferredMedium);
+    if (profile) {
+      const poles = breakerPoles(product);
+      return product.terminals.map((terminal) => {
+        const base = baseEffectiveTerminal(product, terminal);
+        const poleIndex = poles.findIndex((pole) => (
+          pole.inputTerminalGroupId === terminal.terminalGroupId || pole.outputTerminalGroupId === terminal.terminalGroupId
+        ));
+        const kind = profile.medium === 'ac' ? 'ac_power' : profile.medium === 'pv' ? 'pv_power' : 'dc_power';
+        const acPolarities: ConnectionPolarity[] = ['line', 'line2', 'line3'];
+        const polarity: ConnectionPolarity | undefined = profile.medium === 'ac'
+          ? acPolarities[Math.max(0, poleIndex)]
+          : profile.wiring === 'bipolar' && poleIndex === 1
+            ? 'negative'
+            : component.inferredPolarity ?? 'positive';
+        return withEffectiveTerminalDirection({
+          ...base,
+          kind,
+          polarity,
+          electricalType: electricalTypeFor(kind, polarity),
+          role: 'pass_through',
+          voltageClass: component.inferredVoltageClass ?? base.voltageClass,
+          phases: profile.phases,
+          voltageMaxV: profile.maxVoltageV,
+        });
+      });
+    }
   }
 
   if (component && isDynamicSingleConductorProduct(product)) {

@@ -12,6 +12,7 @@ import { getPremanufacturedCable } from '../../data/products/cableAssemblies';
 import { PremanufacturedCableSelector } from '../parts/PremanufacturedCableSelector';
 import { deriveConnectionProtocol } from '../../utils/communicationNetworks';
 import type { ConnectionCircuitAnalysis } from '../../utils/circuitAnalysis';
+import { IconAlertTriangle } from '../icons';
 
 const CABLE_COLORS = ['Red', 'Black', 'Yellow', 'Orange', 'Blue', 'Green', 'White', 'Brown', 'Gray', 'Purple'];
 const CABLE_TYPES = ['THHN/THWN', 'RHH/RHW-2', 'Marine Grade', 'Welding Cable', 'Battery Cable', 'Chassis Wire (MTW)'];
@@ -132,6 +133,7 @@ export function ConnectionInspector({
   const fromLabel = fromComponent?.label ?? fromProduct?.name ?? 'Unknown';
   const toLabel = toComponent?.label ?? toProduct?.name ?? 'Unknown';
   const calculatedCurrentA = analysis?.designCurrentA;
+  const domainVoltageV = analysis?.voltageV ?? systemVoltage;
   const recommendedFuseA = analysis?.recommendedFuseA;
   const recommendedCableAwg = analysis?.recommendedCableAwg;
   const selectedCableAwg = analysis?.selectedCableAwg ?? recommendedCableAwg;
@@ -167,8 +169,8 @@ export function ConnectionInspector({
     ? getPremanufacturedCable(connection.premanufacturedCableId)
     : undefined;
   const maxSourceCapabilityA = Math.max(
-    endpointSourceCapabilityA(fromComponent, fromProduct, connection.fromTerminalId, systemVoltage) ?? 0,
-    endpointSourceCapabilityA(toComponent, toProduct, connection.toTerminalId, systemVoltage) ?? 0
+    endpointSourceCapabilityA(fromComponent, fromProduct, connection.fromTerminalId, domainVoltageV) ?? 0,
+    endpointSourceCapabilityA(toComponent, toProduct, connection.toTerminalId, domainVoltageV) ?? 0
   ) || undefined;
   const showSourceCapability = maxSourceCapabilityA != null &&
     (calculatedCurrentA == null || maxSourceCapabilityA > calculatedCurrentA);
@@ -230,7 +232,7 @@ export function ConnectionInspector({
         />
         <Row label="Recommended Fuse" value={recommendedFuseA != null ? `${recommendedFuseA} A` : null} />
         <Row label="Recommended Cable" value={recommendedCableAwg != null ? `${recommendedCableAwg} AWG` : null} />
-        <Row label="System Voltage" value={`${systemVoltage} V`} />
+        <Row label="Domain Voltage" value={`${domainVoltageV} V`} />
       </div>
       )}
 
@@ -239,7 +241,7 @@ export function ConnectionInspector({
           <div className="inspector-label">Required Protection</div>
           {protectionRecommendations.map((recommendation) => (
             <div key={recommendation.id} className="issue-card issue-card-warning" style={{ marginBottom: 6 }}>
-              <span className="issue-icon">!</span>
+              <span className="issue-icon"><IconAlertTriangle size={14} /></span>
               <span className="issue-message">
                 {recommendation.message}
                 {recommendation.recommendedFuseA != null && ` - recommended ${recommendation.recommendedFuseA} A`}

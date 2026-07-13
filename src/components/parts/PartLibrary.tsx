@@ -1,10 +1,14 @@
-import { useMemo, useState } from 'react';
+import { useId, useMemo, useState } from 'react';
 import type { NominalVoltage, Product, ProductType, ShapeAnnotationType, SystemComponent } from '../../types/system';
 import { ALL_PRODUCTS } from '../../data/products';
 import { fmt } from '../../utils/priceCalculations';
 import { getProductDisplayImageUrl, resolveProductImageUrl } from '../../utils/productImages';
 import { buildProductIssues } from '../../utils/builderIssues';
 import { WarningList } from '../inspector/WarningList';
+import { productMatchesVoltageFilter } from '../../data/products/helpers/catalogUtils';
+import { breakerCompatibility, breakerPoleCount } from '../../utils/breakerSemantics';
+import { IconSearch, IconChevronDown, IconChevronRight, IconClose } from '../icons';
+import { useModalAccessibility } from '../layout/useModalAccessibility';
 
 interface SourceLoadOptions {
   voltageV?: number;
@@ -24,6 +28,7 @@ interface Props {
   detailMode: boolean;
   collapsed: boolean;
   onExpandSidebar: () => void;
+  debugMode?: boolean;
 }
 
 interface SelectorType {
@@ -257,18 +262,10 @@ const SELECTOR_CATEGORIES: SelectorCategory[] = [
         productTypes: ['fuse_holder'],
       },
       {
-        id: 'protection-ac-breakers',
-        label: 'AC Breakers',
-        description: 'Single-pole, dual-pole, and 3-pole DIN rail AC circuit breakers.',
-        productTypes: ['breaker'],
-        match: (product) => product.protectionRatings?.acDcCompatibility === 'ac',
-      },
-      {
         id: 'protection-breakers',
-        label: 'DC Breakers',
-        description: 'Resettable DC circuit breakers and battery protection devices.',
+        label: 'Circuit Breakers',
+        description: 'AC, DC, and dual-rated breakers with explicit single-, dual-, or triple-pole configurations.',
         productTypes: ['breaker'],
-        match: (product) => product.protectionRatings?.acDcCompatibility !== 'ac',
       },
       {
         id: 'protection-disconnects',
@@ -372,9 +369,7 @@ const CATEGORY_COLORS: Record<string, string> = {
 
 function voltageCompatible(product: Product, systemVoltage: NominalVoltage | 'all'): boolean {
   if (systemVoltage === 'all') return true;
-  if (product.nominalVoltage == null) return true;
-  const voltages = Array.isArray(product.nominalVoltage) ? product.nominalVoltage : [product.nominalVoltage];
-  return voltages.includes(systemVoltage);
+  return productMatchesVoltageFilter(product, systemVoltage);
 }
 
 function productMatchesSelector(product: Product, selector: SelectorType, systemVoltage: NominalVoltage | 'all'): boolean {
@@ -408,6 +403,11 @@ function productSpecLine(product: Product): string {
   if (product.maxPvVoltageV) specs.push(`PV ${product.maxPvVoltageV}V`);
   if (product.maxPvCurrentA) specs.push(`${product.maxPvCurrentA}A PV`);
   if (product.capabilities?.includes('pv-input')) specs.push('PV input');
+  if (product.productType === 'breaker') {
+    const compatibility = breakerCompatibility(product);
+    if (compatibility) specs.push(compatibility === 'both' ? 'AC/DC' : compatibility.toUpperCase());
+    specs.push(`${breakerPoleCount(product)}P`);
+  }
   return specs.join(' / ');
 }
 
@@ -493,6 +493,7 @@ export function PartLibrary({
   onRemoveComponent,
   collapsed,
   onExpandSidebar,
+  debugMode,
 }: Props) {
   const [openCategoryId, setOpenCategoryId] = useState(SELECTOR_CATEGORIES[0].id);
   const [activeSelector, setActiveSelector] = useState<SelectorType | null>(null);
@@ -656,6 +657,9 @@ export function PartLibrary({
     setHolderSlotCount('All');
   }
 
+  const selectorTitleId = useId();
+  const selectorDialogRef = useModalAccessibility(Boolean(activeSelector), closeSelector);
+
   function selectStyle(style: string) {
     const styleGetter = isBreakerSelector ? getBreakerStyle : getFuseStyle;
     const productsForStyle = catalogForSelector
@@ -697,7 +701,7 @@ export function PartLibrary({
     <div className="part-library">
       {!collapsed && (
         <div className="part-search">
-          <span className="part-search-icon" />
+          <IconSearch size={14} className="part-search-icon" />
           <input
             className="part-search-input"
             value={searchQuery}
@@ -729,7 +733,7 @@ export function PartLibrary({
                   <span className={`selector-category-icon selector-category-icon-${category.icon}`} style={{ color }} />
                   {!collapsed && <span className="selector-category-name">{category.label}</span>}
                 </span>
-                {!collapsed && <span className="selector-category-caret">{isOpen ? 'v' : '>'}</span>}
+                {!collapsed && <span className="selector-category-caret">{isOpen ? <IconChevronDown size={12} /> : <IconChevronRight size={12} />}</span>}
               </button>
 
               {!collapsed && isOpen && (
@@ -782,7 +786,7 @@ export function PartLibrary({
                     onClick={() => onRemoveComponent(component.id)}
                     title="Remove"
                   >
-                    x
+                    <IconClose size={14} />
                   </button>
                 </div>
               </div>
@@ -793,13 +797,21 @@ export function PartLibrary({
 
       {activeSelector && (
         <div className="modal-overlay" onClick={closeSelector}>
-          <div className="modal product-selector-modal" onClick={(event) => event.stopPropagation()}>
+          <div
+            ref={selectorDialogRef}
+            className="modal product-selector-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={selectorTitleId}
+            tabIndex={-1}
+            onClick={(event) => event.stopPropagation()}
+          >
             <div className="product-selector-header">
               <div>
-                <div className="modal-title">{activeSelector.label}</div>
+                <div className="modal-title" id={selectorTitleId}>{activeSelector.label}</div>
                 <div className="product-selector-subtitle">{activeSelector.description}</div>
               </div>
-              <button className="product-selector-close" onClick={closeSelector} title="Close">x</button>
+              <button className="product-selector-close" onClick={closeSelector} title="Close"><IconClose size={18} /></button>
             </div>
 
             <div className="product-selector-body">
@@ -1012,7 +1024,7 @@ export function PartLibrary({
                     </div>
                     <div style={{ marginTop: 12 }}>
                       <div style={{ color: '#6d7b90', fontSize: 11, fontWeight: 700, marginBottom: 6 }}>Data Checks</div>
-                      <WarningList issues={selectedProductIssues} />
+                      <WarningList issues={selectedProductIssues} debugMode={debugMode} />
                     </div>
                   </div>
                 ) : (

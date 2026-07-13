@@ -1,9 +1,14 @@
+import { useId } from 'react';
+import { InternalReleaseNotice } from './InternalReleaseNotice';
+import { useModalAccessibility } from './useModalAccessibility';
+
 interface Props {
   hasCachedSystem: boolean;
   onResume: () => void;
   onNewSystem: () => void;
   onLoadFromFile: () => void;
   onLoadPreset: () => void;
+  onDismiss: () => void;
 }
 
 function ResumeIcon() {
@@ -47,13 +52,24 @@ function PresetsIcon() {
   );
 }
 
-export function StartupModal({ hasCachedSystem, onResume, onNewSystem, onLoadFromFile, onLoadPreset }: Props) {
+export function StartupModal({ hasCachedSystem, onResume, onNewSystem, onLoadFromFile, onLoadPreset, onDismiss }: Props) {
+  const titleId = useId();
+  const dialogRef = useModalAccessibility(true, onDismiss);
+
   return (
     <div className="modal-overlay">
-      <div className="new-system-modal" onClick={(e) => e.stopPropagation()}>
+      <div
+        ref={dialogRef}
+        className="new-system-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        tabIndex={-1}
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="new-system-modal-header">
           <div>
-            <div className="modal-title">Welcome to DES System Builder</div>
+            <div className="modal-title" id={titleId}>Welcome to DES System Builder</div>
             <div className="new-system-modal-subtitle">How would you like to get started?</div>
           </div>
         </div>
@@ -103,6 +119,8 @@ export function StartupModal({ hasCachedSystem, onResume, onNewSystem, onLoadFro
             </div>
           </button>
         </div>
+
+        <InternalReleaseNotice />
       </div>
     </div>
   );

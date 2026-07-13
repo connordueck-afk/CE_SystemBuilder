@@ -6,6 +6,7 @@ const product: Product = {
   name: "CAN T-Connector",
   productType: "commAccessory",
   category: "Communication",
+  imageUrl: "/product-images/comm-can-t-connector.svg",
   msrpUsd: 0,
   description: "RJ45 T-connector/splitter for CAN bus networks (VE.Can, BMS-Can).",
   dataQuality: "placeholder",

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import type { BomRow, CableLengthSummaryItem, PriceSummary } from '../../types/system';
 import type { CableBomRow, ConnectorSummaryItem } from '../../utils/cableSummary';
 import type { ElectricalSummary } from '../../utils/systemSummary';
@@ -7,6 +7,8 @@ import { BomTable } from '../summary/BomTable';
 import { CableSummaryPanel } from '../summary/CableSummary';
 import { ElectricalSummaryPanel } from '../summary/ElectricalSummary';
 import { PriceSummaryPanel } from '../summary/PriceSummary';
+import { IconClose } from '../icons';
+import { useModalAccessibility } from './useModalAccessibility';
 
 type BomTab = 'bom' | 'cables' | 'price' | 'electrical';
 
@@ -37,19 +39,29 @@ export function BomSummaryModal({
 }: Props) {
   const [activeTab, setActiveTab] = useState<BomTab>('bom');
   const [priceTab, setPriceTab] = useState<'overview' | 'section' | 'manufacturer'>('overview');
+  const titleId = useId();
+  const dialogRef = useModalAccessibility(true, onClose);
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal bom-summary-modal" onClick={(event) => event.stopPropagation()}>
+      <div
+        ref={dialogRef}
+        className="modal bom-summary-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        tabIndex={-1}
+        onClick={(event) => event.stopPropagation()}
+      >
         <div className="bom-summary-header">
           <div>
-            <div className="modal-title">BOM Summary</div>
+            <div className="modal-title" id={titleId}>BOM Summary</div>
             <div className="bom-summary-totals">
               <span className="bottom-total-label">MSRP</span>
               <span className="bottom-total-msrp">{fmt(priceSummary.totalMsrp)}</span>
             </div>
           </div>
-          <button className="product-selector-close" onClick={onClose} title="Close">x</button>
+          <button className="product-selector-close" onClick={onClose} title="Close"><IconClose size={18} /></button>
         </div>
 
         <div className="bom-summary-toolbar">

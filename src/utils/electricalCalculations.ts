@@ -22,6 +22,12 @@ import { getDcBusNominalVoltage, isDcBusTerminal } from './dcBusVoltage';
 import { formatFeetAndInches } from './cableSummary';
 import { analyzeBatteryTopology, type BatteryTopologyAnalysis } from './batteryTopology';
 import { resolveFuseSlot } from './distributionTopology';
+import { componentPortNominalVoltageV } from './voltageDomains';
+import {
+  breakerMediumForBusType,
+  breakerPoles,
+  breakerRatingProfiles,
+} from './breakerSemantics';
 
 // Floating-point rounding guard only (chained division/multiplication across linked
 // jacks and bonded nodes can leave sub-0.1A noise on an exact rating match) — not a
@@ -210,6 +216,42 @@ export function generateWarnings(
       .filter((entry): entry is readonly [string, Product] => Boolean(entry[1]))
   );
   const netById = new Map(netlist.nets.map((net) => [net.id, net]));
+  const protectionFaultCurrent = (componentId: string): { hasSources: boolean; knownA: number; hasUnknown: boolean } => {
+    const domainIds = new Set<string>();
+    for (const connection of system.connections) {
+      if (!connectionTouchesComponent(connection, componentId)) continue;
+      const context = netlist.connectionContexts.get(connection.id);
+      for (const netId of [context?.fromNetId, context?.toNetId]) {
+        const domainId = netId ? netById.get(netId)?.voltageDomainId : undefined;
+        if (domainId) domainIds.add(domainId);
+      }
+    }
+
+    const sourceComponents = new Map<string, { component: SystemComponent; product: Product }>();
+    for (const ref of netlist.terminals.values()) {
+      if (!['dc_pos', 'pv_pos', 'ac_line', 'ac_line2', 'ac_line3'].includes(ref.busType)) continue;
+      const netId = netlist.terminalNetIds.get(ref.key);
+      const domainId = netId ? netById.get(netId)?.voltageDomainId : undefined;
+      if (!domainId || !domainIds.has(domainId)) continue;
+      const faultCapable = ref.product.productType === 'battery' ||
+        ref.product.productType === 'shorePowerInlet' ||
+        (
+          ref.product.productType === 'accessory' &&
+          ref.product.dataQuality === 'placeholder' &&
+          canProvidePower(ref.terminal)
+        );
+      if (faultCapable) sourceComponents.set(ref.componentId, { component: ref.component, product: ref.product });
+    }
+
+    let knownA = 0;
+    let hasUnknown = false;
+    for (const { component, product } of sourceComponents.values()) {
+      const availableA = component.availableFaultCurrentA ?? product.batteryRatings?.shortCircuitCurrentA;
+      if (availableA != null && Number.isFinite(availableA) && availableA > 0) knownA += availableA;
+      else hasUnknown = true;
+    }
+    return { hasSources: sourceComponents.size > 0, knownA, hasUnknown };
+  };
   const batteryInternalShareCurrentA = (componentId: string, externalCurrentA: number): number => {
     const pack = batteryTopology.packByBatteryId.get(componentId);
     if (!pack || pack.parallelCount <= 1) return externalCurrentA;
@@ -218,6 +260,9 @@ export function generateWarnings(
 
   for (const issue of batteryTopology.issues) {
     warn(issue.severity, issue.message, issue.code, issue.componentId, issue.connectionId);
+  }
+  for (const issue of netlist.voltageIssues) {
+    warn(issue.severity, issue.message, issue.code, issue.componentId);
   }
 
   const connectionBusType = (connection: SystemConnection): BusType => (
@@ -882,19 +927,6 @@ export function generateWarnings(
       warn('warning', `"${comp.label ?? product.name}" is not connected to anything`, 'UNCONNECTED', comp.id);
     }
 
-    if (product.nominalVoltage != null) {
-      const volts = Array.isArray(product.nominalVoltage)
-        ? product.nominalVoltage
-        : [product.nominalVoltage];
-      if (!volts.includes(system.nominalVoltage)) {
-        warn(
-          'error',
-          `"${product.name}" is rated for ${volts.join('/')} V but system is ${system.nominalVoltage} V`,
-          'VOLTAGE_MISMATCH',
-          comp.id
-        );
-      }
-    }
   }
 
   for (const comp of system.components) {
@@ -942,25 +974,123 @@ export function generateWarnings(
       );
     }
 
-    // Max PV power is voltage-dependent on Victron MPPTs; prefer the rating at
-    // the system's actual battery voltage, falling back to the scalar.
-    const maxPvPowerW = mppt.maxPvPowerByVoltageW?.[system.nominalVoltage] ?? mppt.maxPvPowerW;
+    // Max PV power is voltage-dependent; use the resolved DC output domain,
+    // falling back to the legacy primary voltage only when that net is unresolved.
+    const outputPort = product.ports?.find((port) => port.kind === 'dc' && port.direction === 'output');
+    const batteryVoltageV = outputPort
+      ? componentPortNominalVoltageV(netlist, comp.id, outputPort.id) ?? system.nominalVoltage
+      : system.nominalVoltage;
+    const maxPvPowerW = mppt.maxPvPowerByVoltageW?.[batteryVoltageV] ?? mppt.maxPvPowerW;
     if (maxPvPowerW != null && solarStats.powerW > maxPvPowerW) {
       warn(
         'warning',
-        `"${comp.label ?? product.name}" is over-paneled: array ${solarStats.powerW.toFixed(0)}W exceeds ${maxPvPowerW}W PV rating at ${system.nominalVoltage}V`,
+        `"${comp.label ?? product.name}" is over-paneled: array ${solarStats.powerW.toFixed(0)}W exceeds ${maxPvPowerW}W PV rating at ${batteryVoltageV}V`,
         'MPPT_PV_POWER_EXCEEDED',
         comp.id
       );
     }
   }
 
-  // Fuse and breaker rating validation
+  // Breaker application validation: a physical breaker can have distinct AC/DC/PV
+  // ratings and several commonly-tripped poles. Validate the connected service
+  // against the selected (or uniquely inferred) manufacturer rating profile.
+  for (const comp of system.components) {
+    const product = products.get(comp.productId);
+    if (!product || product.productType !== 'breaker') continue;
+
+    const adjacentConnections = system.connections.filter((connection) => connectionTouchesComponent(connection, comp.id));
+    const adjacentContexts = adjacentConnections
+      .map((connection) => circuitAnalysis.connections.get(connection.id))
+      .filter((context): context is ConnectionCircuitAnalysis => Boolean(context));
+    const media = [...new Set(adjacentContexts.map((context) => breakerMediumForBusType(context.busType)).filter(Boolean))];
+    const profiles = breakerRatingProfiles(product);
+    const configuredProfile = comp.breakerConfigurationId
+      ? profiles.find((profile) => profile.id === comp.breakerConfigurationId)
+      : undefined;
+
+    if (comp.breakerConfigurationId && !configuredProfile) {
+      warn('error', `"${comp.label ?? product.name}" selects unknown breaker rating profile "${comp.breakerConfigurationId}"`, 'BREAKER_PROFILE_INVALID', comp.id);
+    }
+    if (media.length > 1) {
+      warn('error', `"${comp.label ?? product.name}" has poles connected to different electrical media (${media.join(', ')}); one breaker cannot mix AC, DC, and PV services`, 'BREAKER_MIXED_MEDIA', comp.id);
+      continue;
+    }
+
+    const medium = media[0];
+    if (!medium || adjacentConnections.length === 0) continue;
+    const candidates = profiles.filter((profile) => profile.medium === medium);
+    const profile = configuredProfile ?? (candidates.length === 1 ? candidates[0] : undefined);
+    if (configuredProfile && configuredProfile.medium !== medium) {
+      warn('error', `"${comp.label ?? product.name}" ${configuredProfile.label ?? configuredProfile.id} profile is ${configuredProfile.medium.toUpperCase()}-rated but is connected to a ${medium.toUpperCase()} circuit`, 'BREAKER_MEDIUM_MISMATCH', comp.id);
+      continue;
+    }
+    if (candidates.length === 0) {
+      warn('error', `"${comp.label ?? product.name}" has no ${medium.toUpperCase()} rating profile`, 'BREAKER_MEDIUM_UNSUPPORTED', comp.id);
+      continue;
+    }
+    if (!profile) {
+      warn('warning', `"${comp.label ?? product.name}" has multiple ${medium.toUpperCase()} rating profiles; select the installed wiring/rating configuration`, 'BREAKER_PROFILE_REQUIRED', comp.id);
+      continue;
+    }
+
+    const operatingVoltageV = Math.max(0, ...adjacentContexts.map((context) => context.voltageV ?? 0));
+    if (operatingVoltageV > profile.maxVoltageV) {
+      warn('error', `"${comp.label ?? product.name}" ${profile.label ?? profile.id} rating is ${profile.maxVoltageV}V but the connected domain is ${operatingVoltageV.toFixed(1)}V`, 'BREAKER_VOLTAGE_EXCEEDED', comp.id);
+    } else if (operatingVoltageV > profile.maxVoltageV * 0.9) {
+      warn('warning', `"${comp.label ?? product.name}" connected voltage ${operatingVoltageV.toFixed(1)}V is close to its ${profile.maxVoltageV}V ${medium.toUpperCase()} rating`, 'BREAKER_VOLTAGE_MARGIN', comp.id);
+    }
+
+    const terminalToGroup = new Map(product.terminals.map((terminal) => [terminal.id, terminal.terminalGroupId]));
+    const connectedGroups = new Set(adjacentConnections.map((connection) => (
+      terminalToGroup.get(connectionTerminalForComponent(connection, comp.id) ?? '')
+    )).filter(Boolean));
+    const usedPoles = breakerPoles(product).filter((pole) => (
+      connectedGroups.has(pole.inputTerminalGroupId) || connectedGroups.has(pole.outputTerminalGroupId)
+    ));
+    for (const pole of usedPoles) {
+      const hasInput = connectedGroups.has(pole.inputTerminalGroupId);
+      const hasOutput = connectedGroups.has(pole.outputTerminalGroupId);
+      if (hasInput !== hasOutput) {
+        warn('error', `"${comp.label ?? product.name}" pole ${pole.id} is connected on only one side`, 'BREAKER_POLE_INCOMPLETE', comp.id);
+      }
+    }
+    if (usedPoles.length !== profile.polesRequired) {
+      warn('error', `"${comp.label ?? product.name}" ${profile.label ?? profile.id} configuration requires ${profile.polesRequired} connected pole${profile.polesRequired === 1 ? '' : 's'} but ${usedPoles.length} ${usedPoles.length === 1 ? 'is' : 'are'} in use`, 'BREAKER_POLE_CONFIGURATION_INVALID', comp.id);
+    }
+    if (profile.interruptRatingA == null) {
+      warn('warning', `"${comp.label ?? product.name}" ${profile.label ?? profile.id} interrupt rating is unknown; available fault-current suitability is not verified`, 'BREAKER_INTERRUPT_RATING_UNKNOWN', comp.id);
+    } else {
+      const fault = protectionFaultCurrent(comp.id);
+      if (fault.knownA > profile.interruptRatingA) {
+        warn('error', `"${comp.label ?? product.name}" interrupt rating is ${profile.interruptRatingA}A but the connected sources provide at least ${fault.knownA.toFixed(0)}A prospective fault current`, 'INTERRUPT_RATING_EXCEEDED', comp.id);
+      }
+      if (fault.hasSources && fault.hasUnknown) {
+        warn('warning', `"${comp.label ?? product.name}" is rated to interrupt ${profile.interruptRatingA}A, but available fault current is unknown for one or more connected sources`, 'FAULT_CURRENT_UNKNOWN', comp.id);
+      }
+    }
+  }
+
+  // Fuse and breaker current/cable rating validation
   for (const comp of system.components) {
     const product = products.get(comp.productId);
     if (!product || !PASS_THROUGH_TYPES.has(product.productType)) continue;
     const fuseRatingA = product.maxCurrentA;
     if (!fuseRatingA) continue;
+
+    if (product.productType === 'fuse') {
+      const interruptRatingA = product.protectionRatings?.interruptRatingA;
+      const fault = protectionFaultCurrent(comp.id);
+      if (interruptRatingA == null) {
+        warn('warning', `"${comp.label ?? product.name}" interrupt rating is unknown; available fault-current suitability is not verified`, 'PROTECTION_INTERRUPT_RATING_UNKNOWN', comp.id);
+      } else {
+        if (fault.knownA > interruptRatingA) {
+          warn('error', `"${comp.label ?? product.name}" interrupt rating is ${interruptRatingA}A but the connected sources provide at least ${fault.knownA.toFixed(0)}A prospective fault current`, 'INTERRUPT_RATING_EXCEEDED', comp.id);
+        }
+        if (fault.hasSources && fault.hasUnknown) {
+          warn('warning', `"${comp.label ?? product.name}" is rated to interrupt ${interruptRatingA}A, but available fault current is unknown for one or more connected sources`, 'FAULT_CURRENT_UNKNOWN', comp.id);
+        }
+      }
+    }
 
     const fuseBusTypes = new Set(
       system.connections
@@ -1010,6 +1140,41 @@ export function generateWarnings(
           comp.id
         );
       }
+    }
+  }
+
+  // Breaker/fuse PV over-voltage validation. A generic breaker/fuse has no
+  // fixed kind of its own (see isDynamicSingleConductorProduct) — it only
+  // "becomes" a PV breaker once wired into a PV string, so the check has to
+  // read the resolved per-instance terminal kind rather than the static port.
+  for (const comp of system.components) {
+    const product = products.get(comp.productId);
+    if (!product || !PASS_THROUGH_TYPES.has(product.productType)) continue;
+    const voltageRatingV = product.protectionRatings?.voltageRatingV;
+    if (!voltageRatingV) continue;
+
+    const isPvTerminal = getEffectiveTerminals(product, comp).some((terminal) => terminal.kind === 'pv_power');
+    if (!isPvTerminal) continue;
+
+    const solarArray = findSolarArrayFeedingComponent(comp.id, system.components, system.connections, products);
+    const solarStats = solarArray.stats;
+    if (!solarStats) continue;
+
+    const arrayVoltageV = solarStats.coldVocV ?? solarStats.vocV;
+    if (arrayVoltageV > voltageRatingV) {
+      warn(
+        'error',
+        `"${comp.label ?? product.name}" PV over-voltage: array Voc ${arrayVoltageV.toFixed(1)}V exceeds ${voltageRatingV}V breaker rating`,
+        'PROTECTION_PV_VOLTAGE_EXCEEDED',
+        comp.id
+      );
+    } else if (arrayVoltageV > voltageRatingV * 0.9) {
+      warn(
+        'warning',
+        `"${comp.label ?? product.name}" PV input is close to voltage limit: array Voc ${arrayVoltageV.toFixed(1)}V of ${voltageRatingV}V breaker rating`,
+        'PROTECTION_PV_VOLTAGE_MARGIN',
+        comp.id
+      );
     }
   }
 

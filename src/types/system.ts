@@ -65,7 +65,7 @@ export type ConnectionPointKind =
   | 'signal'
   | 'network'
   | 'generic';
-export type ConnectionPolarity = 'positive' | 'negative' | 'line' | 'line2' | 'neutral' | 'ground';
+export type ConnectionPolarity = 'positive' | 'negative' | 'line' | 'line2' | 'line3' | 'neutral' | 'ground';
 export type ConnectionRole =
   | 'source'
   | 'sink'
@@ -80,7 +80,26 @@ export type VoltageClass =
   | 'pv_high_voltage'
   | 'ac_120v'
   | 'ac_240v'
+  | 'ac_208v'
+  | 'ac_480v'
   | 'signal_low_voltage';
+export type AcServiceConfiguration =
+  | 'single_phase_line_neutral'
+  | 'split_phase'
+  | 'three_phase_wye'
+  | 'three_phase_delta';
+
+export interface AcServiceDefinition {
+  configuration: AcServiceConfiguration;
+  /** Nominal line-to-neutral voltage for services that expose a neutral. */
+  lineToNeutralVoltageV?: number;
+  lineToNeutralMinV?: number;
+  lineToNeutralMaxV?: number;
+  /** Nominal line-to-line voltage for split/three-phase services. */
+  lineToLineVoltageV?: number;
+  lineToLineMinV?: number;
+  lineToLineMaxV?: number;
+}
 export type TerminalSide = 'left' | 'right' | 'top' | 'bottom';
 export type BusPolarity = 'positive' | 'negative';
 export type SolarWiringMode = 'series' | 'parallel';
@@ -353,6 +372,8 @@ export interface ProductPort {
   maxPowerByVoltageW?: Partial<Record<number, number>>;
   /** Number of AC phases at this port (AC ports only). */
   phases?: 1 | 2 | 3;
+  /** Explicit AC service topology and voltage bases. Legacy ports are inferred from phases and conductor polarities. */
+  acService?: AcServiceDefinition;
 
   // --- Communication boundary specs (comm ports only) ---
   supportedProtocols?: CommunicationProtocol[];
@@ -482,6 +503,8 @@ export interface BatteryRatings {
   maxDischargeCurrentA?: number;
   /** Peak (pulse) discharge current (A). */
   peakDischargeCurrentA?: number;
+  /** Verified prospective short-circuit current at the battery terminals (A). */
+  shortCircuitCurrentA?: number;
   /** Recommended charge voltage (V). */
   chargeVoltageV?: number;
   /** Low-voltage cutoff voltage (V). */
@@ -550,6 +573,44 @@ export interface ProtectionRatings {
   protectionType?: 'fuse' | 'breaker';
 }
 
+/** One electrically independent switching path through a circuit breaker. */
+export interface BreakerPoleDefinition {
+  id: string;
+  inputTerminalGroupId: string;
+  outputTerminalGroupId: string;
+}
+
+export type BreakerMedium = 'ac' | 'dc' | 'pv';
+export type BreakerPoleWiring = 'independent_conductors' | 'bipolar' | 'series_same_conductor';
+
+/**
+ * A manufacturer-supported way to apply a breaker. AC and DC ratings deliberately
+ * live in separate profiles because their voltage and interrupt ratings commonly differ.
+ */
+export interface BreakerRatingProfile {
+  id: string;
+  label?: string;
+  medium: BreakerMedium;
+  maxVoltageV: number;
+  interruptRatingA?: number;
+  polesRequired: 1 | 2 | 3;
+  wiring: BreakerPoleWiring;
+  phases?: 1 | 2 | 3;
+  polaritySensitive?: boolean;
+  notes?: string;
+}
+
+/** Structured physical and application model for a resettable circuit breaker. */
+export interface BreakerDefinition {
+  poleCount: 1 | 2 | 3;
+  tripLinkage: 'common' | 'independent';
+  poles: BreakerPoleDefinition[];
+  ratingProfiles: BreakerRatingProfile[];
+  mounting?: 'din' | 'panel' | 'surface' | 'flush' | 'bolt_on';
+  applicationTags?: Array<'mobile' | 'marine' | 'rv' | 'industrial' | 'pv'>;
+  resetType?: 'toggle' | 'push_button' | 'manual_reset' | 'automatic_reset';
+}
+
 /** Fuse or breaker built into a device and protecting one terminal group/conductor. */
 export interface IntegratedProtectionDefinition {
   /** Protection type: fuse (single-use) or breaker (resettable). */
@@ -576,6 +637,7 @@ export type InternalBusType =
   | 'pv_neg'
   | 'ac_line'
   | 'ac_line2'
+  | 'ac_line3'
   | 'ac_neutral'
   | 'ac_ground'
   | 'chassis_ground'
@@ -846,6 +908,7 @@ export interface Product {
   // --- Catalog fields (existing) ---
   category?: string;
   description?: string;
+  /** Catalog/display voltage. Port voltage specifications are authoritative for multi-interface analysis. */
   nominalVoltage?: NominalVoltage | NominalVoltage[];
 
   // --- Electrical summary fields (existing — flat, used by canvas & calculations) ---
@@ -910,6 +973,8 @@ export interface Product {
   dcDcChargerRatings?: DcDcChargerRatings;
   busbarRatings?: BusbarRatings;
   protectionRatings?: ProtectionRatings;
+  /** Explicit breaker poles and medium-specific rating profiles. */
+  breakerDefinition?: BreakerDefinition;
   distributionTopology?: DistributionTopology;
   /**
    * Internal port/circuit definitions referenced by terminal groups.
@@ -1000,6 +1065,8 @@ export interface SystemComponent {
   dcNominalVoltage?: number;
   /** Per-instance max current for source/load blocks — overrides product default (A). */
   instanceMaxCurrentA?: number;
+  /** Prospective fault current available from this placed source at its terminals (A). */
+  availableFaultCurrentA?: number;
   /** Largest cable this placed component/node can physically accept, e.g. "6" or "1/0". */
   maxCableAwg?: string;
   /** Per-slot fuse/breaker settings for fused distribution products. */
@@ -1010,6 +1077,8 @@ export interface SystemComponent {
   inferredConnectionKind?: ConnectionPointKind;
   inferredPolarity?: ConnectionPolarity;
   inferredVoltageClass?: VoltageClass;
+  /** Selected service/wiring profile for a dual-rated or configurable breaker. */
+  breakerConfigurationId?: string;
   /** Per-instance configured protocol for each configurable communication port. Key = portId. */
   configuredProtocols?: Record<string, CommunicationProtocol>;
   /** Descriptive source type for generic DC/AC source components. */
@@ -1139,6 +1208,7 @@ export interface SystemAssumptions {
 export interface SystemDesign {
   id: string;
   name: string;
+  /** Legacy primary-DC default used only when a connected DC domain has no stronger voltage evidence. */
   nominalVoltage: NominalVoltage;
   components: SystemComponent[];
   connections: SystemConnection[];

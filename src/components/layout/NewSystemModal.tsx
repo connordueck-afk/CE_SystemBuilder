@@ -1,6 +1,10 @@
 import type { SystemDesign } from '../../types/system';
+import { useId } from 'react';
 import type { SystemPreset } from '../../data/presetSystems';
 import { SYSTEM_PRESETS } from '../../data/presetSystems';
+import { IconClose } from '../icons';
+import { InternalReleaseNotice } from './InternalReleaseNotice';
+import { useModalAccessibility } from './useModalAccessibility';
 
 interface Props {
   onSelect: (system: SystemDesign | null) => void;
@@ -108,15 +112,26 @@ function PresetCard({ preset, onSelect }: { preset: SystemPreset; onSelect: () =
 }
 
 export function NewSystemModal({ onSelect, onClose }: Props) {
+  const titleId = useId();
+  const dialogRef = useModalAccessibility(true, onClose);
+
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="new-system-modal" onClick={(e) => e.stopPropagation()}>
+      <div
+        ref={dialogRef}
+        className="new-system-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        tabIndex={-1}
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="new-system-modal-header">
           <div>
-            <div className="modal-title">New System</div>
+            <div className="modal-title" id={titleId}>New System</div>
             <div className="new-system-modal-subtitle">Choose a starting point — your current design will be replaced.</div>
           </div>
-          <button type="button" className="product-selector-close" onClick={onClose} title="Cancel">×</button>
+          <button type="button" className="product-selector-close" onClick={onClose} title="Cancel"><IconClose size={18} /></button>
         </div>
 
         <div className="new-system-grid">
@@ -138,6 +153,8 @@ export function NewSystemModal({ onSelect, onClose }: Props) {
             />
           ))}
         </div>
+
+        <InternalReleaseNotice />
       </div>
     </div>
   );

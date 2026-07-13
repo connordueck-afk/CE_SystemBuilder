@@ -1,8 +1,10 @@
-import { useMemo, useState } from 'react';
+import { useId, useMemo, useState } from 'react';
 import type { Product } from '../../types/system';
 import { fuseProductsOfStyle, getFuseRating } from '../../utils/fuseSelection';
 import { fmt } from '../../utils/priceCalculations';
 import { resolveProductImageUrl, getProductDisplayImageUrl } from '../../utils/productImages';
+import { IconClose } from '../icons';
+import { useModalAccessibility } from '../layout/useModalAccessibility';
 
 interface Props {
   fuseStyle: string;
@@ -65,6 +67,8 @@ export function FusePickerModal({
   }, [currentFuseProductId, ratingsForLine]);
 
   const [selectedProductId, setSelectedProductId] = useState(defaultProductId);
+  const titleId = useId();
+  const dialogRef = useModalAccessibility(true, onCancel);
 
   const selectedProduct = products.get(selectedProductId);
   const selectedImageUrl = resolveProductImageUrl(
@@ -73,13 +77,21 @@ export function FusePickerModal({
 
   return (
     <div className="modal-overlay" onClick={onCancel}>
-      <div className="modal product-selector-modal" onClick={(e) => e.stopPropagation()}>
+      <div
+        ref={dialogRef}
+        className="modal product-selector-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        tabIndex={-1}
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="product-selector-header">
           <div>
-            <div className="modal-title">Pick {fuseStyle} Fuse</div>
+            <div className="modal-title" id={titleId}>Pick {fuseStyle} Fuse</div>
             <div className="product-selector-subtitle">Select the fuse product and rating for this slot.</div>
           </div>
-          <button className="product-selector-close" onClick={onCancel} title="Close">x</button>
+          <button className="product-selector-close" onClick={onCancel} title="Close"><IconClose size={18} /></button>
         </div>
 
         <div className="product-selector-body">

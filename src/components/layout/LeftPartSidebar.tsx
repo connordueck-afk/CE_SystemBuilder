@@ -1,5 +1,6 @@
 import type { NominalVoltage, SystemComponent, Product, ShapeAnnotationType } from '../../types/system';
 import { PartLibrary } from '../parts/PartLibrary';
+import { IconPanelLeftClose, IconPanelLeftOpen } from '../icons';
 
 interface SourceLoadOptions {
   voltageV?: number;
@@ -20,6 +21,7 @@ interface Props {
   onToggleDetailMode: () => void;
   collapsed: boolean;
   onToggleCollapsed: () => void;
+  debugMode?: boolean;
 }
 
 export function LeftPartSidebar({
@@ -35,6 +37,7 @@ export function LeftPartSidebar({
   detailMode,
   collapsed,
   onToggleCollapsed,
+  debugMode,
 }: Props) {
   return (
     <aside className={`left-sidebar${detailMode ? ' left-sidebar-detailed' : ''}${collapsed ? ' left-sidebar-collapsed' : ''}`}>
@@ -45,7 +48,7 @@ export function LeftPartSidebar({
           onClick={onToggleCollapsed}
           title={collapsed ? 'Expand components' : 'Collapse components'}
         >
-          {collapsed ? '>' : '<'}
+          {collapsed ? <IconPanelLeftOpen size={16} /> : <IconPanelLeftClose size={16} />}
         </button>
       </div>
       <PartLibrary
@@ -60,6 +63,7 @@ export function LeftPartSidebar({
         onRemoveComponent={onRemoveComponent}
         detailMode={detailMode}
         collapsed={collapsed}
+        debugMode={debugMode}
         onExpandSidebar={() => {
           if (collapsed) onToggleCollapsed();
         }}

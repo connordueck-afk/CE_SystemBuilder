@@ -129,6 +129,9 @@ export const ComponentNode = memo(function ComponentNode({
 
   return (
     <g
+      data-component-id={component.id}
+      data-product-id={product.id}
+      data-component-label={component.label ?? product.name}
       transform={`translate(${component.x}, ${component.y})`}
       style={{ cursor: component.locked ? 'default' : 'grab' }}
       onMouseDown={(e) => {

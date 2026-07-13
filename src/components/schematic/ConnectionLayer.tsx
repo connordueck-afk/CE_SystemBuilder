@@ -413,6 +413,7 @@ export const ConnectionLayer = memo(function ConnectionLayer({
             {/* Wide invisible hit area for selecting the whole wire */}
             {renderInteractive && (
               <path
+                data-connection-id={conn.id}
                 d={path}
                 fill="none"
                 stroke="transparent"

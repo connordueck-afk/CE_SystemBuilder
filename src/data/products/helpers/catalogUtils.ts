@@ -108,6 +108,27 @@ export function isVoltageCompatible(product: Product, systemVoltage: NominalVolt
 }
 
 /**
+ * Catalog filtering for multi-interface products. A converter belongs in every
+ * voltage view that one of its ports can accept or produce; this is deliberately
+ * separate from electrical compatibility, which is resolved per connected net.
+ */
+export function productMatchesVoltageFilter(product: Product, voltageV: NominalVoltage): boolean {
+  const powerPorts = (product.ports ?? []).filter(
+    (port) => port.kind === 'dc' || port.kind === 'pv' || port.kind === 'ac'
+  );
+  const portMatches = powerPorts.some((port) => {
+    if (port.nominalVoltageV != null && Math.abs(port.nominalVoltageV - voltageV) < 0.01) return true;
+    if (port.voltageMinV != null && voltageV < port.voltageMinV) return false;
+    if (port.voltageMaxV != null && voltageV > port.voltageMaxV) return false;
+    return port.voltageMinV != null || port.voltageMaxV != null;
+  });
+  if (portMatches) return true;
+
+  const voltages = getProductVoltages(product);
+  return voltages.length === 0 || voltages.includes(voltageV);
+}
+
+/**
  * Returns the maximum continuous current rating for a product.
  * Resolves from:
  *   1. maxCurrentA (flat field — used by calculations today)

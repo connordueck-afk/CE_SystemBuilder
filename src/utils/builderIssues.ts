@@ -10,6 +10,15 @@ import { validateProduct } from '../data/products/helpers/validation';
 import { isDcBusProduct } from './dcBusVoltage';
 import { getTerminalPort, terminalKind, terminalRole, terminalVoltageClass } from './portSpecs';
 
+// Catalog data problems (e.g. a product missing required fields) are bugs in
+// our product definitions, not something the user did — only surface them to
+// end users when debugging, so app-side data errors aren't shown as if they
+// were mistakes in the user's design.
+export function isUserFacingIssue(issue: BuilderIssue, debugMode: boolean): boolean {
+  if (issue.source !== 'product_validation') return true;
+  return debugMode || import.meta.env.DEV;
+}
+
 function productLabel(component: SystemComponent | undefined, product: Product): string {
   return component?.label ?? product.name;
 }
@@ -19,7 +28,7 @@ function dedupeIssues(issues: BuilderIssue[]): BuilderIssue[] {
   return issues.filter((issue) => {
     const key = [
       issue.severity,
-      issue.code,
+      issue.code.toUpperCase(),
       issue.message,
       issue.componentId ?? '',
       issue.connectionId ?? '',
@@ -53,12 +62,6 @@ function sourceLoadKind(product: Product): 'dc_source' | 'ac_source' | 'dc_load'
   }
 
   return null;
-}
-
-function voltageCompatible(product: Product, systemVoltage: NominalVoltage): boolean {
-  if (product.nominalVoltage == null) return true;
-  const voltages = Array.isArray(product.nominalVoltage) ? product.nominalVoltage : [product.nominalVoltage];
-  return voltages.includes(systemVoltage);
 }
 
 function positiveNumber(value: number | undefined): boolean {
@@ -116,21 +119,6 @@ export function buildComponentConfigurationIssues(
   const issues: BuilderIssue[] = [];
   const label = productLabel(component, product);
   const sourceLoad = sourceLoadKind(product);
-
-  if (!voltageCompatible(product, systemVoltage)) {
-    const rated = Array.isArray(product.nominalVoltage)
-      ? product.nominalVoltage.join('/')
-      : String(product.nominalVoltage);
-    issues.push({
-      id: `${component.id}:config:voltage-mismatch`,
-      severity: 'warning',
-      code: 'PRODUCT_VOLTAGE_MISMATCH',
-      message: `${label} is rated for ${rated}V but the system is ${systemVoltage}V.`,
-      componentId: component.id,
-      productId: product.id,
-      source: 'component_configuration',
-    });
-  }
 
   if (sourceLoad) {
     if (!positiveNumber(component.instanceVoltageV) && !hasUsableVoltageDefault(product, systemVoltage, sourceLoad)) {

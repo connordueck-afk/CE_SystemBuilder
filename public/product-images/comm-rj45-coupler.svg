@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-30 -20 60 40">
+  <defs>
+    <linearGradient id="body" x1="0" y1="-20" x2="0" y2="20" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#2a2e35"/>
+      <stop offset="100%" stop-color="#181c22"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Body -->
+  <rect x="-28" y="-18" width="56" height="36" rx="5" fill="url(#body)" stroke="#3975c5" stroke-width="1.5"/>
+
+  <!-- Top edge highlight -->
+  <rect x="-26" y="-17" width="52" height="2.5" rx="1.2" fill="#3a3e45" opacity="0.5"/>
+
+  <!-- Port A terminal (left edge) -->
+  <circle cx="-28" cy="0" r="3" fill="#1a1e25" stroke="#3975c5" stroke-width="1.2"/>
+  <text x="-22" y="0" text-anchor="start" font-size="4.5" font-family="sans-serif" fill="#8899aa">A</text>
+
+  <!-- Port B terminal (right edge) -->
+  <circle cx="28" cy="0" r="3" fill="#1a1e25" stroke="#3975c5" stroke-width="1.2"/>
+  <text x="22" y="0" text-anchor="end" font-size="4.5" font-family="sans-serif" fill="#8899aa">B</text>
+
+  <!-- Label -->
+  <text x="0" y="1" text-anchor="middle" font-size="6" font-family="sans-serif" font-weight="700" fill="#3975c5">RJ45</text>
+  <text x="0" y="9" text-anchor="middle" font-size="5" font-family="sans-serif" fill="#8899aa">COUPLER</text>
+</svg>

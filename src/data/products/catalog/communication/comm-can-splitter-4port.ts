@@ -6,6 +6,7 @@ const product: Product = {
   name: "CAN 4-Port Splitter",
   productType: "commAccessory",
   category: "Communication",
+  imageUrl: "/product-images/comm-can-splitter-4port.svg",
   msrpUsd: 0,
   description: "4-port passive RJ45 CAN bus splitter.",
   dataQuality: "placeholder",

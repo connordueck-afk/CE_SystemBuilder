@@ -19,6 +19,7 @@ export type BusType =
   | 'pv_neg'
   | 'ac_line'
   | 'ac_line2'
+  | 'ac_line3'
   | 'ac_neutral'
   | 'ac_ground'
   | 'chassis_ground'
@@ -60,6 +61,28 @@ export interface ElectricalNet {
    * conflict. `busType` reflects only the first/dominant type, so consumers must
    * check this flag rather than trust `busType`/`requiresFuse` at face value. */
   hasBusTypeConflict: boolean;
+  /** Resolved nominal voltage for this electrical domain. Populated by voltage-domain analysis. */
+  nominalVoltageV?: number;
+  /** Standard voltage class (12/24/48 where applicable), otherwise the resolved nominal voltage. */
+  voltageClassV?: number;
+  /** Nets separated by passive protection may still share one voltage domain. */
+  voltageDomainId?: string;
+  voltageResolution?: 'port_evidence' | 'primary_default' | 'unresolved';
+  hasVoltageConflict?: boolean;
+}
+
+export interface VoltageDomainIssue {
+  severity: 'error' | 'warning';
+  code:
+    | 'NET_VOLTAGE_CONFLICT'
+    | 'PORT_VOLTAGE_INCOMPATIBLE'
+    | 'COMPONENT_VOLTAGE_RATING_EXCEEDED'
+    | 'COMPONENT_VOLTAGE_RATING_UNKNOWN'
+    | 'COMPONENT_MEDIUM_INCOMPATIBLE';
+  message: string;
+  netId?: string;
+  componentId?: string;
+  terminalKey?: string;
 }
 
 export interface ConnectionElectricalContext {
@@ -69,6 +92,8 @@ export interface ConnectionElectricalContext {
   busType: BusType;
   operatingCurrentA: number;
   recommendedFuseRequired: boolean;
+  /** Circuit voltage used for current conversion and voltage-drop calculations. */
+  circuitVoltageV?: number;
 }
 
 export interface BusTypeConflict {
@@ -85,6 +110,8 @@ export interface ElectricalNetlist {
   nets: ElectricalNet[];
   connectionContexts: Map<string, ConnectionElectricalContext>;
   conflicts: BusTypeConflict[];
+  /** Populated by resolveVoltageDomains before authoritative validation runs. */
+  voltageIssues: VoltageDomainIssue[];
 }
 
 const PROTECTION_TYPES = new Set(['fuse', 'breaker']);
@@ -136,6 +163,7 @@ export function busTypeFromTerminal(terminal: EffectiveTerminal): BusType {
   if (terminal.kind === 'ac_power') {
     if (terminal.polarity === 'line') return 'ac_line';
     if (terminal.polarity === 'line2') return 'ac_line2';
+    if (terminal.polarity === 'line3') return 'ac_line3';
     if (terminal.polarity === 'neutral') return 'ac_neutral';
     if (terminal.polarity === 'ground') return 'ac_ground';
     if (terminal.electricalType === 'ac') return 'ac_line';
@@ -151,7 +179,7 @@ export function busTypeRequiresFuse(busType: BusType): boolean {
   // pv_pos included alongside dc_pos/ac_line: PV source-circuit positive conductors
   // require overcurrent protection under NEC 690.9 when strings are paralleled, the
   // same "positive lead needs a fuse" posture already applied to DC and AC lines.
-  return busType === 'dc_pos' || busType === 'pv_pos' || busType === 'ac_line' || busType === 'ac_line2';
+  return busType === 'dc_pos' || busType === 'pv_pos' || busType === 'ac_line' || busType === 'ac_line2' || busType === 'ac_line3';
 }
 
 export function isReturnOrGroundBus(busType: BusType): boolean {
@@ -317,7 +345,7 @@ class DisjointSet {
 }
 
 function sortBusType(a: BusType, b: BusType): number {
-  const order: BusType[] = ['dc_pos', 'dc_neg', 'pv_pos', 'pv_neg', 'ac_line', 'ac_neutral', 'ac_ground', 'chassis_ground', 'signal', 'unknown'];
+  const order: BusType[] = ['dc_pos', 'dc_neg', 'pv_pos', 'pv_neg', 'ac_line', 'ac_line2', 'ac_line3', 'ac_neutral', 'ac_ground', 'chassis_ground', 'signal', 'communication', 'unknown'];
   return order.indexOf(a) - order.indexOf(b);
 }
 
@@ -576,7 +604,7 @@ export function buildElectricalNetlist(system: SystemDesign, products: Map<strin
     });
   }
 
-  return { terminals, terminalNetIds, nets, connectionContexts, conflicts };
+  return { terminals, terminalNetIds, nets, connectionContexts, conflicts, voltageIssues: [] };
 }
 
 export function getConnectionBusType(
