@@ -162,7 +162,6 @@ export function analyzeBatteryTopology(
   };
 
   const batteryComponents = system.components.filter((component) => products.get(component.productId)?.productType === 'battery');
-  const componentById = new Map(system.components.map((component) => [component.id, component]));
   const productByComponentId = new Map(
     batteryComponents.map((component) => [component.id, products.get(component.productId)!])
   );

@@ -1,142 +1,110 @@
-﻿import type { Product } from '../../../../types/system';
+import type { Product } from '../../../../types/system';
 
 const product: Product = {
-  id: "discover-lynk-ii",
-  manufacturer: "Discover Battery",
-  name: "LYNK II",
-  productType: "commGateway",
-  category: "Communication",
-  msrpUsd: 0,
-  description: "Discover LYNK II battery communication gateway bridging BMS-Can to Ethernet and RS485 for multi-protocol integration and remote monitoring.",
-  dataQuality: "partial",
-  commAccessoryBehavior: "active-gateway",
-  commProtocolBridges: [
+  "id": "discover-lynk-ii",
+  "manufacturer": "Discover Battery",
+  "name": "LYNK II",
+  "productType": "commGateway",
+  "category": "Communication",
+  "msrpUsd": 0,
+  "description": "Discover LYNK II battery communication gateway bridging BMS-Can to Ethernet and RS485 for multi-protocol integration and remote monitoring.",
+  "dataQuality": "partial",
+  "commAccessoryBehavior": "active-gateway",
+  "commProtocolBridges": [
     {
-      fromProtocol: "BMS-Can",
-      toProtocol: "Ethernet"
+      "fromProtocol": "BMS-Can",
+      "toProtocol": "Ethernet"
     },
     {
-      fromProtocol: "BMS-Can",
-      toProtocol: "RS485"
+      "fromProtocol": "BMS-Can",
+      "toProtocol": "RS485"
     }
   ],
-  imageUrl: "/product-images/discover_lynk_ii.svg",
-  width: 134,
-  height: 128,
-  communicationPorts: [
+  "imageUrl": "/product-images/LYNK_II.svg",
+  "width": 134,
+  "height": 128,
+  "ports": [
     {
-      id: "port-can",
-      name: "CAN",
-      connectorType: "RJ45",
-      supportedProtocols: [
+      "id": "port-can",
+      "kind": "comm",
+      "topology": "two_pole",
+      "label": "CAN",
+      "role": "bidirectional",
+      "direction": "bidirectional",
+      "supportedProtocols": [
         "CANopen",
         "VE.Can",
         "AEbus",
         "J1939"
       ],
-      configuredProtocol: "CANopen",
-      isConfigurable: true
+      "configuredProtocol": "CANopen",
+      "isConfigurable": true
     },
     {
-      id: "port_lynk_rj45",
-      name: "LYNK RJ45",
-      connectorType: "RJ45",
-      supportedProtocols: [
+      "id": "port_lynk",
+      "kind": "comm",
+      "topology": "two_pole",
+      "label": "LYNK",
+      "role": "bidirectional",
+      "direction": "bidirectional",
+      "supportedProtocols": [
         "AEbus"
       ],
-      configuredProtocol: "AEbus",
-      isConfigurable: true
-    },
-    {
-      id: "port_lynk_m12",
-      name: "LYNK M12",
-      connectorType: "M12",
-      supportedProtocols: [
-        "AEbus"
-      ],
-      configuredProtocol: "AEbus",
-      isConfigurable: true
+      "configuredProtocol": "AEbus"
     }
   ],
-  ports: [
+  "terminalGroups": [
     {
-      id: "port-can",
-      kind: "comm",
-      topology: "two_pole",
-      label: "CAN",
-      role: "bidirectional",
-      direction: "bidirectional",
-      supportedProtocols: [
-        "CANopen",
-        "VE.Can",
-        "AEbus",
-        "J1939"
-      ],
-      configuredProtocol: "CANopen",
-      isConfigurable: true
+      "id": "port-can_iface",
+      "portId": "port-can",
+      "label": "CAN Interface",
+      "groupType": "communication_interface",
+      "internallyCommon": false
     },
     {
-      id: "port_lynk",
-      kind: "comm",
-      topology: "two_pole",
-      label: "LYNK",
-      role: "bidirectional",
-      direction: "bidirectional",
-      supportedProtocols: [
-        "AEbus"
-      ],
-      configuredProtocol: "AEbus"
+      "id": "port_lynk_iface",
+      "portId": "port_lynk",
+      "label": "LYNK RJ45 Interface",
+      "groupType": "communication_interface",
+      "internallyCommon": false
     }
   ],
-  terminalGroups: [
+  "terminals": [
     {
-      id: "port-can_iface",
-      portId: "port-can",
-      label: "CAN Interface",
-      groupType: "communication_interface",
-      internallyCommon: false
+      "id": "port-can",
+      "terminalGroupId": "port-can_iface",
+      "label": "CAN",
+      "side": "bottom",
+      "offsetX": 66,
+      "offsetY": 19,
+      "connector": {
+        "kind": "comm"
+      },
+      "connectorType": "RJ45"
     },
     {
-      id: "port_lynk_iface",
-      portId: "port_lynk",
-      label: "LYNK RJ45 Interface",
-      groupType: "communication_interface",
-      internallyCommon: false
-    }
-  ],
-  terminals: [
-    {
-      id: "port-can",
-      terminalGroupId: "port-can_iface",
-      label: "CAN",
-      side: "bottom",
-      offsetX: 56,
-      offsetY: 22,
-      connector: {
-        kind: "comm"
-      }
+      "id": "port_lynk_rj45",
+      "terminalGroupId": "port_lynk_iface",
+      "label": "LYNK RJ45",
+      "side": "left",
+      "offsetX": -53,
+      "offsetY": 35,
+      "connector": {
+        "kind": "comm"
+      },
+      "connectorType": "RJ45"
     },
     {
-      id: "port_lynk_rj45",
-      terminalGroupId: "port_lynk_iface",
-      label: "LYNK RJ45",
-      side: "left",
-      offsetX: -49,
-      offsetY: -30,
-      connector: {
-        kind: "comm"
-      }
-    },
-    {
-      id: "port_lynk_m12",
-      terminalGroupId: "port_lynk_iface",
-      label: "LYNK M12",
-      side: "left",
-      offsetX: -49,
-      offsetY: 1,
-      connector: {
-        kind: "comm"
-      }
+      "id": "port_lynk_m12",
+      "terminalGroupId": "port_lynk_iface",
+      "label": "LYNK M12",
+      "side": "left",
+      "offsetX": -64,
+      "offsetY": -14,
+      "connector": {
+        "kind": "comm"
+      },
+      "connectorType": "M12"
     }
   ]
 };

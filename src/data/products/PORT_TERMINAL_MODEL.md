@@ -20,8 +20,8 @@ terminal.terminalGroupId -> terminalGroup.id
 terminalGroup.portId -> port.id
 ```
 
-Do not use `TerminalDefinition.portId` on active catalog products. It is legacy
-fallback data only.
+Port ownership is group-only. `EffectiveTerminal.portId` is a derived analysis
+field and is not authored on `TerminalDefinition`.
 
 ## What Goes Where
 
@@ -262,7 +262,7 @@ acService: {
 Do not treat `nominalVoltageV` on each conductor as the voltage-drop basis.
 Split-phase L1/L2 feeders use the L-L basis while L-N branches and neutral use
 the L-N basis. A 230V single-phase L-N port is not the same topology as a
-120/240V split-phase port, even if both use the legacy `ac_240v` class.
+120/240V split-phase port, even if both use the shared `ac_240v` class.
 
 Passive protection/distribution products do not contribute nominal voltage
 evidence. Their `protectionRatings.voltageRatingV`, busbar rating, port maximum,
@@ -345,9 +345,8 @@ ports: [
 
 ### Communication Interface
 
-Use a `comm` port and a `communication_interface` terminal group. Keep
-`communicationPorts` populated for legacy UI/network consumers until those paths
-are fully unified with `ports`.
+Use a `comm` port and a `communication_interface` terminal group. Protocol data
+lives on the port; physical connector type and gender live on the terminal.
 
 ```ts
 ports: [
@@ -380,15 +379,6 @@ terminals: [
     offsetX: 0,
     offsetY: -60,
     connectorType: 'RJ45',
-  },
-],
-communicationPorts: [
-  {
-    id: 've_can',
-    name: 'VE.Can',
-    connectorType: 'RJ45',
-    supportedProtocols: ['VE.Can'],
-    configuredProtocol: 'VE.Can',
   },
 ],
 ```

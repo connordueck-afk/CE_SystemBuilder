@@ -9,7 +9,6 @@ import { analyzeSystemCircuits, type ConnectionCircuitAnalysis, type SystemCircu
 import {
   buildElectricalNetlist,
   busTypeFromTerminal,
-  busTypeRequiresFuse,
   isReturnOrGroundBus,
   type ElectricalNetlist,
   type BusType,
@@ -110,11 +109,7 @@ function voltageClassFor(voltage: number): number {
   return band ? band.classV : normalizeVoltage(voltage);
 }
 
-function arrayValueIncludes(values: number[], target: number): boolean {
-  return values.some((value) => Math.abs(value - target) < 0.01);
-}
-
-function sourceVoltageForTerminal(ref: TerminalNodeRef, system: SystemDesign): number | undefined {
+function sourceVoltageForTerminal(ref: TerminalNodeRef): number | undefined {
   const { component, product, terminal } = ref;
   if (terminal.nominalVoltageV != null) return terminal.nominalVoltageV;
   if (component.dcNominalVoltage != null) return component.dcNominalVoltage;
@@ -126,24 +121,15 @@ function sourceVoltageForTerminal(ref: TerminalNodeRef, system: SystemDesign): n
     if (terminal.id.includes('out') && product.dcDcChargerRatings.outputVoltageV != null) {
       return product.dcDcChargerRatings.outputVoltageV;
     }
-    if (terminal.id.includes('in')) {
-      const min = product.dcDcChargerRatings.inputVoltageMinV;
-      const max = product.dcDcChargerRatings.inputVoltageMaxV;
-      if (min != null && max != null && system.nominalVoltage >= min && system.nominalVoltage <= max) {
-        return system.nominalVoltage;
-      }
-    }
   }
 
   if (product.mpptRatings?.batteryVoltagesV) {
     const voltages = product.mpptRatings.batteryVoltagesV;
-    if (arrayValueIncludes(voltages, system.nominalVoltage)) return system.nominalVoltage;
     if (voltages.length === 1) return voltages[0];
   }
 
   if (typeof product.nominalVoltage === 'number') return product.nominalVoltage;
   if (Array.isArray(product.nominalVoltage)) {
-    if (arrayValueIncludes(product.nominalVoltage, system.nominalVoltage)) return system.nominalVoltage;
     if (product.nominalVoltage.length === 1) return product.nominalVoltage[0];
   }
 
@@ -268,7 +254,6 @@ export function generateWarnings(
   const connectionBusType = (connection: SystemConnection): BusType => (
     circuitAnalysis.connections.get(connection.id)?.busType ??
     netlist.connectionContexts.get(connection.id)?.busType ??
-    connection.busType ??
     'unknown'
   );
   const connectionDesignCurrentA = (connection: SystemConnection): number => (
@@ -357,7 +342,7 @@ export function generateWarnings(
       const ref = netlist.terminals.get(terminalKey);
       if (!ref || !isSourceCompatibilityTerminal(ref)) continue;
 
-      const voltage = sourceVoltageForTerminal(ref, system);
+      const voltage = sourceVoltageForTerminal(ref);
       if (voltage == null) continue;
 
       const voltageClass = voltageClassFor(voltage);
@@ -574,8 +559,7 @@ export function generateWarnings(
 
     // (2) DC+/DC- return pairing, required only for two-pole ports. `bus` and
     // `pass_through` ports are single-polarity / series and their poles legitimately
-    // stand alone. Falls back to the legacy passive-product skip while ports are
-    // untyped during migration.
+    // stand alone. Passive series/collector devices are handled separately.
     if (!isPassiveElectricalProduct(product)) {
       interface PolePresence { hasPos: boolean; hasNeg: boolean; posLabel?: string; negLabel?: string; }
       const presenceByPort = new Map<string, PolePresence>();
@@ -974,13 +958,12 @@ export function generateWarnings(
       );
     }
 
-    // Max PV power is voltage-dependent; use the resolved DC output domain,
-    // falling back to the legacy primary voltage only when that net is unresolved.
+    // Max PV power is voltage-dependent; use the resolved DC output domain.
     const outputPort = product.ports?.find((port) => port.kind === 'dc' && port.direction === 'output');
     const batteryVoltageV = outputPort
-      ? componentPortNominalVoltageV(netlist, comp.id, outputPort.id) ?? system.nominalVoltage
-      : system.nominalVoltage;
-    const maxPvPowerW = mppt.maxPvPowerByVoltageW?.[batteryVoltageV] ?? mppt.maxPvPowerW;
+      ? componentPortNominalVoltageV(netlist, comp.id, outputPort.id)
+      : undefined;
+    const maxPvPowerW = (batteryVoltageV != null ? mppt.maxPvPowerByVoltageW?.[batteryVoltageV] : undefined) ?? mppt.maxPvPowerW;
     if (maxPvPowerW != null && solarStats.powerW > maxPvPowerW) {
       warn(
         'warning',

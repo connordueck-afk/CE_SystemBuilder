@@ -1,6 +1,5 @@
 import { useState, useMemo, useCallback, useEffect, useRef, type ChangeEvent } from 'react';
 import type {
-  FuseSlotState,
   SystemDesign,
   NominalVoltage,
   Product,
@@ -13,7 +12,6 @@ import type {
 } from './types/system';
 import { ALL_PRODUCTS, getProduct } from './data/products';
 import { DEFAULT_SYSTEM } from './data/defaultSystem';
-import { DEFAULT_ASSUMPTIONS } from './data/electricalRules';
 import { buildBom } from './utils/bomCalculations';
 import { buildPriceSummary } from './utils/priceCalculations';
 import { analyzeSystemDesign } from './utils/analysis';
@@ -39,7 +37,6 @@ import { DEFAULT_BUS_COLORS, type BusColorMap } from './utils/busColors';
 import { isVerticalOrientation } from './utils/componentOrientation';
 import { clampComponentScale, componentScale, scaledProductSize } from './utils/componentScale';
 import { buildBuilderIssues } from './utils/builderIssues';
-import { sanitizeSystemDesign } from './utils/systemSanitization';
 import { resolvedDcVoltageDomains } from './utils/voltageDomains';
 import { breakerCompatibility, breakerMediumForBusType, breakerPoles, breakerRatingProfiles } from './utils/breakerSemantics';
 import { HeaderBar } from './components/layout/HeaderBar';
@@ -163,7 +160,7 @@ function withSingleComponentQuantities(system: SystemDesign): SystemDesign {
 }
 
 function normalizeSystem(system: SystemDesign): SystemDesign {
-  return enrichConnections(withInferredConductors(sanitizeSystemDesign(withSingleComponentQuantities(system), PRODUCT_MAP)));
+  return withInferredConductors(withSingleComponentQuantities(system));
 }
 
 function withInferredConductors(system: SystemDesign): SystemDesign {
@@ -245,47 +242,6 @@ function withInferredConductors(system: SystemDesign): SystemDesign {
   return { ...system, components };
 }
 
-function enrichConnections(system: SystemDesign): SystemDesign {
-  const analysis = analyzeSystemDesign(system, PRODUCT_MAP).legacy.circuitAnalysis;
-
-  return {
-    ...system,
-    connections: system.connections.map((conn) => {
-      const connectionAnalysis = analysis.connections.get(conn.id);
-      if (!connectionAnalysis) return conn;
-
-      // Bus links carry current but have no cable — keep bus type / current for display,
-      // but clear all cable sizing so nothing tries to size or warn on a bolted link.
-      if (conn.busLink) {
-        return {
-          ...conn,
-          cableLengthFt: 0,
-          busType: connectionAnalysis.busType,
-          calculatedCurrentA: connectionAnalysis.designCurrentA,
-          recommendedFuseA: undefined,
-          recommendedCableAwg: undefined,
-          voltageDropV: undefined,
-          voltageDropPercent: undefined,
-          warnings: connectionAnalysis.warnings,
-          errors: connectionAnalysis.errors,
-        };
-      }
-
-      return {
-        ...conn,
-        busType: connectionAnalysis.busType,
-        calculatedCurrentA: connectionAnalysis.designCurrentA,
-        recommendedFuseA: connectionAnalysis.recommendedFuseA,
-        recommendedCableAwg: connectionAnalysis.recommendedCableAwg,
-        voltageDropV: connectionAnalysis.voltageDropV,
-        voltageDropPercent: connectionAnalysis.voltageDropPercent,
-        warnings: connectionAnalysis.warnings,
-        errors: connectionAnalysis.errors,
-      };
-    }),
-  };
-}
-
 export function App() {
   const [system, setSystem] = useState<SystemDesign>(() => {
     const saved = loadCurrentSystem();
@@ -336,6 +292,11 @@ export function App() {
     () => resolvedDcVoltageDomains(systemDesignAnalysis.graph),
     [systemDesignAnalysis]
   );
+  const workspaceVoltage: NominalVoltage = (() => {
+    const resolved = resolvedDcVoltages.find((value): value is NominalVoltage => value === 12 || value === 24 || value === 48);
+    if (resolved) return resolved;
+    return voltageFilter === 'all' ? 48 : voltageFilter;
+  })();
   const cableSummary = useMemo(
     () => buildCableLengthSummary(system.connections, systemDesignAnalysis.connections),
     [system.connections, systemDesignAnalysis]
@@ -346,13 +307,12 @@ export function App() {
   );
   const connectorSummary = useMemo(() => buildConnectorSummary(cableBomRows), [cableBomRows]);
   const priceSummary = useMemo(() => buildPriceSummary(bomRows), [bomRows]);
-  const electricalSummary = systemDesignAnalysis.legacy.electricalSummary;
-  const warnings = systemDesignAnalysis.warnings;
+  const electricalSummary = systemDesignAnalysis.summary;
   const builderIssues = useMemo(
     () => buildBuilderIssues(system, PRODUCT_MAP, systemDesignAnalysis),
     [system, systemDesignAnalysis]
   );
-  const protectionRecommendations = systemDesignAnalysis.legacy.protectionRecommendations;
+  const protectionRecommendations = systemDesignAnalysis.protectionRecommendations;
 
   // Storage migrations normally run in the state initializer. Re-apply them to
   // the live design as well so an already-open dev session is repaired after
@@ -384,18 +344,13 @@ export function App() {
   // Load shared design from URL param on first mount
   useEffect(() => {
     if (!INITIAL_SHARE_PARAM) return;
-    decodeShareParam(INITIAL_SHARE_PARAM).then(({ system: loaded, compatibility }) => {
+    decodeShareParam(INITIAL_SHARE_PARAM).then((loaded) => {
       handleLoadSystem(loaded);
       const url = new URL(window.location.href);
       url.searchParams.delete('d');
       window.history.replaceState({}, '', url.toString());
-      if (compatibility.message) {
-        setShareToast(compatibility.message);
-        setTimeout(() => setShareToast(null), 10000);
-      } else {
-        setShareToast('Shared design loaded — you\'re viewing a snapshot. Use Save to keep a copy.');
-        setTimeout(() => setShareToast(null), 6000);
-      }
+      setShareToast('Shared design loaded - you\'re viewing a snapshot. Use Save to keep a copy.');
+      setTimeout(() => setShareToast(null), 6000);
     }).catch(() => {
       setStartupModalOpen(true);
       setShareToast('Could not load the shared design — the link may be expired or invalid.');
@@ -649,15 +604,6 @@ export function App() {
     }));
   }, [updateSystem]);
 
-  const handleUpdateComponentMaxCableAwg = useCallback((id: string, awg: string | undefined) => {
-    updateSystem((s) => ({
-      ...s,
-      components: s.components.map((c) =>
-        c.id === id ? { ...c, maxCableAwg: awg } : c
-      ),
-    }));
-  }, [updateSystem]);
-
   const handleUpdateComponentImageScale = useCallback((id: string, scale: number) => {
     updateSystem((s) => ({
       ...s,
@@ -668,33 +614,6 @@ export function App() {
         if (!product) return { ...c, imageScale };
         const bounded = clampComponentPosition(c.x, c.y, product, c.rotationDeg, imageScale);
         return { ...c, imageScale, x: bounded.x, y: bounded.y };
-      }),
-    }));
-  }, [updateSystem]);
-
-  const handleUpdateBusPolarity = useCallback((id: string, busPolarity: SystemComponent['busPolarity']) => {
-    updateSystem((s) => ({
-      ...s,
-      components: s.components.map((c) => (c.id === id ? { ...c, busPolarity } : c)),
-    }));
-  }, [updateSystem]);
-
-  const handleUpdateFuseSlot = useCallback((id: string, slotId: string, patch: FuseSlotState) => {
-    updateSystem((s) => ({
-      ...s,
-      components: s.components.map((c) => {
-        if (c.id !== id) return c;
-        const current = c.fuseSlots?.[slotId] ?? {};
-        return {
-          ...c,
-          fuseSlots: {
-            ...(c.fuseSlots ?? {}),
-            [slotId]: {
-              ...current,
-              ...patch,
-            },
-          },
-        };
       }),
     }));
   }, [updateSystem]);
@@ -1090,7 +1009,7 @@ export function App() {
         );
         const bundledConnections = requiredBusTypes.map((busType) => system.connections.find((connection) => (
           sameEndpointPair(connection) &&
-          (connection.busType ?? systemDesignAnalysis.connections[connection.id]?.busType) === busType
+          systemDesignAnalysis.connections[connection.id]?.busType === busType
         )));
 
         if (requiredBusTypes.length !== profile.polesRequired || bundledConnections.some((connection) => !connection)) {
@@ -1553,12 +1472,8 @@ export function App() {
     if (!file) return;
 
     try {
-      const { system: loadedSystem, compatibility } = parseSystemSaveFile(await file.text());
+      const loadedSystem = parseSystemSaveFile(await file.text());
       handleLoadSystem(loadedSystem);
-      if (compatibility.message) {
-        setShareToast(compatibility.message);
-        setTimeout(() => setShareToast(null), 10000);
-      }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unable to load that save file.';
       setAppDialog({ title: 'Could not load design', message, tone: 'danger' });
@@ -1730,7 +1645,7 @@ export function App() {
         voltageFilter={voltageFilter}
         resolvedDcVoltages={resolvedDcVoltages}
         totalMsrp={priceSummary.totalMsrp}
-        warnings={warnings}
+        issues={builderIssues}
         busColors={busColors}
         themeMode={themeMode}
         debugMode={debugMode}
@@ -1844,7 +1759,7 @@ export function App() {
         connections={system.connections}
         annotations={system.annotations ?? []}
         products={PRODUCT_MAP}
-        systemVoltage={system.nominalVoltage}
+        systemVoltage={workspaceVoltage}
         issues={builderIssues}
         analysis={systemDesignAnalysis}
         protectionRecommendations={protectionRecommendations}
@@ -1858,10 +1773,7 @@ export function App() {
         onUpdateDcBusNominalVoltage={handleUpdateDcBusNominalVoltage}
         onUpdateInstanceMaxCurrent={handleUpdateInstanceMaxCurrent}
         onUpdateAvailableFaultCurrent={handleUpdateAvailableFaultCurrent}
-        onUpdateComponentMaxCableAwg={handleUpdateComponentMaxCableAwg}
         onUpdateComponentImageScale={handleUpdateComponentImageScale}
-        onUpdateBusPolarity={handleUpdateBusPolarity}
-        onUpdateFuseSlot={handleUpdateFuseSlot}
         onOpenFusePicker={handleOpenFusePicker}
         onRemoveFuseSlot={handleRemoveFuseSlot}
         onChangeComponentProduct={handleChangeComponentProduct}
@@ -1949,7 +1861,7 @@ export function App() {
           products={PRODUCT_MAP}
           systemVoltage={(() => {
             const voltageV = systemDesignAnalysis.connections[pendingProtectionInsert.recommendation.connectionId]?.voltageV;
-            return voltageV === 12 || voltageV === 24 || voltageV === 48 ? voltageV : system.nominalVoltage;
+            return voltageV === 12 || voltageV === 24 || voltageV === 48 ? voltageV : workspaceVoltage;
           })()}
           onCancel={() => setPendingProtectionInsert(null)}
           onConfirm={handleConfirmInlineProtection}
@@ -2005,7 +1917,7 @@ export function App() {
                   >
                     <span style={{ fontWeight: 600 }}>{s.name}</span>
                     <span style={{ color: '#6d7b90', fontSize: 12 }}>
-                      {s.nominalVoltage}V - {s.components.length} components - {new Date(s.updatedAt).toLocaleDateString()}
+                      {s.components.length} components - {new Date(s.updatedAt).toLocaleDateString()}
                     </span>
                   </button>
                 ))}
@@ -2026,6 +1938,7 @@ export function App() {
       bomRows={bomRows}
       electricalSummary={electricalSummary}
       priceSummary={priceSummary}
+      analysis={systemDesignAnalysis}
     />
     </>
   );

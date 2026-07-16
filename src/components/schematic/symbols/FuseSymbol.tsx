@@ -7,7 +7,7 @@ interface Props {
   selected: boolean;
 }
 
-export function FuseSymbol({ product, component, selected }: Props) {
+export function FuseSymbol({ product, selected }: Props) {
   const w = product.width;
   const h = product.height;
   const hw = w / 2;

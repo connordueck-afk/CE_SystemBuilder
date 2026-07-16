@@ -1,6 +1,5 @@
 import type {
   BuilderIssue,
-  NominalVoltage,
   Product,
   SystemComponent,
   SystemDesign,
@@ -69,13 +68,9 @@ function positiveNumber(value: number | undefined): boolean {
 }
 
 function hasUsableVoltageDefault(
-  product: Product,
-  systemVoltage: NominalVoltage,
-  sourceLoad: 'dc_source' | 'ac_source' | 'dc_load' | 'ac_load'
+  product: Product
 ): boolean {
-  if (Array.isArray(product.nominalVoltage) && product.nominalVoltage.includes(systemVoltage)) return true;
   if (positiveNumber(typeof product.nominalVoltage === 'number' ? product.nominalVoltage : undefined)) return true;
-  if (sourceLoad === 'dc_source' || sourceLoad === 'dc_load') return positiveNumber(systemVoltage);
 
   return product.terminals.some((terminal) => {
     if (terminalKind(product, terminal) !== 'dc_power' && terminalKind(product, terminal) !== 'ac_power') return false;
@@ -113,15 +108,14 @@ export function buildProductIssues(
 
 export function buildComponentConfigurationIssues(
   component: SystemComponent,
-  product: Product,
-  systemVoltage: NominalVoltage
+  product: Product
 ): BuilderIssue[] {
   const issues: BuilderIssue[] = [];
   const label = productLabel(component, product);
   const sourceLoad = sourceLoadKind(product);
 
   if (sourceLoad) {
-    if (!positiveNumber(component.instanceVoltageV) && !hasUsableVoltageDefault(product, systemVoltage, sourceLoad)) {
+    if (!positiveNumber(component.instanceVoltageV) && !hasUsableVoltageDefault(product)) {
       issues.push({
         id: `${component.id}:config:instance-voltage`,
         severity: 'warning',
@@ -170,7 +164,7 @@ export function buildComponentConfigurationIssues(
       id: `${component.id}:config:dc-bus-voltage`,
       severity: 'info',
       code: 'DC_BUS_VOLTAGE_UNSET',
-      message: `${label} is using the system default DC voltage. Set an explicit nominal voltage if this node represents a different bus.`,
+      message: `${label} has no explicit nominal DC voltage. Set it in the inspector so its domain can resolve.`,
       componentId: component.id,
       productId: product.id,
       field: 'dcNominalVoltage',
@@ -178,7 +172,7 @@ export function buildComponentConfigurationIssues(
     });
   }
 
-  for (const port of product.communicationPorts ?? []) {
+  for (const port of product.ports?.filter((candidate) => candidate.kind === 'comm') ?? []) {
     if (!port.isConfigurable) continue;
     const configured = component.configuredProtocols?.[port.id] ?? port.configuredProtocol;
     if (configured) continue;
@@ -187,7 +181,7 @@ export function buildComponentConfigurationIssues(
       id: `${component.id}:config:comm:${port.id}`,
       severity: 'info',
       code: 'COMM_PROTOCOL_UNSET',
-      message: `${label} communication port "${port.name}" is configurable but has no selected protocol.`,
+      message: `${label} communication port "${port.label ?? port.id}" is configurable but has no selected protocol.`,
       componentId: component.id,
       productId: product.id,
       field: `configuredProtocols.${port.id}`,
@@ -204,13 +198,6 @@ export function buildBuilderIssues(
   analysis: SystemDesignAnalysis
 ): BuilderIssue[] {
   const issues: BuilderIssue[] = [];
-
-  for (const warning of analysis.warnings) {
-    issues.push({
-      ...warning,
-      source: 'system_warning',
-    });
-  }
 
   for (const issue of analysis.issues) {
     issues.push({
@@ -229,7 +216,7 @@ export function buildBuilderIssues(
     if (!product) continue;
 
     issues.push(...runtimeProductIssues(product, component));
-    issues.push(...buildComponentConfigurationIssues(component, product, system.nominalVoltage));
+    issues.push(...buildComponentConfigurationIssues(component, product));
   }
 
   return dedupeIssues(issues);

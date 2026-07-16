@@ -21,21 +21,21 @@ function analysisFor(
   return lookup instanceof Map ? lookup.get(connectionId) : lookup[connectionId];
 }
 
-function effectiveBusType(connection: SystemConnection, analysis?: ConnectionCircuitAnalysis): BusType | undefined {
-  return analysis?.busType ?? connection.busType;
+function effectiveBusType(analysis?: ConnectionCircuitAnalysis): BusType | undefined {
+  return analysis?.busType;
 }
 
 function effectiveCableColor(connection: SystemConnection, analysis?: ConnectionCircuitAnalysis): string {
   const explicit = connection.cableColor?.trim();
   if (explicit) return explicit;
-  const busType = effectiveBusType(connection, analysis);
+  const busType = effectiveBusType(analysis);
   return (busType && BUS_DEFAULT_COLOR[busType]) ?? '';
 }
 
 function effectiveCableType(connection: SystemConnection, analysis?: ConnectionCircuitAnalysis): string {
   const explicit = connection.cableType?.trim();
   if (explicit) return explicit;
-  const busType = effectiveBusType(connection, analysis);
+  const busType = effectiveBusType(analysis);
   return (busType && BUS_DEFAULT_TYPE[busType]) ?? '';
 }
 
@@ -176,16 +176,6 @@ function resolveTermination(
                        : terminal.gender === 'male' ? 'female'
                        : undefined;
     const connector = { kind: 'comm' as const, holeSize: commConnectorType, gender: matingGender };
-    return { connector, label: connectorLabel(connector) };
-  }
-
-  // Fallback: check legacy communicationPorts for connector type
-  const commPort = product.communicationPorts?.find(p => p.id === terminalId);
-  if (commPort?.connectorType) {
-    const matingGender: 'male' | 'female' | undefined = commPort.gender === 'female' ? 'male'
-                       : commPort.gender === 'male' ? 'female'
-                       : undefined;
-    const connector = { kind: 'comm' as const, holeSize: commPort.connectorType, gender: matingGender };
     return { connector, label: connectorLabel(connector) };
   }
 

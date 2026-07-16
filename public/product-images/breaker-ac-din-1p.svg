@@ -26,7 +26,14 @@
       <stop offset="1" stop-color="#1d1e1d"/>
     </radialGradient>
     <filter id="softShadow" x="-25%" y="-20%" width="150%" height="150%">
-      <feDropShadow dx="0" dy="8" stdDeviation="8" flood-color="#111827" flood-opacity="0.18"/>
+      <feGaussianBlur in="SourceAlpha" stdDeviation="8"/>
+      <feOffset dx="0" dy="8" result="offsetblur"/>
+      <feFlood flood-color="#111827" flood-opacity="0.18"/>
+      <feComposite in2="offsetblur" operator="in"/>
+      <feMerge>
+        <feMergeNode/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
     </filter>
     <g id="screw-head">
       <circle r="18" fill="#2f302e" opacity="0.22"/>

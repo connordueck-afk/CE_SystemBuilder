@@ -98,9 +98,17 @@ function Symbol({
   }
 }
 
-function protectionRatingLabel(product: Product): string {
-  const ratingA = product.protectionRatings?.currentRatingA ?? product.maxCurrentA;
-  return ratingA != null ? `${ratingA}A` : '';
+function protectionRatingLabel(product: Product, component: SystemComponent): string {
+  // Fuse holders: read ratings from the installed fuse slots
+  if (product.productType === 'fuse_holder' && component.fuseSlots) {
+    const ratings = Object.values(component.fuseSlots)
+      .filter((slot) => slot.installed !== false && slot.ratingA != null && slot.ratingA > 0)
+      .map((slot) => `${slot.ratingA}A`);
+    return ratings.length > 0 ? ratings.join(' / ') : '';
+  }
+  // Standalone fuses / breakers: read from protection ratings or product max
+  const ratingA = product.protectionRatings?.currentRatingA || product.maxCurrentA;
+  return ratingA != null && ratingA > 0 ? `${ratingA}A` : '';
 }
 
 export const ComponentNode = memo(function ComponentNode({
@@ -120,9 +128,8 @@ export const ComponentNode = memo(function ComponentNode({
   const rotation = component.rotationDeg ?? 0;
   const scale = componentScale(component);
   const { width: scaledWidth, height: scaledHeight } = scaledProductSize(product, scale);
-  const ratingLabel = product.productType === 'fuse' || product.productType === 'breaker'
-    ? protectionRatingLabel(product)
-    : '';
+  const showRatingLabel = product.productType === 'fuse' || product.productType === 'breaker' || product.productType === 'fuse_holder';
+  const ratingLabel = showRatingLabel ? protectionRatingLabel(product, component) : '';
   const dcBusVoltage = isDcBusProduct(product)
     ? getDcBusNominalVoltage(component, product)
     : undefined;
@@ -242,7 +249,7 @@ export const ComponentNode = memo(function ComponentNode({
           x={0}
           y={-scaledHeight / 2 - 8}
           textAnchor="middle"
-          fill={selected ? '#1769d2' : product.productType === 'fuse' ? '#b93232' : 'var(--schematic-label)'}
+          fill={selected ? '#1769d2' : (product.productType === 'fuse' || product.productType === 'fuse_holder') ? '#b93232' : 'var(--schematic-label)'}
           stroke="var(--schematic-label-halo)"
           strokeWidth={3}
           paintOrder="stroke fill"

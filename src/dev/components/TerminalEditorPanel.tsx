@@ -67,14 +67,6 @@ export function TerminalEditorPanel({ terminal: t, resolvedKind, onChange, onDel
     }
   }, [draftId, t.id, onChange]);
 
-  function s<K extends keyof TerminalDefinition>(key: K) {
-    return (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-      const el = e.target as HTMLInputElement;
-      const val = el.type === 'number' ? Number(el.value) : el.value || undefined;
-      onChange({ [key]: val });
-    };
-  }
-
   function num<K extends keyof TerminalDefinition>(key: K) {
     return (e: React.ChangeEvent<HTMLInputElement>) =>
       onChange({ [key]: e.target.value === '' ? undefined : Number(e.target.value) } as Partial<TerminalDefinition>);

@@ -15,32 +15,9 @@ export function breakerMediumForBusType(busType: BusType): BreakerMedium | undef
   return undefined;
 }
 
-function legacyBreakerProfile(product: Product): BreakerRatingProfile | undefined {
-  if (product.productType !== 'breaker') return undefined;
-  const ratings = product.protectionRatings;
-  const maxVoltageV = ratings?.voltageRatingV ?? product.ports?.[0]?.voltageMaxV;
-  if (!maxVoltageV) return undefined;
-  const medium: BreakerMedium = ratings?.acDcCompatibility === 'ac'
-    ? 'ac'
-    : product.ports?.[0]?.kind === 'pv'
-      ? 'pv'
-      : 'dc';
-  return {
-    id: `legacy-${medium}`,
-    label: `${medium.toUpperCase()} ${maxVoltageV}V`,
-    medium,
-    maxVoltageV,
-    interruptRatingA: ratings?.interruptRatingA,
-    polesRequired: 1,
-    wiring: 'independent_conductors',
-  };
-}
-
 export function breakerRatingProfiles(product: Product): BreakerRatingProfile[] {
   if (product.productType !== 'breaker') return [];
-  if (product.breakerDefinition?.ratingProfiles.length) return product.breakerDefinition.ratingProfiles;
-  const legacy = legacyBreakerProfile(product);
-  return legacy ? [legacy] : [];
+  return product.breakerDefinition?.ratingProfiles ?? [];
 }
 
 export function breakerSupportsMedium(product: Product, medium: BreakerMedium): boolean {
@@ -55,7 +32,7 @@ export function breakerCompatibility(product: Product): 'ac' | 'dc' | 'both' | u
   if (hasAc && hasDc) return 'both';
   if (hasAc) return 'ac';
   if (hasDc) return 'dc';
-  return product.protectionRatings?.acDcCompatibility;
+  return undefined;
 }
 
 export function selectedBreakerProfile(
@@ -70,28 +47,8 @@ export function selectedBreakerProfile(
   return matching.length === 1 ? matching[0] : undefined;
 }
 
-function terminalGroupIds(product: Product): Set<string> {
-  return new Set((product.terminalGroups ?? []).map((group) => group.id));
-}
-
-export function legacyBreakerPoles(product: Product): BreakerPoleDefinition[] {
-  const groups = terminalGroupIds(product);
-  const poles: BreakerPoleDefinition[] = [];
-  for (const terminal of product.terminals) {
-    const match = terminal.id.match(/^(.*?)(?:_)?in$/i);
-    if (!match) continue;
-    const prefix = match[1].replace(/_$/, '');
-    const outputCandidates = prefix ? [`${prefix}_out`, `${prefix}out`] : ['out'];
-    const output = outputCandidates.find((id) => groups.has(id));
-    const inputGroupId = terminal.terminalGroupId;
-    if (!inputGroupId || !output) continue;
-    poles.push({ id: prefix || 'pole1', inputTerminalGroupId: inputGroupId, outputTerminalGroupId: output });
-  }
-  return poles;
-}
-
 export function breakerPoles(product: Product): BreakerPoleDefinition[] {
-  return product.breakerDefinition?.poles.length ? product.breakerDefinition.poles : legacyBreakerPoles(product);
+  return product.breakerDefinition?.poles ?? [];
 }
 
 export function breakerPoleCount(product: Product): number {
@@ -100,10 +57,5 @@ export function breakerPoleCount(product: Product): number {
 
 export function effectiveBreakerDefinition(product: Product): BreakerDefinition | undefined {
   if (product.productType !== 'breaker') return undefined;
-  if (product.breakerDefinition) return product.breakerDefinition;
-  const poles = breakerPoles(product);
-  const ratingProfiles = breakerRatingProfiles(product);
-  if (!poles.length || !ratingProfiles.length) return undefined;
-  const poleCount = Math.min(3, Math.max(1, poles.length)) as 1 | 2 | 3;
-  return { poleCount, tripLinkage: poleCount > 1 ? 'common' : 'independent', poles, ratingProfiles };
+  return product.breakerDefinition;
 }

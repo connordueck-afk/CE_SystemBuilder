@@ -3,8 +3,8 @@
 This directory contains the active product catalog, catalog helpers, schemas, and
 validation utilities for DES System Builder.
 
-The current catalog is intentionally reduced to a fully ported validation set.
-Products under `legacy/` are preserved for future reintegration but are not loaded.
+Every product in this directory uses the current port/terminal/group model. There
+is no inactive or legacy catalog path.
 
 ## Directory Structure
 
@@ -13,7 +13,6 @@ src/data/products/
   index.ts                  Catalog entry point; exports ALL_PRODUCTS and PRODUCT_MAP.
   categories.ts             UI category definitions.
   productTypes.ts           Product type registry; drives behavior.
-  productSchemas.ts         Factory/helper types for product objects.
   PORT_TERMINAL_MODEL.md    Compact rules for ports, terminal groups, terminals.
   cableAssemblies.ts        Cable assembly data.
   helpers/
@@ -22,21 +21,15 @@ src/data/products/
   catalog/
     <category>/
       <product-id>.ts       Active products, one product per file.
-  legacy/
-    ...                     Preserved products that are not loaded.
 ```
 
-`src/data/products.ts` re-exports this directory for compatibility with existing
-application imports.
+`src/data/products.ts` is the application-facing catalog export.
 
 `index.ts` discovers active products with:
 
 ```ts
 import.meta.glob('./catalog/**/*.ts', { eager: true })
 ```
-
-Do not include `legacy/` in the loader glob. Reactivate legacy products deliberately
-by moving one product file back under `catalog/` and porting it to the current model.
 
 ## Product Model
 
@@ -66,8 +59,8 @@ phases, and communication protocol fields.
 
 Terminal fields carry connector/placement facts such as `id`, `label`,
 `terminalGroupId`, `side`, `offsetX`, `offsetY`, `connector`, and per-jack limits.
-`portId` remains as a legacy fallback; active products should assign ports
-through the terminal group.
+Port ownership always resolves through the terminal group. `EffectiveTerminal.portId`
+is derived at runtime and is not authored on physical terminal definitions.
 
 Terminal groups carry internal common-node facts such as `polarity`,
 `internallyCommon`, and `maxCurrentA`.
@@ -118,7 +111,7 @@ Required practical fields:
 - `terminals`
 
 Add `msrpUsd`, `oemPriceUsd`, `partNumber`, `productUrl`, `datasheetUrl`, typed
-ratings, and compatibility fields when available.
+ratings, and verified specification fields when available.
 
 Product IDs are stable. Do not rename them casually because saved systems and BOM
 logic depend on IDs.

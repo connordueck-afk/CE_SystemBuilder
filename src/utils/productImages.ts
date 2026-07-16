@@ -33,8 +33,8 @@ const DISCOVER_IMAGE_BASE = '/product-images/discover/';
 const VICTRON_PART_IMAGE_MAP: Record<string, string> = {
   ASS030537010: 'vebus_smart_dongle',
   ASS030543020: 'globallink_520',
-  BPP900455050: 'gx_touch_50',
-  BPP900455070: 'gx_touch_70',
+  BPP900455050: 'gx_touch_standard',
+  BPP900455070: 'gx_touch_standard',
   BPP900480100: 'ekrano_gx',
   LYN020102010: 'lynx_class_t_power_in',
   LYN034160200: 'lynx_smart_bms_500',
@@ -44,16 +44,14 @@ const VICTRON_PART_IMAGE_MAP: Record<string, string> = {
   ORI124838120: 'orion_tr_smart_large_isolated',
   ORI241224120: 'orion_tr_smart_medium_isolated',
   ORI241236120: 'orion_tr_smart_large_isolated',
-  ORI242417040: 'orion_xs_1400',
+  ORI242417040: 'orion_xs_standard',
   ORI242428120: 'orion_tr_smart_medium_isolated',
   ORI242440120: 'orion_tr_smart_large_isolated',
   ORI244840120: 'orion_tr_smart_medium_isolated',
   PIN122122500: 'inverter_vedirect_medium_120v',
-  PMP122200102: 'multiplus_3000_120v',
-  PMP122405200: 'multiplus_ii_12v_4k_120v',
-  PMP242305132: 'multiplus_ii_24v_120v',
-  PMP482305102: 'multiplus_ii_48v_120v',
-  PMP482505110: 'multiplus_ii_48v_5000_120v',
+  PMP242305132: 'multiplus_ii_standard',
+  PMP482305102: 'multiplus_ii_standard',
+  PMP482505110: 'multiplus_ii_standard',
   QUA122305130: 'quattro_3000_2x120v',
   QUA242305130: 'quattro_3000_2x120v',
   SCC075015060R: 'smartsolar_mppt_small_screw_terminal',
@@ -99,7 +97,7 @@ function victronFallbackAssetId(product: Product): string | undefined {
   }
 
   if (product.productType === 'dc_dc_charger') {
-    if (name.includes('orion xs')) return 'orion_xs_1400';
+    if (name.includes('orion xs')) return 'orion_xs_standard';
     if (name.includes('orion-tr smart')) {
       return product.maxCurrentA != null && product.maxCurrentA >= 15
         ? 'orion_tr_smart_large_isolated'
@@ -109,15 +107,12 @@ function victronFallbackAssetId(product: Product): string | undefined {
 
   if (product.productType === 'inverter_charger') {
     if (name.includes('phoenix inverter')) return 'inverter_vedirect_medium_120v';
-    if (name.includes('quattro') && (name.includes('10000') || name.includes('15000'))) return 'quattro_10000_120v';
-    if (name.includes('quattro') && name.includes('5000')) return 'quattro_5000_120v';
+    if (name.includes('quattro') && (name.includes('10000') || name.includes('15000'))) return 'quattro_standard';
+    if (name.includes('quattro') && name.includes('5000')) return 'quattro_standard';
     if (name.includes('quattro')) return 'quattro_3000_2x120v';
-    if (name.includes('multiplus-ii') && name.includes('12/4000')) return 'multiplus_ii_12v_4k_120v';
-    if (name.includes('multiplus-ii') && name.includes('48/5000')) return 'multiplus_ii_48v_5000_120v';
-    if (name.includes('multiplus-ii') && name.includes('48/')) return 'multiplus_ii_48v_120v';
-    if (name.includes('multiplus-ii') && name.includes('24/')) return 'multiplus_ii_24v_120v';
-    if (name.includes('multiplus-ii')) return 'multiplus_ii_12v_120v';
-    if (name.includes('multiplus')) return 'multiplus_3000_120v';
+    if (name.includes('multiplus-ii') && name.includes('2x120')) return 'multiplus_ii_2x120v';
+    if (name.includes('multiplus-ii')) return 'multiplus_ii_standard';
+    if (name.includes('multiplus')) return 'multiplus_1200kva_20kw';
   }
 
   if (product.productType === 'dc_distribution') {

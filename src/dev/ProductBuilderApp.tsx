@@ -731,7 +731,44 @@ export function ProductBuilderApp() {
             : g
         ));
       }
-      return { ...prev, ports: nextPorts, terminalGroups };
+      // Sync isConfigurable, configuredProtocol, and supportedProtocols changes to
+      // legacy communicationPorts so the backfill on next load doesn't undo user edits.
+      // Use 'in' checks because these fields use `|| undefined` to mean "cleared".
+      let nextCommPorts = prev.communicationPorts;
+      const hasConfigurable = 'isConfigurable' in changes;
+      const hasProtocol = 'configuredProtocol' in changes;
+      const hasSupported = 'supportedProtocols' in changes;
+      if (hasConfigurable || hasProtocol || hasSupported) {
+        // Resolve which communicationPorts entries map to this port.
+        // Match direct ID (e.g. LYNK Lite) and also via terminal→group→port
+        // chain (e.g. LYNK II where comm port IDs are terminal IDs).
+        const commPortIds = new Set<string>();
+        // Direct match
+        for (const cp of (prev.communicationPorts ?? [])) {
+          if (cp.id === id) commPortIds.add(cp.id);
+        }
+        // Terminal→group→port chain match
+        const groupsById = new Map((prev.terminalGroups ?? []).map(g => [g.id, g]));
+        for (const t of (prev.terminals ?? [])) {
+          const group = t.terminalGroupId ? groupsById.get(t.terminalGroupId) : undefined;
+          if (group?.portId === id && (prev.communicationPorts ?? []).some(cp => cp.id === t.id)) {
+            commPortIds.add(t.id);
+          }
+        }
+        if (commPortIds.size > 0) {
+          nextCommPorts = (prev.communicationPorts ?? []).map(cp =>
+            commPortIds.has(cp.id)
+              ? {
+                  ...cp,
+                  ...(hasConfigurable ? { isConfigurable: changes.isConfigurable || undefined } : {}),
+                  ...(hasProtocol ? { configuredProtocol: changes.configuredProtocol || undefined } : {}),
+                  ...(hasSupported ? { supportedProtocols: (changes.supportedProtocols?.length ? changes.supportedProtocols : undefined) as CommunicationProtocol[] | undefined } : {}),
+                }
+              : cp
+          );
+        }
+      }
+      return { ...prev, ports: nextPorts, terminalGroups, communicationPorts: nextCommPorts };
     });
     setIsDirty(true);
   }, []);

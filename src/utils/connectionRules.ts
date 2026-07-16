@@ -3,7 +3,6 @@ import type {
   ConnectionPolarity,
   ConnectionRole,
   Product,
-  ProductCommunicationPort,
   ProductPort,
   SystemComponent,
   SystemConnection,
@@ -45,11 +44,9 @@ function directionCompatible(a: EffectiveTerminal, b: EffectiveTerminal): boolea
   return (canProvidePower(a) && canReceivePower(b)) || (canProvidePower(b) && canReceivePower(a));
 }
 
-function commPortFor(ref: TerminalRef): ProductCommunicationPort | ProductPort | undefined {
+function commPortFor(ref: TerminalRef): ProductPort | undefined {
   const portId = ref.terminal.portId ?? ref.terminal.id;
-  return ref.product.ports?.find((p) => p.id === portId && p.kind === 'comm') ??
-    ref.product.communicationPorts?.find((p) => p.id === portId) ??
-    ref.product.communicationPorts?.find((p) => p.id === ref.terminal.id);
+  return ref.product.ports?.find((port) => port.id === portId && port.kind === 'comm');
 }
 
 /**
@@ -98,6 +95,32 @@ function communicationConflict(from: TerminalRef, to: TerminalRef): ConnectionVa
     return {
       valid: false,
       message: `${terminalName(from)} (${fromProto}) cannot connect to ${terminalName(to)} (${toProto}) — protocols don't match.`,
+    };
+  }
+
+  // Check physical connector compatibility — types must match, genders must pair.
+  const connectorIssue = connectorCompatibility(from, to);
+  if (connectorIssue) return connectorIssue;
+
+  return null;
+}
+
+/**
+ * Checks physical connector compatibility between two terminals.
+ * - Communication connector types must match (M12↔M12, RJ45↔RJ45, etc.).
+ *   A cable can adapt genders, so gender is not checked here — it is validated
+ *   separately for direct (cableless) connections.
+ * - Stud/lug combinations are always allowed — no hole-size matching.
+ */
+function connectorCompatibility(from: TerminalRef, to: TerminalRef): ConnectionValidationResult | null {
+  const fromConnType = from.terminal.connectorType;
+  const toConnType = to.terminal.connectorType;
+
+  // Both terminals declare a connector type — they must match.
+  if (fromConnType && toConnType && fromConnType !== toConnType) {
+    return {
+      valid: false,
+      message: `${terminalName(from)} uses ${fromConnType}; ${terminalName(to)} uses ${toConnType} — connector types must match.`,
     };
   }
 

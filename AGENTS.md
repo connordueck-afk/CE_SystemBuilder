@@ -37,11 +37,11 @@ test runner can touch paths outside the repo.
   recomputes BOM, price, electrical, and warning views.
 - `src/types/system.ts`: Core domain types for systems, products, ports,
   terminal groups, terminals, connections, BOM, warnings, and assumptions.
-  Backward compatibility matters here.
+  This is a pre-release current-only schema; obsolete persisted fields are rejected.
 - `src/utils/analysis/`: Authoritative analysis entry point. Import
   `analyzeSystemDesign` from `src/utils/analysis`.
 - `src/utils/`: Supporting calculation, validation, storage, CSV, terminal,
-  solar, BOM, price, and legacy-compatible analysis helpers.
+  solar, BOM, price, and analysis helpers.
 - `src/utils/voltageDomains.ts`: Resolves voltage per connected electrical
   domain from port/source evidence, bridges passive protection boundaries, and
   validates each port against its connected domain.
@@ -50,7 +50,6 @@ test runner can touch paths outside the repo.
 - `src/data/products/`: Product catalog, helpers, validation, schemas, and local
   catalog docs.
 - `src/data/products/catalog/`: Active product catalog. One product per file.
-- `src/data/products/legacy/`: Preserved products that are not loaded.
 - `src/dev/` and `vite-plugin-product-builder.ts`: Dev-only product builder and
   file/SVG middleware.
 - `src/components/layout/`: Header, sidebars, inspector, and BOM panels.
@@ -66,7 +65,7 @@ other generated output unless the task specifically concerns them.
 
 The app is a dense operational workspace:
 
-- Header/project bar with system name, nominal voltage, save/load/reset/export,
+- Header/project bar with system name, catalog voltage filter, save/load/reset/export,
   total price, and warning count.
 - Left component sidebar with product library/search/filtering plus placed
   components.
@@ -87,7 +86,6 @@ Preserve these workflows unless the task explicitly asks for a UX redesign.
 
 - `withSingleComponentQuantities`
 - `withInferredConductors`
-- `enrichConnections`
 
 `handleMoveComponent` updates directly for drag performance and does not run full
 enrichment on every pointer move.
@@ -99,24 +97,19 @@ import { analyzeSystemDesign } from './utils/analysis';
 ```
 
 `analyzeSystemDesign(system, PRODUCT_MAP)` produces `SystemDesignAnalysis`,
-including issues, warnings, connection analysis, terminal/group analysis,
-communication networks, and legacy adapters. Some deterministic legacy modules
-still exist under `src/utils/` and are reused as subordinate stages or adapters;
-do not add a second independent analysis path.
+including one issue stream, connection analysis, terminal/group analysis,
+communication networks, electrical summary, and protection recommendations.
+Deterministic modules under `src/utils/` are subordinate stages; do not add a
+second independent analysis path.
 
 Local persistence is in `src/utils/storage.ts`; CSV export is in
 `src/utils/csvExport.ts`.
 
 ## Product Catalog
 
-The active catalog is intentionally small and fully ported. Product files live
+The active catalog is fully ported. Product files live
 under `src/data/products/catalog/<category>/<product-id>.ts`; the loader in
 `src/data/products/index.ts` discovers them with `import.meta.glob`.
-
-Inactive products are preserved under `src/data/products/legacy/` and are not
-loaded into `ALL_PRODUCTS` or `PRODUCT_MAP`. Do not add the legacy folder to the
-loader glob. To reactivate a product, move it into `catalog/` and fully port it to
-the current model.
 
 When adding or editing a product:
 
@@ -131,8 +124,7 @@ When adding or editing a product:
   ratings drive electrical behavior.
 - Every electrically connectable product needs explicit `ports`,
   `terminalGroups`, and terminals with valid `portId` and `terminalGroupId`.
-- Preserve compatibility fields and typed ratings unless you are deliberately
-  migrating all consumers.
+- Keep port, terminal-group, connector, and typed-rating data explicit in source.
 - If adding a new product type, update both the `ProductType` union in
   `src/types/system.ts` and `PRODUCT_TYPE_DEFINITIONS` in
   `src/data/products/productTypes.ts`.
@@ -148,8 +140,7 @@ For catalog porting/rebuild work, use
 Ports are the electrical boundary/specification model. Terminals are physical
 connectors on ports. Terminal groups model internal common nodes and bus limits.
 - In the product builder, terminal ports are resolved through the terminal group;
-  `TerminalDefinition.portId` is legacy fallback data and should not be edited in
-  the terminal inspector.
+  `EffectiveTerminal.portId` is derived and is not edited in the terminal inspector.
 
 - `ProductPort.kind`: electrical medium such as `dc`, `ac`, `pv`, `comm`,
   `ground`, `signal`, or `generic`.
@@ -179,10 +170,9 @@ Resolve port/terminal electrical facts through helpers such as
 - `src/utils/communicationNetworks.ts` models communication at protocol level,
   not individual CAN-H/CAN-L conductors.
 - Voltage is a per-net/domain fact. Product port nominal/min/max voltage and
-  connected source evidence are authoritative. `SystemDesign.nominalVoltage`
-  is retained as a legacy primary-DC fallback only; do not use it for global
-  product compatibility checks. The header voltage selector is a catalog
-  filter and must not mutate the system design.
+  connected source evidence are authoritative. Unresolved domains remain visibly
+  unresolved. The header voltage selector is a catalog filter and must not mutate
+  the system design.
 - AC conductor nets and AC circuit voltage are separate facts. `acService`
   identifies single-phase, split-phase, wye, or delta service and its L-N/L-L
   bases. L1/L2/L3/neutral remain separate nets; connection analysis uses the
@@ -222,12 +212,6 @@ product-type drawings rather than plain boxes where practical.
 
 Keep text compact enough for constrained sidebars and panels.
 
-## Historical Docs
-
-Long implementation briefs and completed plans are archived under
-`docs/archive/context-history/`. They are useful history, but this `AGENTS.md` and
-the current source code are authoritative.
-
 ## Git
 
 Never commit or push unless explicitly asked.
@@ -240,8 +224,7 @@ The worktree may contain user changes. Do not revert changes you did not make.
   a `.git` entry is visible.
 - Some existing files contain mojibake from earlier encoding issues. Prefer ASCII
   for new edits unless a file already clearly uses another character set.
-- Product data has compatibility fields from older schema generations. Do not
-  delete fields just because a newer typed model has no direct slot.
+- Product data must use the explicit current port/group/terminal and typed-rating model.
 - Run `.\npm.cmd test` and `.\npm.cmd run build` after meaningful code changes
   whenever feasible. If sandboxed esbuild/Vite fails with access-denied path
   errors, rerun with elevated permission.

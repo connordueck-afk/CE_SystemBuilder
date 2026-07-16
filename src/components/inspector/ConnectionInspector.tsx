@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { InternalBusType, SystemConnection, SystemComponent, Product, CableMode } from '../../types/system';
+import type { SystemConnection, SystemComponent, Product, CableMode } from '../../types/system';
 import { CABLE_TABLE } from '../../data/cableAmpacity';
 import { feetAndInchesToFeet, feetToFeetAndInches } from '../../utils/cableSummary';
 import { getEffectiveTerminal } from '../../utils/effectiveTerminals';
@@ -142,7 +142,7 @@ export function ConnectionInspector({
   const connectionWarnings = analysis?.warnings ?? [];
   const connectionErrors = analysis?.errors ?? [];
   const dropWarn = (voltageDropPercent ?? 0) > 3;
-  const busType = analysis?.busType ?? connection.busType;
+  const busType = analysis?.busType;
   const suggestedColor = busType ? (BUS_DEFAULT_COLOR[busType] ?? null) : null;
   const suggestedType = busType ? (BUS_DEFAULT_TYPE[busType] ?? null) : null;
   const fromTerminal = fromComponent && fromProduct
@@ -157,6 +157,9 @@ export function ConnectionInspector({
   ) != null;
   const isBusLink = connection.busLink === true;
   const isCommWire = connection.wireKind === 'communication';
+  // For direct connections, genders must be complementary (male↔female).
+  // Cabled connections can bridge any gender via the cable ends.
+  const directGenderMismatch = isBusLink && fromTerminal?.gender && toTerminal?.gender && fromTerminal.gender === toTerminal.gender;
   const derivedProtocol = fromComponent && toComponent && fromProduct && toProduct
     ? deriveConnectionProtocol(
       connection,
@@ -269,11 +272,47 @@ export function ConnectionInspector({
           <div style={{ color: 'var(--muted)', fontSize: 11, fontWeight: 600, marginTop: 4 }}>
             These modules bolt together on a shared busbar. Uncheck if they're mounted apart and joined by a cable.
           </div>
+          {directGenderMismatch && (
+            <div className="issue-card issue-card-warning" style={{ marginTop: 6 }}>
+              <span className="issue-icon"><IconAlertTriangle size={14} /></span>
+              <span className="issue-message">
+                Both ports are {fromTerminal?.gender} — cannot mate directly. A cable with matching ends is required.
+              </span>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Direct connection option for non-bus-link connections (e.g. comm accessories plugged directly into a device) */}
+      {!busLinkCapable && (
+        <div className="inspector-section">
+          <div className="inspector-label">Connection Type</div>
+          <label className="inspector-checkbox-row">
+            <input
+              type="checkbox"
+              checked={isBusLink}
+              onChange={(e) => onToggleBusLink(connection.id, e.target.checked)}
+            />
+            <span>Direct connection (no cable)</span>
+          </label>
+          <div style={{ color: 'var(--muted)', fontSize: 11, fontWeight: 600, marginTop: 4 }}>
+            {isCommWire
+              ? 'Devices plug directly into each other with no cable between them. Uncheck if a cable is used.'
+              : 'No cable between these terminals — they connect directly. Uncheck if a cable is used.'}
+          </div>
+          {directGenderMismatch && (
+            <div className="issue-card issue-card-warning" style={{ marginTop: 6 }}>
+              <span className="issue-icon"><IconAlertTriangle size={14} /></span>
+              <span className="issue-message">
+                Both ports are {fromTerminal?.gender} — cannot mate directly. A cable with matching ends is required.
+              </span>
+            </div>
+          )}
         </div>
       )}
 
       {/* Communication wire network type section */}
-      {isCommWire && (
+      {isCommWire && !isBusLink && (
         <div className="inspector-section">
           <div className="inspector-label">Communication Wire</div>
           <Row label="Network Type" value={derivedProtocol ?? 'Unknown'} />
@@ -314,11 +353,21 @@ export function ConnectionInspector({
         </div>
       )}
 
+      {isCommWire && isBusLink && (
+        <div className="inspector-section">
+          <div className="inspector-label">Communication Wire</div>
+          <Row label="Network Type" value={derivedProtocol ?? 'Unknown'} />
+          <div style={{ color: 'var(--muted)', fontSize: 12, fontWeight: 600, marginTop: 8 }}>
+            Direct connection — no cable, excluded from the cable BOM.
+          </div>
+        </div>
+      )}
+
       {isBusLink ? (
         <div className="inspector-section">
           <div className="inspector-label">Cable Run</div>
           <div style={{ color: 'var(--muted)', fontSize: 12, fontWeight: 600 }}>
-            Direct bus link — no cable, excluded from the cable BOM.
+            Direct {busLinkCapable ? 'bus link' : 'connection'} — no cable, excluded from the cable BOM.
           </div>
         </div>
       ) : isCommWire ? null : (

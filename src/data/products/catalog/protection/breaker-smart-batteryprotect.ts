@@ -1,96 +1,95 @@
 import type { Product } from '../../../../types/system';
 
 const product: Product = {
-  id: "breaker-smart-batteryprotect",
-  manufacturer: "Generic",
-  name: "Smart BatteryProtect Electronic Disconnect",
-  productType: "dcDisconnect",
-  category: "Disconnects",
-  description: "Electronic low-voltage battery disconnect. It is not counted as branch overcurrent protection.",
-  source: "Victron 2025",
-  dataQuality: "placeholder",
-  imageUrl: "/product-images/generic-breaker.svg",
-  width: 80,
-  height: 34,
-  terminalGroups: [
+  "id": "breaker-smart-batteryprotect",
+  "manufacturer": "Generic",
+  "name": "Smart BatteryProtect Electronic Disconnect",
+  "productType": "dcDisconnect",
+  "category": "Disconnects",
+  "description": "Electronic low-voltage battery disconnect. It is not counted as branch overcurrent protection.",
+  "source": "Victron 2025",
+  "dataQuality": "placeholder",
+  "imageUrl": "/product-images/generic-breaker.svg",
+  "width": 80,
+  "height": 34,
+  "terminalGroups": [
     {
-      id: "in",
-      portId: "main",
-      label: "A",
-      groupType: "power_conductor",
-      polarity: "positive",
-      internallyCommon: false
+      "id": "in",
+      "portId": "main",
+      "label": "A",
+      "groupType": "power_conductor",
+      "polarity": "positive",
+      "internallyCommon": false
     },
     {
-      id: "out",
-      portId: "main",
-      label: "B",
-      groupType: "power_conductor",
-      polarity: "positive",
-      internallyCommon: false
+      "id": "out",
+      "portId": "main",
+      "label": "B",
+      "groupType": "power_conductor",
+      "polarity": "positive",
+      "internallyCommon": false
     }
   ],
-  terminals: [
+  "terminals": [
     {
-      id: "in",
-      terminalGroupId: "in",
-      label: "A",
-      side: "left",
-      offsetX: -40,
-      offsetY: 0,
-      connector: {
-        kind: "screw_terminal"
-      },
+      "id": "in",
+      "terminalGroupId": "in",
+      "label": "A",
+      "side": "left",
+      "offsetX": -40,
+      "offsetY": 0,
+      "connector": {
+        "kind": "screw_terminal"
+      }
     },
     {
-      id: "out",
-      terminalGroupId: "out",
-      label: "B",
-      side: "right",
-      offsetX: 40,
-      offsetY: 0,
-      connector: {
-        kind: "screw_terminal"
-      },
+      "id": "out",
+      "terminalGroupId": "out",
+      "label": "B",
+      "side": "right",
+      "offsetX": 40,
+      "offsetY": 0,
+      "connector": {
+        "kind": "screw_terminal"
+      }
     }
   ],
-  protectionRatings: {
-    currentRatingA: 0,
-    voltageRatingV: 34,
-    acDcCompatibility: "dc",
-    breakerStyle: "Electronic Battery Disconnect"
+  "protectionRatings": {
+    "currentRatingA": 0,
+    "voltageRatingV": 34,
+    "breakerStyle": "Electronic Battery Disconnect"
   },
-  variants: [
+  "variants": [
     {
-      id: "breaker-smart-batteryprotect-65a",
-      currentRatingA: 65,
-      msrpUsd: 80,
-      oemPriceUsd: 56
+      "id": "breaker-smart-batteryprotect-65a",
+      "currentRatingA": 65,
+      "msrpUsd": 80,
+      "oemPriceUsd": 56
     },
     {
-      id: "breaker-smart-batteryprotect-100a",
-      currentRatingA: 100,
-      msrpUsd: 90,
-      oemPriceUsd: 63
+      "id": "breaker-smart-batteryprotect-100a",
+      "currentRatingA": 100,
+      "msrpUsd": 90,
+      "oemPriceUsd": 63
     },
     {
-      id: "breaker-smart-batteryprotect-220a",
-      currentRatingA: 220,
-      msrpUsd: 126,
-      oemPriceUsd: 88
+      "id": "breaker-smart-batteryprotect-220a",
+      "currentRatingA": 220,
+      "msrpUsd": 126,
+      "oemPriceUsd": 88
     }
   ],
-  ports: [
+  "ports": [
     {
-      id: "main",
-      kind: "dc",
-      topology: "pass_through",
-      role: "pass_through",
-      direction: "bidirectional",
-      label: "Main",
-      voltageClass: "dc_low_voltage",
-      maxCurrentA: 0,
-      voltageMaxV: 34
+      "id": "main",
+      "kind": "dc",
+      "topology": "pass_through",
+      "role": "pass_through",
+      "direction": "bidirectional",
+      "label": "Main",
+      "voltageClass": "dc_low_voltage",
+      "maxCurrentA": 0,
+      "voltageMaxV": 34
     }
   ]
 };

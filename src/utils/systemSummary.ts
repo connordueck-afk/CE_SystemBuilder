@@ -144,7 +144,7 @@ export function buildElectricalSummary(
         terminalCount: terminalIds.length,
         operatingCurrentA,
         nominalVoltageV: net.nominalVoltageV,
-        totalPowerW: operatingCurrentA * (net.nominalVoltageV ?? system.nominalVoltage),
+        totalPowerW: operatingCurrentA * (net.nominalVoltageV ?? 0),
         protectedBy: net.protectedBy?.map((boundary) => `${boundary.label}${boundary.ratingA ? ` ${boundary.ratingA}A` : ''}`).join(', '),
         hasBusTypeConflict: net.hasBusTypeConflict,
         hasVoltageConflict: net.hasVoltageConflict === true,

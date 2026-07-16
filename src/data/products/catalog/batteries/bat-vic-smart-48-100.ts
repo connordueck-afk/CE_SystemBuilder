@@ -1,63 +1,139 @@
-import { defineCatalogBattery } from '../../helpers/batteryCatalog';
+import type { Product } from '../../../../types/system';
 
-const product = defineCatalogBattery({
-  id: 'bat-vic-smart-48-100',
-  manufacturer: 'Victron',
-  name: 'SmartLithium 51.2V/100Ah',
-  nominalVoltage: 48,
-  capacityWh: 5120,
-  maxCurrentA: 200,
-  msrpUsd: 3499,
-  oemPriceUsd: 2449,
-  description: 'Victron SmartLithium 51.2V 100Ah LiFePO4 battery with integrated BMS',
-  partNumber: 'BAT548110610',
-  productUrl: 'https://www.victronenergy.com/batteries/lithium-battery-51-2v',
-  source: 'Victron 2024',
-  dataQuality: 'partial',
-  width: 128,
-  height: 98,
-  positiveTerminal: {
-    side: 'top',
-    offsetX: 35,
-    offsetY: -45,
-    maxCurrentA: 200,
-    connector: { kind: 'stud', holeSize: 'M8' },
-  },
-  negativeTerminal: {
-    side: 'top',
-    offsetX: -41,
-    offsetY: -45,
-    maxCurrentA: 200,
-    connector: { kind: 'stud', holeSize: 'M8' },
-  },
-  communicationTerminals: [
+const product: Product = {
+  "id": "bat-vic-smart-48-100",
+  "manufacturer": "Victron",
+  "name": "SmartLithium 51.2V/100Ah",
+  "productType": "battery",
+  "category": "Batteries",
+  "nominalVoltage": 48,
+  "capacityWh": 5120,
+  "maxCurrentA": 200,
+  "msrpUsd": 3499,
+  "oemPriceUsd": 2449,
+  "description": "Victron SmartLithium 51.2V 100Ah LiFePO4 battery with integrated BMS",
+  "partNumber": "BAT548110610",
+  "productUrl": "https://www.victronenergy.com/batteries/lithium-battery-51-2v",
+  "source": "Victron 2024",
+  "dataQuality": "partial",
+  "width": 128,
+  "height": 98,
+  "terminals": [
     {
-      id: 'bms_can',
-      label: 'BMS-Can',
-      side: 'top',
-      offsetX: 0,
-      offsetY: -49,
-      connectorType: 'RJ45',
-      supportedProtocols: ['BMS-Can'],
-      configuredProtocol: 'BMS-Can',
+      "id": "dc_pos",
+      "label": "+",
+      "side": "top",
+      "offsetX": 35,
+      "offsetY": -45,
+      "maxCurrentA": 200,
+      "connector": {
+        "kind": "stud",
+        "holeSize": "M8"
+      },
+      "terminalGroupId": "dc_pos",
+      "notes": "DC positive terminal. Requires overcurrent protection (fuse/breaker) on the positive conductor."
     },
+    {
+      "id": "dc_neg",
+      "label": "-",
+      "side": "top",
+      "offsetX": -41,
+      "offsetY": -45,
+      "maxCurrentA": 200,
+      "connector": {
+        "kind": "stud",
+        "holeSize": "M8"
+      },
+      "terminalGroupId": "dc_neg",
+      "notes": "DC negative terminal."
+    },
+    {
+      "id": "bms_can",
+      "label": "BMS-Can",
+      "side": "top",
+      "offsetX": 0,
+      "offsetY": -49,
+      "terminalGroupId": "bms_can",
+      "connector": {
+        "kind": "comm"
+      },
+      "connectorType": "RJ45"
+    }
   ],
-  batteryRatings: {
-    nominalVoltageV: 51.2,
-    capacityAh: 100,
-    capacityWh: 5120,
-    capacityKwh: 5.12,
-    maxChargeCurrentA: 100,
-    maxDischargeCurrentA: 200,
-    peakDischargeCurrentA: 400,
-    chargeVoltageV: 56.8,
-    cutoffVoltageV: 40,
-    chemistry: 'LiFePO4',
-    communicationInterfaces: ['VE.Bus', 'CANbus'],
-    hasInternalBms: true,
-    seriesAllowed: false,
-    parallelAllowed: true,
-  },
-});
+  "ports": [
+    {
+      "id": "dc",
+      "kind": "dc",
+      "topology": "two_pole",
+      "label": "DC",
+      "nominalVoltageV": 51.2,
+      "voltageClass": "dc_low_voltage",
+      "maxCurrentA": 200,
+      "role": "bidirectional",
+      "direction": "bidirectional"
+    },
+    {
+      "id": "bms_can",
+      "kind": "comm",
+      "label": "BMS-Can",
+      "topology": "two_pole",
+      "role": "bidirectional",
+      "direction": "bidirectional",
+      "supportedProtocols": [
+        "BMS-Can"
+      ],
+      "configuredProtocol": "BMS-Can"
+    }
+  ],
+  "terminalGroups": [
+    {
+      "id": "dc_pos",
+      "portId": "dc",
+      "label": "DC Positive",
+      "groupType": "power_conductor",
+      "polarity": "positive",
+      "internallyCommon": true,
+      "maxCurrentA": 200,
+      "requiresOvercurrentProtection": true,
+      "notes": "Battery positive conductor group."
+    },
+    {
+      "id": "dc_neg",
+      "portId": "dc",
+      "label": "DC Negative",
+      "groupType": "power_conductor",
+      "polarity": "negative",
+      "internallyCommon": true,
+      "maxCurrentA": 200,
+      "notes": "Battery negative conductor group."
+    },
+    {
+      "id": "bms_can",
+      "portId": "bms_can",
+      "label": "BMS-Can",
+      "groupType": "communication_interface",
+      "internallyCommon": true
+    }
+  ],
+  "batteryRatings": {
+    "nominalVoltageV": 51.2,
+    "capacityAh": 100,
+    "capacityWh": 5120,
+    "capacityKwh": 5.12,
+    "maxChargeCurrentA": 100,
+    "maxDischargeCurrentA": 200,
+    "peakDischargeCurrentA": 400,
+    "chargeVoltageV": 56.8,
+    "cutoffVoltageV": 40,
+    "chemistry": "LiFePO4",
+    "communicationInterfaces": [
+      "VE.Bus",
+      "CANbus"
+    ],
+    "hasInternalBms": true,
+    "seriesAllowed": false,
+    "parallelAllowed": true
+  }
+};
 
 export default product;

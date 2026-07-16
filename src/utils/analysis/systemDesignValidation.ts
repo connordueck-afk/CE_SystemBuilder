@@ -9,7 +9,7 @@
 //   3. Communication      — buildCommunicationNetworks (protocol-level only).
 //   4. Design currents    — analyzeSystemCircuits (per-connection sizing: current, fuse, cable, Vdrop).
 //   5. Validation         — terminal / terminal-group / capacity / compatibility / protection checks.
-//   6. Issues + warnings  — DesignIssue[] plus the composed SystemWarning[].
+//   6. Issues             — one composed DesignIssue[] stream.
 //   7. Legacy adapters    — circuitAnalysis / netlist / summary / protection recommendations.
 //
 // The numeric sizing stages are the project's existing deterministic helpers,
@@ -18,7 +18,7 @@
 // directly.
 // ============================================================
 
-import type { Product, SystemDesign, SystemWarning } from '../../types/system';
+import type { Product, SystemDesign } from '../../types/system';
 import { buildElectricalNetlist, type ElectricalNetlist } from '../electricalNetlist';
 import { analyzeSystemCircuits, type SystemCircuitAnalysis } from '../circuitAnalysis';
 import { buildCommunicationNetworks } from '../communicationNetworks';
@@ -40,10 +40,6 @@ import type {
 
 function terminalKey(componentId: string, terminalId: string): string {
   return `${componentId}:${terminalId}`;
-}
-
-function terminalPort(product: Product, portId: string | undefined) {
-  return portId ? product.ports?.find((port) => port.id === portId) : undefined;
 }
 
 function supportsStackedLugs(maxConnections: number | undefined, connectionCount: number): boolean {
@@ -321,13 +317,18 @@ export function analyzeSystemDesign(
     }
   }
 
-  // --- Stage 6: warnings ---
-  // The legacy warning list (over-current, capacity, communication, …) is produced
-  // by the composed `generateWarnings` stage and surfaced unchanged so the UI warning
-  // panel does not regress. The engine's *new* structured findings (terminal-group
-  // bus ratings, daisy-chain terminal overloads, product-data gaps) are exposed via
-  // `issues` for consumers that want the richer model without duplicating the list.
-  const warnings: SystemWarning[] = baseWarnings;
+  // --- Stage 6: one structured issue stream ---
+  for (const warning of baseWarnings) {
+    issues.push({
+      id: warning.id,
+      severity: warning.severity,
+      category: warning.connectionId ? 'connection' : 'capacity',
+      code: warning.code,
+      message: warning.message,
+      componentId: warning.componentId,
+      connectionId: warning.connectionId,
+    });
+  }
 
   const connections: SystemDesignAnalysis['connections'] = {};
   for (const [id, analysis] of circuit.connections) {
@@ -343,12 +344,7 @@ export function analyzeSystemDesign(
     terminalGroups,
     components,
     issues,
-    warnings,
-    legacy: {
-      circuitAnalysis: circuit,
-      electricalNetlist: netlist,
-      electricalSummary,
-      protectionRecommendations,
-    },
+    summary: electricalSummary,
+    protectionRecommendations,
   };
 }

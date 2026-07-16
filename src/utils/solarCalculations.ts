@@ -32,11 +32,6 @@ export interface SolarArrayAggregation {
   mismatches: SolarParallelMismatch[];
 }
 
-function positiveInteger(value: number | undefined): number | null {
-  if (value == null || !Number.isFinite(value)) return null;
-  return Math.max(1, Math.floor(value));
-}
-
 export function getSolarPanelUnitRatings(product: Product): SolarPanelRatings | undefined {
   const ratings = product.solarPanelRatings;
   return product.productType === 'solar_array' ? ratings : undefined;
@@ -82,7 +77,7 @@ export function calculateCustomSolarArrayStats(component: SystemComponent): Sola
 }
 
 export function calculateSolarArrayStats(
-  component: SystemComponent,
+  _component: SystemComponent,
   product: Product
 ): SolarArrayStats | undefined {
   const unit = getSolarPanelUnitRatings(product);

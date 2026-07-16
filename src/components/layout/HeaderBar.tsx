@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import type { NominalVoltage, SystemWarning } from '../../types/system';
+import type { BuilderIssue, NominalVoltage } from '../../types/system';
 import type { BusType } from '../../utils/electricalNetlist';
 import type { BusColorMap } from '../../utils/busColors';
 import { BUS_COLOR_OPTIONS, DEFAULT_BUS_COLORS } from '../../utils/busColors';
@@ -27,7 +27,7 @@ interface Props {
   voltageFilter: NominalVoltage | 'all';
   resolvedDcVoltages: number[];
   totalMsrp: number;
-  warnings: SystemWarning[];
+  issues: BuilderIssue[];
   busColors: BusColorMap;
   themeMode: 'light' | 'dark';
   debugMode: boolean;
@@ -59,7 +59,7 @@ export function HeaderBar({
   voltageFilter,
   resolvedDcVoltages,
   totalMsrp,
-  warnings,
+  issues,
   busColors,
   themeMode,
   debugMode,
@@ -92,8 +92,8 @@ export function HeaderBar({
     setTimeout(() => setShareCopied(false), 2500);
   };
 
-  const errorCount = warnings.filter((w) => w.severity === 'error').length;
-  const warnCount = warnings.filter((w) => w.severity === 'warning').length;
+  const errorCount = issues.filter((issue) => issue.severity === 'error').length;
+  const warnCount = issues.filter((issue) => issue.severity === 'warning').length;
 
   // Close settings dropdown on outside click / Escape
   useEffect(() => {

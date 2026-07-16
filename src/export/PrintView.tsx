@@ -3,6 +3,7 @@ import type { BomRow, PriceSummary, Product, SystemDesign } from '../types/syste
 import type { BusColorMap } from '../utils/busColors';
 import type { BusType } from '../utils/electricalNetlist';
 import type { ElectricalSummary } from '../utils/systemSummary';
+import type { SystemDesignAnalysis } from '../utils/analysis';
 import { BUS_COLOR_OPTIONS } from '../utils/busColors';
 import { StaticSchematic } from './StaticSchematic';
 import './print.css';
@@ -14,6 +15,7 @@ interface Props {
   bomRows: BomRow[];
   electricalSummary: ElectricalSummary;
   priceSummary: PriceSummary;
+  analysis: SystemDesignAnalysis;
 }
 
 const BUS_LABEL: Partial<Record<BusType, string>> = {
@@ -49,8 +51,11 @@ function fmtPrice(val: number | null) {
   return `$${val.toFixed(2)}`;
 }
 
-export function PrintView({ system, products, busColors, bomRows, electricalSummary, priceSummary }: Props) {
+export function PrintView({ system, products, busColors, bomRows, electricalSummary, priceSummary, analysis }: Props) {
   const date = new Date().toLocaleDateString('en-CA', { year: 'numeric', month: 'long', day: 'numeric' });
+  const primaryDcVoltage = analysis.powerDomains.find((domain) =>
+    (domain.busType === 'dc_pos' || domain.busType === 'dc_neg') && domain.nominalVoltageV != null
+  )?.nominalVoltageV;
 
   // --- Summary metrics ---
   const batteryKwh = electricalSummary.battery.capacityWh > 0
@@ -83,13 +88,15 @@ export function PrintView({ system, products, busColors, bomRows, electricalSumm
   const connsByBus = new Map<BusType, typeof system.connections>();
   for (const conn of system.connections) {
     if (conn.busLink) continue; // skip cableless bus links
-    const busType: BusType = (conn.wireKind === 'communication' ? 'communication' : conn.busType) as BusType ?? 'unknown';
+    const busType: BusType = conn.wireKind === 'communication'
+      ? 'communication'
+      : analysis.connections[conn.id]?.busType ?? 'unknown';
     if (!connsByBus.has(busType)) connsByBus.set(busType, []);
     connsByBus.get(busType)!.push(conn);
   }
 
   const hasCommunication = system.connections.some(
-    (c) => c.wireKind === 'communication' || c.busType === 'communication',
+    (c) => c.wireKind === 'communication' || analysis.connections[c.id]?.busType === 'communication',
   );
 
   // --- BOM ---
@@ -110,7 +117,7 @@ export function PrintView({ system, products, busColors, bomRows, electricalSumm
         <div className="cover-title">{system.name}</div>
         <div className="cover-meta">
           <span>{date}</span>
-          <span>{system.nominalVoltage}V DC System</span>
+          <span>{primaryDcVoltage != null ? `${primaryDcVoltage}V DC System` : 'DC voltage unresolved'}</span>
         </div>
 
         <div className="summary-grid">
@@ -118,7 +125,7 @@ export function PrintView({ system, products, busColors, bomRows, electricalSumm
             <div className="summary-card-label">Battery Capacity</div>
             <div className="summary-card-value">{batteryKwh ? `${batteryKwh} kWh` : '—'}</div>
             {batteryAh != null && (
-              <div className="summary-card-sub">{fmt(Math.round(batteryAh))} Ah @ {system.nominalVoltage}V</div>
+              <div className="summary-card-sub">{fmt(Math.round(batteryAh))} Ah{primaryDcVoltage != null ? ` @ ${primaryDcVoltage}V` : ''}</div>
             )}
           </div>
           <div className="summary-card">
@@ -136,7 +143,7 @@ export function PrintView({ system, products, busColors, bomRows, electricalSumm
           <div className="summary-card">
             <div className="summary-card-label">DC Bus Load</div>
             <div className="summary-card-value">{dcBusCurrentA ? `${Math.round(dcBusCurrentA)} A` : '—'}</div>
-            <div className="summary-card-sub">@ {system.nominalVoltage}V</div>
+            <div className="summary-card-sub">{primaryDcVoltage != null ? `@ ${primaryDcVoltage}V` : 'Voltage unresolved'}</div>
           </div>
         </div>
       </div>
@@ -148,7 +155,7 @@ export function PrintView({ system, products, busColors, bomRows, electricalSumm
           <span className="schematic-page-name">{system.name}</span>
         </div>
         <div className="schematic-frame">
-          <StaticSchematic system={system} products={products} busColors={busColors} filter="all" />
+          <StaticSchematic system={system} products={products} busColors={busColors} filter="all" analysis={analysis} />
         </div>
       </div>
 
@@ -159,7 +166,7 @@ export function PrintView({ system, products, busColors, bomRows, electricalSumm
           <span className="schematic-page-name">{system.name}</span>
         </div>
         <div className="schematic-frame">
-          <StaticSchematic system={system} products={products} busColors={busColors} filter="dc" />
+          <StaticSchematic system={system} products={products} busColors={busColors} filter="dc" analysis={analysis} />
         </div>
       </div>
 
@@ -170,7 +177,7 @@ export function PrintView({ system, products, busColors, bomRows, electricalSumm
           <span className="schematic-page-name">{system.name}</span>
         </div>
         <div className="schematic-frame">
-          <StaticSchematic system={system} products={products} busColors={busColors} filter="ac" />
+          <StaticSchematic system={system} products={products} busColors={busColors} filter="ac" analysis={analysis} />
         </div>
       </div>
 
@@ -182,7 +189,7 @@ export function PrintView({ system, products, busColors, bomRows, electricalSumm
             <span className="schematic-page-name">{system.name}</span>
           </div>
           <div className="schematic-frame">
-            <StaticSchematic system={system} products={products} busColors={busColors} filter="communication" />
+            <StaticSchematic system={system} products={products} busColors={busColors} filter="communication" analysis={analysis} />
           </div>
         </div>
       )}
@@ -241,29 +248,30 @@ export function PrintView({ system, products, busColors, bomRows, electricalSumm
                 </thead>
                 <tbody>
                   {conns.map((conn, i) => {
-                    const flagged = (conn.errors?.length ?? 0) > 0;
+                    const result = analysis.connections[conn.id];
+                    const flagged = (result?.errors.length ?? 0) > 0;
                     return (
                       <tr key={conn.id}>
                         <td className="td-num">{i + 1}</td>
                         <td>{componentLabel(conn.fromComponentId)}</td>
                         <td>{componentLabel(conn.toComponentId)}</td>
                         <td className={flagged ? 'td-center td-flagged' : 'td-center'}>
-                          {conn.manualCableAwg ?? conn.recommendedCableAwg ?? '—'}{flagged ? ' *' : ''}
+                          {conn.manualCableAwg ?? result?.recommendedCableAwg ?? '—'}{flagged ? ' *' : ''}
                         </td>
                         <td className="td-center">{conn.cableLengthFt ? `${conn.cableLengthFt.toFixed(1)} ft` : '—'}</td>
                         <td className="td-center">{conn.cableColor ?? '—'}</td>
                         <td className={flagged ? 'td-center td-flagged' : 'td-center'}>
-                          {conn.recommendedFuseA ? `${conn.recommendedFuseA}A` : '—'}{flagged ? ' *' : ''}
+                          {result?.recommendedFuseA ? `${result.recommendedFuseA}A` : '—'}{flagged ? ' *' : ''}
                         </td>
                       </tr>
                     );
                   })}
                 </tbody>
               </table>
-              {conns.some((conn) => (conn.errors?.length ?? 0) > 0) && (
+              {conns.some((conn) => (analysis.connections[conn.id]?.errors.length ?? 0) > 0) && (
                 <div className="cable-schedule-note">
                   {conns
-                    .map((conn, i) => ({ i, errors: conn.errors ?? [] }))
+                    .map((conn, i) => ({ i, errors: analysis.connections[conn.id]?.errors ?? [] }))
                     .filter((row) => row.errors.length > 0)
                     .map((row) => (
                       <div key={row.i}>* Run #{row.i + 1}: {row.errors.map((e) => e.message).join('; ')}</div>

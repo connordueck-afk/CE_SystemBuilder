@@ -1,4 +1,4 @@
-import type { EffectiveTerminal, Product, SystemComponent } from '../types/system';
+import type { EffectiveTerminal } from '../types/system';
 import { CABLE_TABLE, cableByAwg, voltageDropV } from '../data/cableAmpacity';
 
 export interface CableSizeConstraint {
@@ -34,13 +34,11 @@ function smallerMaxCableAwg(...awgs: Array<string | undefined>): string | undefi
 }
 
 export function endpointCableSizeConstraint(
-  _product: Product,
-  component: SystemComponent,
   terminal: EffectiveTerminal
 ): CableSizeConstraint {
   return {
     minCableAwg: terminal.minCableAwg,
-    maxCableAwg: component.maxCableAwg ?? terminal.maxCableAwg,
+    maxCableAwg: terminal.maxCableAwg,
     recommendedCableAwg: terminal.recommendedCableAwg,
   };
 }

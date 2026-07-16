@@ -45,7 +45,7 @@ export function getPort(product: Product, portId: string | undefined): ProductPo
  *
  * Port assignment is group-owned: a terminal belongs to a terminal group, and
  * the group belongs to a port. Active catalog validation rejects terminal-level
- * `portId`, so there is deliberately no legacy fallback here.
+ * `portId`, so there is deliberately no terminal-level fallback here.
  */
 export function getTerminalPortId(product: Product, terminal: TerminalDefinition): string | undefined {
   const group = terminal.terminalGroupId
@@ -164,7 +164,7 @@ export function portNominalVoltageV(product: Product, port: ProductPort): number
 /**
  * Voltage class / service of a port.
  */
-export function portVoltageClass(product: Product, port: ProductPort): VoltageClass | undefined {
+export function portVoltageClass(_product: Product, port: ProductPort): VoltageClass | undefined {
   return port.voltageClass;
 }
 
@@ -229,20 +229,18 @@ export function isCommPort(product: Product, port: ProductPort): boolean {
   return portKindOf(product, port) === 'comm';
 }
 
-/** Connector type for a terminal (terminal-first, legacy commPort fallback by terminal id). */
+/** Connector type for a communication terminal. */
 export function commConnectorType(
-  product: Product,
+  _product: Product,
   terminal: TerminalDefinition
 ): CommunicationConnectorType | undefined {
-  if (terminal.connectorType) return terminal.connectorType;
-  return product.communicationPorts?.find((p) => p.id === terminal.id)?.connectorType;
+  return terminal.connectorType;
 }
 
-/** Supported protocols for a comm port (port-first, legacy commPort fallback by shared id). */
+/** Supported protocols for a communication port. */
 export function commSupportedProtocols(
-  product: Product,
+  _product: Product,
   port: ProductPort
 ): CommunicationProtocol[] | undefined {
-  if (port.supportedProtocols) return port.supportedProtocols;
-  return product.communicationPorts?.find((p) => p.id === port.id)?.supportedProtocols;
+  return port.supportedProtocols;
 }

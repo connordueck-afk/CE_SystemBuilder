@@ -24,7 +24,14 @@
       <stop offset="100%" stop-color="#8f1f17"/>
     </linearGradient>
     <filter id="shadow" x="-20%" y="-30%" width="140%" height="180%">
-      <feDropShadow dx="0" dy="0.6" stdDeviation="0.9" flood-color="#000" flood-opacity="0.35"/>
+      <feGaussianBlur in="SourceAlpha" stdDeviation="0.9"/>
+      <feOffset dx="0" dy="0.6" result="offsetblur"/>
+      <feFlood flood-color="#000" flood-opacity="0.35"/>
+      <feComposite in2="offsetblur" operator="in"/>
+      <feMerge>
+        <feMergeNode/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
     </filter>
   </defs>
   <g filter="url(#shadow)">

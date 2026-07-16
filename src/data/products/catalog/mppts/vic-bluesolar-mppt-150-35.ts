@@ -18,55 +18,55 @@ const product: Product = {
   "description": "Victron BlueSolar MPPT solar charge controller",
   "source": "Victron 2025",
   "dataQuality": "partial",
-  "imageUrl": '/product-images/victron/bluesolar_mppt_150_35_150_45.svg',
+  "imageUrl": "/product-images/victron/bluesolar_mppt_150_35_150_45.svg",
   "partNumber": "BlueSolar MPPT 150/35",
   "msrpUsd": 185,
   "width": 100,
   "height": 76,
   "terminalGroups": [
     {
-      id: "pv_neg",
-      portId: "pv",
-      label: "PV-",
-      groupType: "power_conductor",
-      polarity: "negative",
-      internallyCommon: false,
-      maxCurrentA: 35
+      "id": "pv_neg",
+      "portId": "pv",
+      "label": "PV-",
+      "groupType": "power_conductor",
+      "polarity": "negative",
+      "internallyCommon": false,
+      "maxCurrentA": 35
     },
     {
-      id: "pv_pos",
-      portId: "pv",
-      label: "PV+",
-      groupType: "power_conductor",
-      polarity: "positive",
-      internallyCommon: false,
-      maxCurrentA: 35
+      "id": "pv_pos",
+      "portId": "pv",
+      "label": "PV+",
+      "groupType": "power_conductor",
+      "polarity": "positive",
+      "internallyCommon": false,
+      "maxCurrentA": 35
     },
     {
-      id: "bat_pos",
-      portId: "dc_out",
-      label: "BAT+",
-      groupType: "power_conductor",
-      polarity: "positive",
-      internallyCommon: false,
-      maxCurrentA: 35,
-      requiresOvercurrentProtection: true
+      "id": "bat_pos",
+      "portId": "dc_out",
+      "label": "BAT+",
+      "groupType": "power_conductor",
+      "polarity": "positive",
+      "internallyCommon": false,
+      "maxCurrentA": 35,
+      "requiresOvercurrentProtection": true
     },
     {
-      id: "bat_neg",
-      portId: "dc_out",
-      label: "BAT-",
-      groupType: "power_conductor",
-      polarity: "negative",
-      internallyCommon: false,
-      maxCurrentA: 35
+      "id": "bat_neg",
+      "portId": "dc_out",
+      "label": "BAT-",
+      "groupType": "power_conductor",
+      "polarity": "negative",
+      "internallyCommon": false,
+      "maxCurrentA": 35
     },
     {
-      id: "ve_direct",
-      portId: "ve_direct",
-      label: "VE.Direct",
-      groupType: "communication_interface",
-      internallyCommon: false
+      "id": "ve_direct",
+      "portId": "ve_direct",
+      "label": "VE.Direct",
+      "groupType": "communication_interface",
+      "internallyCommon": false
     }
   ],
   "terminals": [
@@ -81,7 +81,7 @@ const product: Product = {
       "connector": {
         "kind": "screw_terminal"
       },
-      "notes": "PV array negative input.",
+      "notes": "PV array negative input."
     },
     {
       "id": "pv_pos",
@@ -94,7 +94,7 @@ const product: Product = {
       "connector": {
         "kind": "screw_terminal"
       },
-      "notes": "PV array positive input. Do not connect negative PV conductor to chassis.",
+      "notes": "PV array positive input. Do not connect negative PV conductor to chassis."
     },
     {
       "id": "bat_pos",
@@ -107,7 +107,7 @@ const product: Product = {
       "connector": {
         "kind": "screw_terminal"
       },
-      "notes": "Battery positive terminal. Requires fuse on positive conductor between MPPT and busbar.",
+      "notes": "Battery positive terminal. Requires fuse on positive conductor between MPPT and busbar."
     },
     {
       "id": "bat_neg",
@@ -120,7 +120,7 @@ const product: Product = {
       "connector": {
         "kind": "screw_terminal"
       },
-      "notes": "Battery negative terminal.",
+      "notes": "Battery negative terminal."
     },
     {
       "id": "ve_direct",
@@ -129,6 +129,10 @@ const product: Product = {
       "side": "top",
       "offsetX": 46,
       "offsetY": -38,
+      "connector": {
+        "kind": "comm"
+      },
+      "connectorType": "VE.Direct"
     }
   ],
   "mpptRatings": {
@@ -148,17 +152,6 @@ const product: Product = {
     },
     "efficiencyPct": 98
   },
-  "communicationPorts": [
-    {
-      "id": "ve_direct",
-      "name": "VE.Direct",
-      "connectorType": "VE.Direct",
-      "supportedProtocols": [
-        "VE.Direct"
-      ],
-      "configuredProtocol": "VE.Direct"
-    }
-  ],
   "ports": [
     {
       "id": "pv",
@@ -175,7 +168,7 @@ const product: Product = {
         "12": 500,
         "24": 1000,
         "48": 2000
-      },
+      }
     },
     {
       "id": "dc_out",
@@ -185,7 +178,7 @@ const product: Product = {
       "direction": "output",
       "label": "DC Output",
       "voltageClass": "dc_low_voltage",
-      "maxCurrentA": 35,
+      "maxCurrentA": 35
     },
     {
       "id": "ve_direct",
@@ -194,6 +187,10 @@ const product: Product = {
       "topology": "two_pole",
       "role": "bidirectional",
       "direction": "bidirectional",
+      "supportedProtocols": [
+        "VE.Direct"
+      ],
+      "configuredProtocol": "VE.Direct"
     }
   ]
 };

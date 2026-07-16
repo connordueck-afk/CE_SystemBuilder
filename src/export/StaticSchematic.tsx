@@ -13,6 +13,7 @@ import { componentScale, scaledProductSize } from '../utils/componentScale';
 import { isVerticalOrientation } from '../utils/componentOrientation';
 import { getEffectiveTerminals } from '../utils/effectiveTerminals';
 import { isTerminalFull } from '../utils/connectorLimits';
+import type { SystemDesignAnalysis } from '../utils/analysis';
 
 export type SchematicFilter = 'all' | 'dc' | 'ac' | 'communication';
 
@@ -120,9 +121,10 @@ interface Props {
   products: Map<string, Product>;
   busColors: BusColorMap;
   filter: SchematicFilter;
+  analysis: SystemDesignAnalysis;
 }
 
-export function StaticSchematic({ system, products, busColors, filter }: Props) {
+export function StaticSchematic({ system, products, busColors, filter, analysis }: Props) {
   const allowedBusTypes = FILTER_BUS_TYPES[filter];
   const gridId = `print-grid-${filter}`;
 
@@ -130,7 +132,8 @@ export function StaticSchematic({ system, products, busColors, filter }: Props) 
     ? system.connections
     : system.connections.filter((c) => {
         if (c.wireKind === 'communication') return allowedBusTypes.includes('communication');
-        return c.busType != null && (allowedBusTypes as string[]).includes(c.busType);
+        const busType = analysis.connections[c.id]?.busType;
+        return busType != null && (allowedBusTypes as string[]).includes(busType);
       });
 
   const activeComponentIds: Set<string> | null = allowedBusTypes === null
@@ -200,6 +203,7 @@ export function StaticSchematic({ system, products, busColors, filter }: Props) 
         onCancelConnectionRoutePreview={NOOP}
         pendingLine={null}
         layer="visual"
+        connectionAnalysis={analysis.connections}
       />
 
       {(system.annotations ?? []).map((annotation) => {
@@ -229,7 +233,7 @@ export function StaticSchematic({ system, products, busColors, filter }: Props) 
 
       {/* AWG labels */}
       {visibleConnections.map((conn) => {
-        const label = conn.manualCableAwg ?? conn.recommendedCableAwg;
+        const label = conn.manualCableAwg ?? analysis.connections[conn.id]?.recommendedCableAwg;
         if (!label) return null;
         const mid = connectionMidpoint(conn, system.components);
         if (!mid) return null;

@@ -10,7 +10,6 @@ import type {
   SystemDesign,
   SystemConnection,
   Product,
-  ProductCommunicationPort,
   ProductPort,
   CommunicationConnectorType,
   CommunicationProtocol,
@@ -33,7 +32,7 @@ interface CommPortMetadata {
   supportedProtocols: CommunicationProtocol[];
   configuredProtocol?: CommunicationProtocol;
   isConfigurable?: boolean;
-  topology?: ProductCommunicationPort['topology'];
+  topology?: ProductPort['commTopology'];
 }
 
 export interface ResolvedCommEndpoint {
@@ -49,40 +48,23 @@ function portKey(ref: PortRef): string {
   return `${ref.componentId}:${ref.portId}`;
 }
 
-function legacyPort(product: Product, portId: string | undefined, terminalId?: string): ProductCommunicationPort | undefined {
-  return product.communicationPorts?.find((port) => port.id === portId) ??
-    product.communicationPorts?.find((port) => port.id === terminalId);
-}
-
-function metadataFromProductPort(port: ProductPort, product: Product, legacy?: ProductCommunicationPort): CommPortMetadata {
+function metadataFromProductPort(port: ProductPort, product: Product): CommPortMetadata {
   // Resolve connectorType from the product's terminals on this port (via terminal groups).
   const resolvedConnectorType = port.kind === 'comm'
     ? product.terminals.find(t => {
         const group = t.terminalGroupId ? product.terminalGroups?.find(g => g.id === t.terminalGroupId) : undefined;
         return group?.portId === port.id && t.connectorType != null;
-      })?.connectorType ?? legacy?.connectorType
+      })?.connectorType
     : undefined;
 
   return {
     id: port.id,
-    name: port.label ?? legacy?.name ?? port.id,
+    name: port.label ?? port.id,
     connectorType: resolvedConnectorType,
-    supportedProtocols: port.supportedProtocols ?? legacy?.supportedProtocols ?? [],
-    configuredProtocol: port.configuredProtocol ?? legacy?.configuredProtocol,
-    isConfigurable: port.isConfigurable ?? legacy?.isConfigurable,
-    topology: port.commTopology ?? legacy?.topology,
-  };
-}
-
-function metadataFromLegacyPort(port: ProductCommunicationPort): CommPortMetadata {
-  return {
-    id: port.id,
-    name: port.name,
-    connectorType: port.connectorType,
-    supportedProtocols: port.supportedProtocols,
+    supportedProtocols: port.supportedProtocols ?? [],
     configuredProtocol: port.configuredProtocol,
     isConfigurable: port.isConfigurable,
-    topology: port.topology,
+    topology: port.commTopology,
   };
 }
 
@@ -97,12 +79,7 @@ function resolveCommPortByPortId(
   const product = products.get(comp.productId);
   if (!product) return undefined;
   const productPort = product.ports?.find((p) => p.id === portId && p.kind === 'comm');
-  const legacy = legacyPort(product, portId);
-  const port = productPort
-    ? metadataFromProductPort(productPort, product, legacy)
-    : legacy
-      ? metadataFromLegacyPort(legacy)
-      : undefined;
+  const port = productPort ? metadataFromProductPort(productPort, product) : undefined;
   if (!port) return undefined;
   const configuredProtocol = comp.configuredProtocols?.[port.id] ?? port.configuredProtocol;
   return { port, product, comp, configuredProtocol };
@@ -125,12 +102,7 @@ export function resolveCommEndpoint(
 
   const portId = terminal.portId ?? terminal.id;
   const productPort = product.ports?.find((p) => p.id === portId && p.kind === 'comm');
-  const legacy = legacyPort(product, portId, terminal.id);
-  const port = productPort
-    ? metadataFromProductPort(productPort, product, legacy)
-    : legacy
-      ? metadataFromLegacyPort(legacy)
-      : undefined;
+  const port = productPort ? metadataFromProductPort(productPort, product) : undefined;
   if (!port) return undefined;
 
   const configuredProtocol = component.configuredProtocols?.[port.id] ?? port.configuredProtocol;
@@ -143,9 +115,9 @@ export function resolveCommEndpoint(
  * support, then falls back to the shared supported protocol.
  */
 export function deriveCommProtocol(
-  fromPort: CommPortMetadata | ProductCommunicationPort | undefined,
+  fromPort: CommPortMetadata | undefined,
   fromConfigured: CommunicationProtocol | undefined,
-  toPort: CommPortMetadata | ProductCommunicationPort | undefined,
+  toPort: CommPortMetadata | undefined,
   toConfigured: CommunicationProtocol | undefined
 ): CommunicationProtocol | undefined {
   const fromSupports = fromPort?.supportedProtocols ?? [];
@@ -222,19 +194,13 @@ class UnionFind {
 }
 
 function communicationPortRefs(product: Product, componentId: string): PortRef[] {
-  const refs = new Map<string, PortRef>();
-  for (const port of product.ports ?? []) {
-    if (port.kind === 'comm') refs.set(port.id, { componentId, portId: port.id });
-  }
-  for (const port of product.communicationPorts ?? []) {
-    if (!refs.has(port.id)) refs.set(port.id, { componentId, portId: port.id });
-  }
-  return [...refs.values()];
+  return (product.ports ?? [])
+    .filter((port) => port.kind === 'comm')
+    .map((port) => ({ componentId, portId: port.id }));
 }
 
 function validateNetwork(
   portRefs: PortRef[],
-  wireIds: string[],
   products: Map<string, Product>,
   components: SystemDesign['components']
 ): { errors: CommunicationNetworkError[]; warnings: CommunicationNetworkWarning[] } {
@@ -293,8 +259,6 @@ export function buildCommunicationNetworks(
   products: Map<string, Product>
 ): CommunicationNetwork[] {
   const dsu = new UnionFind();
-  const wiresByPort = new Map<string, string[]>(); // portKey → wireIds
-
   // Register every communication terminal on every placed component
   for (const comp of system.components) {
     const product = products.get(comp.productId);
@@ -365,7 +329,7 @@ export function buildCommunicationNetworks(
       if (resolved.port.connectorType) connectorTypes.add(resolved.port.connectorType);
     }
 
-    const { errors, warnings } = validateNetwork(portRefs, connectedWireIds, products, system.components);
+    const { errors, warnings } = validateNetwork(portRefs, products, system.components);
 
     networks.push({
       id: genId('comm-net'),
@@ -381,7 +345,7 @@ export function buildCommunicationNetworks(
   return networks;
 }
 
-/** Extract all communication-related warnings as SystemWarning objects for the warning panel. */
+/** Convert communication findings into the calculation-stage warning shape. */
 export function communicationNetworkWarnings(
   networks: CommunicationNetwork[]
 ): Array<{ id: string; severity: 'error' | 'warning'; message: string; code: string }> {

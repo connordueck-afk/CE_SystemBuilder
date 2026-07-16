@@ -55,7 +55,7 @@ export function connectorLabel(connector: TerminalConnector): string {
  *   stud           → lug (hole size carried through from stud diameter)
  *   screw_terminal → ferrule
  *   mc4 male       → mc4 female (and vice-versa)
- *   lug / ferrule  → returned as-is (legacy product data that already encodes cable-end kind)
+ *   lug / ferrule  → returned as-is when product data already encodes cable-end kind
  */
 export function getMatingConnector(deviceConnector: TerminalConnector): TerminalConnector {
   switch (deviceConnector.kind) {

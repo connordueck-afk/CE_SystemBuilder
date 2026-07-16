@@ -2,7 +2,6 @@ import type {
   BuilderIssue,
   CommunicationNetwork,
   CustomSolarArrayRatings,
-  FuseSlotState,
   SystemComponent,
   SystemConnection,
   Product,
@@ -74,10 +73,7 @@ interface Props {
   onUpdateDcBusNominalVoltage: (id: string, voltageV: number | undefined) => void;
   onUpdateInstanceMaxCurrent: (id: string, currentA: number | undefined) => void;
   onUpdateAvailableFaultCurrent: (id: string, currentA: number | undefined) => void;
-  onUpdateComponentMaxCableAwg: (id: string, awg: string | undefined) => void;
   onUpdateComponentImageScale: (id: string, scale: number) => void;
-  onUpdateBusPolarity: (id: string, busPolarity: SystemComponent['busPolarity']) => void;
-  onUpdateFuseSlot: (id: string, slotId: string, patch: FuseSlotState) => void;
   onOpenFusePicker?: (componentId: string, slotId: string) => void;
   onRemoveFuseSlot?: (componentId: string, slotId: string) => void;
   onUpdateCustomSolarArrayRatings: (id: string, ratings: CustomSolarArrayRatings) => void;
@@ -375,10 +371,7 @@ export function ComponentInspector({
   onUpdateDcBusNominalVoltage,
   onUpdateInstanceMaxCurrent,
   onUpdateAvailableFaultCurrent,
-  onUpdateComponentMaxCableAwg,
   onUpdateComponentImageScale,
-  onUpdateBusPolarity,
-  onUpdateFuseSlot,
   onOpenFusePicker,
   onRemoveFuseSlot,
   onUpdateCustomSolarArrayRatings,
@@ -395,7 +388,6 @@ export function ComponentInspector({
       ?? (sourceLoadKind.startsWith('ac_') ? 120 : systemVoltage)
     : undefined;
   const sourceLoadVoltageV = component.instanceVoltageV ?? sourceLoadDefaultVoltageV;
-  const effectiveMsrp = component.customPriceUsd ?? product.msrpUsd ?? null;
   const capacityKwh = product.capacityWh
     ? (product.capacityWh / 1000).toFixed(2)
     : null;
@@ -756,7 +748,6 @@ export function ComponentInspector({
               const fuseRating = selectedProduct ? getFuseRating(selectedProduct) : state.ratingA;
               const unitPrice = selectedProduct?.msrpUsd;
 
-              const hasSelectedProduct = Boolean(selectedProduct);
               const hasRating = fuseRating != null;
 
               return (

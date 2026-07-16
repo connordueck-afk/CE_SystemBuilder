@@ -235,18 +235,6 @@ function ProtectionForm({ ratings, onChange }: {
       </div>
       <div className="pb-field-row">
         <Num label="Interrupt Rating (A)" value={ratings.interruptRatingA} onChange={n('interruptRatingA')} />
-        <div className="pb-field">
-          <label>AC/DC Compatibility</label>
-          <select
-            value={ratings.acDcCompatibility ?? ''}
-            onChange={e => onChange('acDcCompatibility', e.target.value || undefined)}
-          >
-            <option value="">—</option>
-            <option value="dc">DC</option>
-            <option value="ac">AC</option>
-            <option value="both">Both</option>
-          </select>
-        </div>
       </div>
       <div className="pb-field-row">
         <div className="pb-field">
@@ -326,16 +314,6 @@ export function RatingsForm({ productType, product, onRatingsChange }: Props) {
   if (!productType || !RATINGS_LABELS[productType]) return null;
 
   const label = RATINGS_LABELS[productType]!;
-  const ch = (field: string) => (v: unknown) => onRatingsChange(
-    productType === 'battery' ? 'batteryRatings'
-    : productType === 'mppt' ? 'mpptRatings'
-    : productType === 'inverter_charger' ? 'inverterChargerRatings'
-    : productType === 'dc_dc_charger' || productType === 'shore_charger' ? 'dcDcChargerRatings'
-    : productType === 'fuse' || productType === 'breaker' ? 'protectionRatings'
-    : 'busbarRatings',
-    field, v
-  );
-
   const r = (key: string) => (product as Record<string, unknown>)[key] as Record<string, unknown> ?? {};
 
   return (

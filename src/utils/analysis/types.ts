@@ -5,8 +5,7 @@
 // validated design. The engine composes deterministic computation stages
 // (connectivity graph, per-connection sizing, communication networks,
 // electrical summary) and layers the terminal-group model + design issues on
-// top. Legacy result shapes are produced via adapters under `.legacy` so the
-// existing UI keeps working through a single entry point.
+// top so UI and export consumers use one stable analysis contract.
 // ============================================================
 
 import type {
@@ -14,11 +13,10 @@ import type {
   ConnectionPointKind,
   ConnectionPolarity,
   IntegratedProtectionDefinition,
-  SystemWarning,
   TerminalGroupType,
 } from '../../types/system';
 import type { BusType, ElectricalNet, ElectricalNetlist } from '../electricalNetlist';
-import type { ConnectionCircuitAnalysis, SystemCircuitAnalysis } from '../circuitAnalysis';
+import type { ConnectionCircuitAnalysis } from '../circuitAnalysis';
 import type { ElectricalSummary } from '../systemSummary';
 import type { ProtectionRecommendation } from '../protectionRecommendations';
 
@@ -106,12 +104,12 @@ export interface ComponentDesignAnalysis {
   issues: DesignIssue[];
 }
 
-/** Per-connection design analysis (legacy-compatible shape). */
+/** Per-connection design analysis exposed by the authoritative engine. */
 export type ConnectionDesignAnalysis = ConnectionCircuitAnalysis;
 
 /**
  * The single authoritative analysis object. The UI consumes this (directly or via
- * the `.legacy` adapters) instead of calling the individual analysis modules.
+ * these top-level results instead of calling the individual analysis modules.
  */
 export interface SystemDesignAnalysis {
   graph: ElectricalNetlist;
@@ -124,14 +122,8 @@ export interface SystemDesignAnalysis {
   components: Record<string, ComponentDesignAnalysis>;
 
   issues: DesignIssue[];
-  warnings: SystemWarning[];
-
-  legacy: {
-    circuitAnalysis: SystemCircuitAnalysis;
-    electricalNetlist: ElectricalNetlist;
-    electricalSummary: ElectricalSummary;
-    protectionRecommendations: ProtectionRecommendation[];
-  };
+  summary: ElectricalSummary;
+  protectionRecommendations: ProtectionRecommendation[];
 }
 
 export type { BusType };

@@ -95,12 +95,6 @@ function sameVoltageClass(kind: ProductPort['kind'], a: number, b: number): bool
   return voltageClassForNominal(a) === voltageClassForNominal(b);
 }
 
-function isPowerBus(busType: BusType): boolean {
-  return busType === 'dc_pos' || busType === 'dc_neg' ||
-    busType === 'pv_pos' || busType === 'pv_neg' ||
-    busType === 'ac_line' || busType === 'ac_line2' || busType === 'ac_line3' || busType === 'ac_neutral';
-}
-
 function isDcBus(busType: BusType): boolean {
   return busType === 'dc_pos' || busType === 'dc_neg';
 }
@@ -112,16 +106,6 @@ function voltageDomainMedium(nets: ElectricalNet[]): VoltageDomainMedium | undef
   if (nets.some((net) => net.busType === 'pv_pos' || net.busType === 'pv_neg')) return 'pv';
   if (nets.some((net) => isDcBus(net.busType))) return 'dc';
   return undefined;
-}
-
-function compatibilityAcceptsMedium(
-  compatibility: 'ac' | 'dc' | 'both' | undefined,
-  medium: VoltageDomainMedium
-): boolean {
-  if (!compatibility) return true;
-  if (compatibility === 'both') return true;
-  if (medium === 'pv') return compatibility === 'dc';
-  return compatibility === medium;
 }
 
 function passiveVoltageLimitV(ref: TerminalNodeRef): number | undefined {
@@ -237,14 +221,6 @@ function exactVoltageEvidence(ref: TerminalNodeRef, port: ProductPort | undefine
   if (product.productType === 'solar_array' && port.kind === 'pv') {
     const voltage = positiveNumber(product.solarPanelRatings?.vmpV);
     if (voltage != null) return { voltageV: voltage, kind: port.kind, componentId: component.id, terminalKey: ref.key, label };
-  }
-
-  // A scalar product-level voltage remains a useful compatibility fallback for
-  // genuinely single-interface legacy products. It is intentionally never used
-  // for converters/controllers with multiple electrical interfaces.
-  const ports = powerPorts(product);
-  if (ports.length === 1 && typeof product.nominalVoltage === 'number') {
-    return { voltageV: product.nominalVoltage, kind: port.kind, componentId: component.id, terminalKey: ref.key, label };
   }
 
   return undefined;
@@ -411,19 +387,11 @@ export function resolveVoltageDomains(system: SystemDesign, netlist: ElectricalN
         : evidence[0]?.voltageV;
       resolution = 'port_evidence';
     } else if (classes.length === 0) {
-      const containsDc = nets.some((net) => isDcBus(net.busType));
-      const primaryFits = containsDc && constraints.every((constraint) => constraintAccepts(constraint, system.nominalVoltage));
-      if (primaryFits) {
-        nominalVoltageV = system.nominalVoltage;
-        voltageClassV = system.nominalVoltage;
-        resolution = 'primary_default';
-      } else {
-        const candidates = STANDARD_VOLTAGES.filter((value) => constraints.every((constraint) => constraintAccepts(constraint, value)));
-        if (candidates.length === 1) {
-          nominalVoltageV = candidates[0];
-          voltageClassV = candidates[0];
-          resolution = 'port_evidence';
-        }
+      const candidates = STANDARD_VOLTAGES.filter((value) => constraints.every((constraint) => constraintAccepts(constraint, value)));
+      if (candidates.length === 1) {
+        nominalVoltageV = candidates[0];
+        voltageClassV = candidates[0];
+        resolution = 'port_evidence';
       }
     }
 
@@ -495,22 +463,6 @@ export function resolveVoltageDomains(system: SystemDesign, netlist: ElectricalN
         });
       }
 
-      const compatibility = sample.product.protectionRatings?.acDcCompatibility;
-      if (
-        sample.product.productType !== 'breaker' &&
-        medium &&
-        compatibility &&
-        !compatibilityAcceptsMedium(compatibility, medium)
-      ) {
-        issues.push({
-          severity: 'error',
-          code: 'COMPONENT_MEDIUM_INCOMPATIBLE',
-          message: `${label} is ${compatibility.toUpperCase()} rated but is connected to a ${medium.toUpperCase()} electrical domain.`,
-          netId: nets[0]?.id,
-          componentId,
-          terminalKey: sample.key,
-        });
-      }
     }
 
     const seenPorts = new Set<string>();

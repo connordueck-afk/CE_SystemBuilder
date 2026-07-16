@@ -8,11 +8,11 @@
 // Import and call validateCatalog() in a test or dev script.
 // ============================================================
 
-import type { Product, TerminalDefinition } from '../../../types/system';
+import type { Product } from '../../../types/system';
 import { getProductTypeDefinition } from '../productTypes';
 import { getFuseRating } from '../../../utils/fuseSelection';
 import { getTerminalPortId } from '../../../utils/portSpecs';
-import { breakerCompatibility, breakerPoles, breakerRatingProfiles } from '../../../utils/breakerSemantics';
+import { breakerPoles, breakerRatingProfiles } from '../../../utils/breakerSemantics';
 
 // -----------------------------------------------------------
 // Validation result types
@@ -419,10 +419,6 @@ function validateProtectionRatings(product: Product): CatalogValidationIssue[] {
       }
     }
 
-    const compatibility = breakerCompatibility(product);
-    if (product.protectionRatings?.acDcCompatibility && compatibility !== product.protectionRatings.acDcCompatibility) {
-      issues.push({ productId: product.id, field: 'protectionRatings.acDcCompatibility', severity: 'error', code: 'BREAKER_COMPATIBILITY_MISMATCH', message: `Legacy compatibility "${product.protectionRatings.acDcCompatibility}" does not match breaker rating profiles "${compatibility}".` });
-    }
   }
 
   return issues;

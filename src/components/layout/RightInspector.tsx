@@ -3,7 +3,6 @@ import type {
   SystemComponent,
   SystemConnection,
   Product,
-  FuseSlotState,
   NominalVoltage,
   CustomSolarArrayRatings,
   SystemDiagramAnnotation,
@@ -54,10 +53,7 @@ interface Props {
   onUpdateDcBusNominalVoltage: (id: string, voltageV: number | undefined) => void;
   onUpdateInstanceMaxCurrent: (id: string, currentA: number | undefined) => void;
   onUpdateAvailableFaultCurrent: (id: string, currentA: number | undefined) => void;
-  onUpdateComponentMaxCableAwg: (id: string, awg: string | undefined) => void;
   onUpdateComponentImageScale: (id: string, scale: number) => void;
-  onUpdateBusPolarity: (id: string, busPolarity: SystemComponent['busPolarity']) => void;
-  onUpdateFuseSlot: (id: string, slotId: string, patch: FuseSlotState) => void;
   onOpenFusePicker?: (componentId: string, slotId: string) => void;
   onRemoveFuseSlot?: (componentId: string, slotId: string) => void;
   onChangeComponentProduct: (id: string, productId: string) => void;
@@ -106,10 +102,7 @@ export function RightInspector({
   onUpdateDcBusNominalVoltage,
   onUpdateInstanceMaxCurrent,
   onUpdateAvailableFaultCurrent,
-  onUpdateComponentMaxCableAwg,
   onUpdateComponentImageScale,
-  onUpdateBusPolarity,
-  onUpdateFuseSlot,
   onOpenFusePicker,
   onRemoveFuseSlot,
   onChangeComponentProduct,
@@ -215,9 +208,9 @@ export function RightInspector({
     // Use the circuit engine's already ampacity-capped recommendation as the target,
     // and never let the auto-sized part exceed the smallest adjacent cable ampacity
     // (the cable-protection invariant). Both come straight from circuitAnalysis output.
-    const targetA = Math.max(0, ...adjConns.map((c) => c.recommendedFuseA ?? 0)) || undefined;
+    const targetA = Math.max(0, ...adjConns.map((c) => analysis.connections[c.id]?.recommendedFuseA ?? 0)) || undefined;
     const adjacentAmpacities = adjConns
-      .map((c) => ampacityForAwg(c.manualCableAwg ?? c.recommendedCableAwg))
+      .map((c) => ampacityForAwg(c.manualCableAwg ?? analysis.connections[c.id]?.recommendedCableAwg))
       .filter((a): a is number => a != null);
     const maxAmpacityA = adjacentAmpacities.length > 0 ? Math.min(...adjacentAmpacities) : undefined;
 
@@ -338,10 +331,7 @@ export function RightInspector({
             onUpdateDcBusNominalVoltage={onUpdateDcBusNominalVoltage}
             onUpdateInstanceMaxCurrent={onUpdateInstanceMaxCurrent}
             onUpdateAvailableFaultCurrent={onUpdateAvailableFaultCurrent}
-            onUpdateComponentMaxCableAwg={onUpdateComponentMaxCableAwg}
             onUpdateComponentImageScale={onUpdateComponentImageScale}
-            onUpdateBusPolarity={onUpdateBusPolarity}
-            onUpdateFuseSlot={onUpdateFuseSlot}
             onOpenFusePicker={onOpenFusePicker}
             onRemoveFuseSlot={onRemoveFuseSlot}
             onUpdateCustomSolarArrayRatings={onUpdateCustomSolarArrayRatings}

@@ -1,4 +1,4 @@
-import type { Product, ProductType, ProductCategory, DataQuality } from '../../types/system';
+import type { Product, ProductCategory, DataQuality } from '../../types/system';
 import { PRODUCT_TYPE_DEFINITIONS } from '../../data/products/productTypes';
 import { CollapsibleSection } from './CollapsibleSection';
 

@@ -1,5 +1,5 @@
 import type { SystemDesign } from '../types/system';
-import { createSystemSaveFile, parseSystemSaveFile, type LoadResult } from './storage';
+import { createSystemSaveFile, parseSystemSaveFile } from './storage';
 
 async function compress(text: string): Promise<Uint8Array> {
   const stream = new CompressionStream('gzip');
@@ -60,7 +60,7 @@ export async function buildShareUrl(system: SystemDesign): Promise<string> {
   return url.toString();
 }
 
-export async function decodeShareParam(encoded: string): Promise<LoadResult> {
+export async function decodeShareParam(encoded: string): Promise<SystemDesign> {
   const json = await decompress(fromBase64url(encoded));
   return parseSystemSaveFile(json);
 }

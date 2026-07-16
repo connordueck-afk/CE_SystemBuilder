@@ -67,7 +67,7 @@ export interface ElectricalNet {
   voltageClassV?: number;
   /** Nets separated by passive protection may still share one voltage domain. */
   voltageDomainId?: string;
-  voltageResolution?: 'port_evidence' | 'primary_default' | 'unresolved';
+  voltageResolution?: 'port_evidence' | 'unresolved';
   hasVoltageConflict?: boolean;
 }
 
@@ -220,7 +220,8 @@ function estimateProductCurrentA(product: Product, component: SystemComponent, s
   const instanceOverrideA = instanceCurrentOverrideA(product, component);
   if (instanceOverrideA != null) return instanceOverrideA;
 
-  const voltage = component.instanceVoltageV ?? system.nominalVoltage;
+  const productVoltage = typeof product.nominalVoltage === 'number' ? product.nominalVoltage : undefined;
+  const voltage = component.instanceVoltageV ?? terminal?.nominalVoltageV ?? productVoltage;
   if (product.productType === 'solar_array') {
     return product.maxPvCurrentA ?? product.solarPanelRatings?.iscA ?? product.solarPanelRatings?.impA ?? 0;
   }
@@ -235,15 +236,15 @@ function estimateProductCurrentA(product: Product, component: SystemComponent, s
   }
   if (product.productType === 'inverter_charger' && product.continuousPowerW) {
     return product.inverterChargerRatings?.maxDcCurrentA ??
-      product.continuousPowerW / (system.nominalVoltage * system.assumptions.inverterEfficiency);
+      (voltage && voltage > 0 ? product.continuousPowerW / (voltage * system.assumptions.inverterEfficiency) : 0);
   }
   if (product.loadRatings?.currentA != null) {
     return product.loadRatings.currentA;
   }
-  if (product.loadRatings?.powerW && voltage > 0) {
+  if (product.loadRatings?.powerW && voltage != null && voltage > 0) {
     return product.loadRatings.powerW / voltage;
   }
-  if (product.continuousPowerW && voltage > 0) return product.continuousPowerW / voltage;
+  if (product.continuousPowerW && voltage != null && voltage > 0) return product.continuousPowerW / voltage;
   if (product.maxCurrentA && !PROTECTION_TYPES.has(product.productType) && !PASS_THROUGH_TYPES.has(product.productType)) {
     return product.maxCurrentA;
   }

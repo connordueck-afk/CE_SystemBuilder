@@ -1,6 +1,6 @@
 import { Fragment, useState, type ReactNode } from 'react';
 import type { CableLengthSummaryItem } from '../../types/system';
-import type { CableBomRow, CableEndTermination, ConnectorSummaryItem } from '../../utils/cableSummary';
+import type { CableBomRow, ConnectorSummaryItem } from '../../utils/cableSummary';
 import { cableColorSwatch } from '../inspector/ConnectionInspector';
 import { formatFeetAndInches } from '../../utils/cableSummary';
 import { fmt } from '../../utils/priceCalculations';
@@ -34,20 +34,6 @@ function ColorCell({ color }: { color: string }) {
         }} />
       )}
       {color}
-    </span>
-  );
-}
-
-function EndCell({ end }: { end: CableEndTermination }) {
-  if (!end.connector) return <span style={{ color: 'var(--muted)' }}>—</span>;
-  return (
-    <span>
-      {end.label}
-      {end.lug && (
-        <span style={{ display: 'block', color: 'var(--muted)', fontSize: 11, fontWeight: 600 }}>
-          {end.lug.label}
-        </span>
-      )}
     </span>
   );
 }
